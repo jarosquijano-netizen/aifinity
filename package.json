@@ -1,0 +1,31 @@
+{
+  "name": "finova",
+  "version": "1.0.0",
+  "description": "Full-stack financial dashboard web application",
+  "scripts": {
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "backend": "cd backend && npm run dev",
+    "frontend": "cd frontend && npm run dev",
+    "migrate": "cd backend && npm run migrate",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start"
+  },
+  "keywords": [
+    "financial",
+    "dashboard",
+    "react",
+    "nodejs",
+    "postgresql",
+    "pdf-parser"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,49 @@
+Bank,Date,Category,Description,Amount,Type
+ING,2024-01-15,Groceries,Mercadona Shopping Center,85.50,expense
+ING,2024-01-16,Transport,Repsol Gas Station,45.00,expense
+ING,2024-01-18,Restaurants,Restaurant La Tasca,35.00,expense
+ING,2024-01-20,Salary,Monthly Salary Payment,2500.00,income
+ING,2024-01-22,Shopping,Amazon Purchase,67.99,expense
+ING,2024-01-25,Utilities,Electricity Bill Iberdrola,85.30,expense
+ING,2024-01-28,Entertainment,Cinema Tickets,24.00,expense
+Sabadell,2024-02-01,Rent,Monthly Rent Payment,800.00,expense
+Sabadell,2024-02-03,Groceries,Carrefour Supermarket,92.30,expense
+Sabadell,2024-02-05,Utilities,Water Bill,35.00,expense
+Sabadell,2024-02-08,Transport,Metro Monthly Pass,40.00,expense
+Sabadell,2024-02-10,Entertainment,Netflix Subscription,15.99,expense
+Sabadell,2024-02-12,Healthcare,Pharmacy Purchase,28.50,expense
+Sabadell,2024-02-15,Restaurants,Cafe Morning Coffee,12.50,expense
+Sabadell,2024-02-20,Salary,Monthly Salary Payment,2500.00,income
+Sabadell,2024-02-22,Shopping,Zara Clothing,89.00,expense
+Sabadell,2024-02-25,Transport,Gasolina BP Station,50.00,expense
+ING,2024-03-01,Groceries,Lidl Weekly Shopping,72.45,expense
+ING,2024-03-03,Utilities,Internet Movistar,45.00,expense
+ING,2024-03-05,Entertainment,Spotify Premium,9.99,expense
+ING,2024-03-08,Restaurants,Pizza Restaurant,28.00,expense
+ING,2024-03-10,Transport,Taxi Ride,15.50,expense
+ING,2024-03-12,Shopping,H&M Purchase,45.00,expense
+ING,2024-03-15,Healthcare,Doctor Consultation,60.00,expense
+ING,2024-03-18,Groceries,Mercadona,88.20,expense
+ING,2024-03-20,Salary,Monthly Salary Payment,2500.00,income
+ING,2024-03-22,Entertainment,Concert Tickets,75.00,expense
+ING,2024-03-25,Restaurants,Brunch at Cafe,32.50,expense
+ING,2024-03-28,Utilities,Gas Bill,42.00,expense
+Sabadell,2024-04-01,Rent,Monthly Rent Payment,800.00,expense
+Sabadell,2024-04-03,Groceries,Carrefour Shopping,95.60,expense
+Sabadell,2024-04-05,Transport,Gas Station,48.00,expense
+Sabadell,2024-04-08,Shopping,Electronics Store,156.00,expense
+Sabadell,2024-04-10,Entertainment,Theater Tickets,45.00,expense
+Sabadell,2024-04-12,Restaurants,Fine Dining,85.00,expense
+Sabadell,2024-04-15,Utilities,Phone Bill,35.00,expense
+Sabadell,2024-04-18,Healthcare,Dentist Appointment,120.00,expense
+Sabadell,2024-04-20,Salary,Monthly Salary Payment,2500.00,income
+Sabadell,2024-04-22,Groceries,Aldi Shopping,68.30,expense
+Sabadell,2024-04-25,Transport,Uber Ride,22.00,expense
+
+
+
+
+
+
+
+

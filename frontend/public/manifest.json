@@ -1,0 +1,49 @@
+{
+  "name": "AiFinity.app - AI Financial Intelligence",
+  "short_name": "AiFinity",
+  "description": "AI-Powered Financial Intelligence Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/aifinity-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/aifinity-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "business"],
+  "screenshots": [
+    {
+      "src": "/aifinity-logo.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your financial dashboard",
+      "url": "/?tab=dashboard",
+      "icons": [{ "src": "/aifinity-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Upload",
+      "short_name": "Upload",
+      "description": "Upload bank statements",
+      "url": "/?tab=upload",
+      "icons": [{ "src": "/aifinity-logo.png", "sizes": "192x192" }]
+    }
+  ]
+}
+
