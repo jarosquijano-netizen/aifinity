@@ -64,11 +64,12 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Finova API server running on http://localhost:${PORT}`);
+// Start server - bind to 0.0.0.0 for Railway/Docker
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 AiFinity.app API server running on http://0.0.0.0:${PORT}`);
   console.log(`📊 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
   console.log(`🔒 JWT: ${process.env.JWT_SECRET ? 'Configured' : 'Not configured'}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 
