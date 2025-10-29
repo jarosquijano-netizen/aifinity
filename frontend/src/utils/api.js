@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { getStoredAuth } from './auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -11,11 +10,25 @@ const api = axios.create({
   },
 });
 
-// Add auth token to requests if available
-api.interceptors.request.use((config) => {
-  const auth = getStoredAuth();
-  if (auth?.token) {
-    config.headers.Authorization = `Bearer ${auth.token}`;
+// Global variable to store Clerk's getToken function
+let getClerkToken = null;
+
+// Function to set the Clerk token getter (called from App.jsx)
+export const setClerkTokenGetter = (getter) => {
+  getClerkToken = getter;
+};
+
+// Add Clerk token to requests
+api.interceptors.request.use(async (config) => {
+  if (getClerkToken) {
+    try {
+      const token = await getClerkToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Failed to get Clerk token:', error);
+    }
   }
   return config;
 });

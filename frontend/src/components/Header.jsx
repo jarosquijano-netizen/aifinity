@@ -3,7 +3,7 @@ import { TrendingUp, User, LogOut, Globe, Moon, Sun } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-function Header({ user, onLogin, onLogout }) {
+function Header({ user, clerkUserButton }) {
   const { language, toggleLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
@@ -49,35 +49,23 @@ function Header({ user, onLogin, onLogout }) {
               <span className="text-sm font-semibold text-purple-700 dark:text-purple-300 uppercase">{language}</span>
             </button>
 
-            {user ? (
-              <>
+            {/* Clerk User Button */}
+            {user && clerkUserButton && (
+              <div className="flex items-center space-x-3">
                 <div className="hidden md:flex items-center space-x-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl shadow-md">
                   <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{user.fullName || user.email}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{user.email}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-lg">
-                    <User className="w-5 h-5 text-white" />
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      {user.fullName || user.firstName || user.emailAddresses?.[0]?.emailAddress}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {user.emailAddresses?.[0]?.emailAddress}
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={onLogout}
-                  className="flex items-center space-x-2 btn-secondary btn-sm"
-                  aria-label="Logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden md:inline">{t('logout')}</span>
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={onLogin}
-                className="flex items-center space-x-2 btn-primary btn-sm"
-                aria-label="Login"
-              >
-                <User className="w-4 h-4" />
-                <span>{t('login')}</span>
-              </button>
+                <div className="transform hover:scale-105 transition-transform">
+                  {clerkUserButton}
+                </div>
+              </div>
             )}
           </div>
         </div>
