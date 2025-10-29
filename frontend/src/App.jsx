@@ -58,6 +58,21 @@ function App() {
     { id: 'settings', label: t('settings') },
   ];
 
+  // If not logged in, show only the Auth component
+  if (!user) {
+    return (
+      <div className="min-h-screen transition-colors duration-300">
+        <Header 
+          user={null} 
+          onLogin={() => {}} 
+          onLogout={handleLogout}
+        />
+        <Auth onClose={() => {}} onLogin={handleLogin} />
+      </div>
+    );
+  }
+
+  // If logged in, show the full app
   return (
     <div className="min-h-screen transition-colors duration-300">
       <Header 
