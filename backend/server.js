@@ -37,7 +37,8 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'AiFinity.app API is running',
-    version: '2.0.0',
+    version: '2.0.0-userId-fix-detailed-errors',
+    buildTime: '2024-10-30T20:00:00Z',
     environment: process.env.NODE_ENV || 'development'
   });
 });
