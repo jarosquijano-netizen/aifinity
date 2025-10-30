@@ -1,11 +1,34 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Middleware to check if user is admin
+const requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const result = await pool.query(
+      'SELECT is_admin FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (!result.rows[0] || !result.rows[0].is_admin) {
+      return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Admin check error:', error);
+    res.status(500).json({ error: 'Failed to verify admin status' });
+  }
+};
+
 // Get all users (admin endpoint)
-router.get('/users', optionalAuth, async (req, res) => {
+router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -35,7 +58,7 @@ router.get('/users', optionalAuth, async (req, res) => {
 });
 
 // Get user details by ID
-router.get('/users/:id', optionalAuth, async (req, res) => {
+router.get('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -80,7 +103,7 @@ router.get('/users/:id', optionalAuth, async (req, res) => {
 });
 
 // Get system statistics
-router.get('/stats', optionalAuth, async (req, res) => {
+router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Total users
     const usersResult = await pool.query('SELECT COUNT(*) as count FROM users');
@@ -115,7 +138,7 @@ router.get('/stats', optionalAuth, async (req, res) => {
 });
 
 // Delete user (dangerous - use with caution)
-router.delete('/users/:id', optionalAuth, async (req, res) => {
+router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   const client = await pool.connect();
   
   try {
