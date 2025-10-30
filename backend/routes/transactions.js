@@ -122,7 +122,18 @@ router.post('/upload', optionalAuth, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to upload transactions' });
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.status(500).json({ 
+      error: 'Failed to upload transactions',
+      message: error.message,
+      details: error.detail || error.hint || 'Check server logs'
+    });
   } finally {
     client.release();
   }
