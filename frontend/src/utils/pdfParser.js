@@ -207,64 +207,189 @@ function parseAmount(amountStr) {
 function categorizeTransaction(description) {
   const descLower = description.toLowerCase();
   
-  // Salary/Income
+  // === INCOME & SALARY ===
   if (descLower.includes('salary') || descLower.includes('payroll') || 
-      descLower.includes('nomina') || descLower.includes('salario')) {
+      descLower.includes('nomina') || descLower.includes('nómina') ||
+      descLower.includes('salario') || descLower.includes('sueldo')) {
     return 'Salary';
   }
   
-  // Groceries
-  if (descLower.includes('supermarket') || descLower.includes('grocery') ||
+  // === GROCERIES & SUPERMARKETS (Spanish) ===
+  if (descLower.includes('supermarket') || descLower.includes('supermercado') ||
       descLower.includes('mercadona') || descLower.includes('carrefour') ||
-      descLower.includes('lidl') || descLower.includes('aldi')) {
+      descLower.includes('lidl') || descLower.includes('aldi') ||
+      descLower.includes('dia %') || descLower.includes('dia ') ||
+      descLower.includes('alcampo') || descLower.includes('el corte ingles') ||
+      descLower.includes('corte inglés') || descLower.includes('hipercor') ||
+      descLower.includes('consum') || descLower.includes('bonpreu') ||
+      descLower.includes('esclat') || descLower.includes('hipermercat') ||
+      descLower.includes('caprabo') || descLower.includes('condis') ||
+      descLower.includes('guissona') || descLower.includes('froiz') ||
+      descLower.includes('gadis') || descLower.includes('eroski') ||
+      descLower.includes('hiper garraf') || descLower.includes('alimentacio')) {
     return 'Groceries';
   }
   
-  // Transport
-  if (descLower.includes('transport') || descLower.includes('gas') ||
-      descLower.includes('petrol') || descLower.includes('uber') ||
+  // === RESTAURANTS & FOOD ===
+  if (descLower.includes('restaurant') || descLower.includes('restaurante') ||
+      descLower.includes('cafe') || descLower.includes('cafeteria') ||
+      descLower.includes('bar ') || descLower.includes('food') ||
+      descLower.includes('mc donald') || descLower.includes('mcdonald') ||
+      descLower.includes('burger king') || descLower.includes('kfc') ||
+      descLower.includes('telepizza') || descLower.includes('domino') ||
+      descLower.includes('starbucks') || descLower.includes('dunkin') ||
+      descLower.includes('pollo campero') || descLower.includes('foodtruck') ||
+      descLower.includes('panaderia') || descLower.includes('carnisseria') ||
+      descLower.includes('tapa') || descLower.includes('cerveceria') ||
+      descLower.includes('pizzeria') || descLower.includes('hamburgues')) {
+    return 'Food & Dining';
+  }
+  
+  // === TRANSPORT & GAS ===
+  if (descLower.includes('transport') || descLower.includes('transporte') ||
+      descLower.includes('gas') || descLower.includes('gasolina') ||
+      descLower.includes('petrol') || descLower.includes('repsol') ||
+      descLower.includes('cepsa') || descLower.includes('bp ') ||
+      descLower.includes('galp') || descLower.includes('shell') ||
+      descLower.includes('uber') || descLower.includes('cabify') ||
       descLower.includes('taxi') || descLower.includes('metro') ||
-      descLower.includes('gasolina')) {
+      descLower.includes('renfe') || descLower.includes('fgc') ||
+      descLower.includes('tmb') || descLower.includes('parking') ||
+      descLower.includes('peaje') || descLower.includes('autopista') ||
+      descLower.includes('aparcament') || descLower.includes('estacionamiento')) {
     return 'Transport';
   }
   
-  // Restaurants
-  if (descLower.includes('restaurant') || descLower.includes('cafe') ||
-      descLower.includes('bar') || descLower.includes('food')) {
-    return 'Restaurants';
-  }
-  
-  // Shopping
-  if (descLower.includes('amazon') || descLower.includes('shop') ||
-      descLower.includes('store') || descLower.includes('zara') ||
-      descLower.includes('h&m')) {
+  // === SHOPPING & RETAIL ===
+  if (descLower.includes('amazon') || descLower.includes('aliexpress') ||
+      descLower.includes('ebay') || descLower.includes('shop') ||
+      descLower.includes('tienda') || descLower.includes('store') ||
+      descLower.includes('zara') || descLower.includes('h&m') ||
+      descLower.includes('mango') || descLower.includes('pull&bear') ||
+      descLower.includes('bershka') || descLower.includes('stradivarius') ||
+      descLower.includes('massimo dutti') || descLower.includes('primark') ||
+      descLower.includes('decathlon') || descLower.includes('ikea') ||
+      descLower.includes('leroy merlin') || descLower.includes('media markt') ||
+      descLower.includes('mediamarkt') || descLower.includes('fnac') ||
+      descLower.includes('worten') || descLower.includes('compra tarj')) {
     return 'Shopping';
   }
   
-  // Utilities
-  if (descLower.includes('electric') || descLower.includes('water') ||
-      descLower.includes('internet') || descLower.includes('phone') ||
-      descLower.includes('gas supply')) {
+  // === ONLINE SERVICES & SUBSCRIPTIONS ===
+  if (descLower.includes('spotify') || descLower.includes('netflix') ||
+      descLower.includes('amazon prime') || descLower.includes('disney+') ||
+      descLower.includes('hbo') || descLower.includes('youtube premium') ||
+      descLower.includes('google one') || descLower.includes('icloud') ||
+      descLower.includes('dropbox') || descLower.includes('chatgpt') ||
+      descLower.includes('openai') || descLower.includes('notion') ||
+      descLower.includes('canva') || descLower.includes('adobe') ||
+      descLower.includes('microsoft 365') || descLower.includes('office 365')) {
+    return 'Subscriptions';
+  }
+  
+  // === UTILITIES & BILLS ===
+  if (descLower.includes('electric') || descLower.includes('electrica') ||
+      descLower.includes('endesa') || descLower.includes('iberdrola') ||
+      descLower.includes('naturgy') || descLower.includes('fenosa') ||
+      descLower.includes('water') || descLower.includes('agua') ||
+      descLower.includes('aigues') || descLower.includes('internet') ||
+      descLower.includes('phone') || descLower.includes('telefono') ||
+      descLower.includes('movistar') || descLower.includes('vodafone') ||
+      descLower.includes('orange') || descLower.includes('yoigo') ||
+      descLower.includes('jazztel') || descLower.includes('masmovil') ||
+      descLower.includes('fibra') || descLower.includes('gas natural') ||
+      descLower.includes('suministro')) {
     return 'Utilities';
   }
   
-  // Rent
+  // === RENT & HOUSING ===
   if (descLower.includes('rent') || descLower.includes('alquiler') ||
-      descLower.includes('landlord')) {
-    return 'Rent';
+      descLower.includes('landlord') || descLower.includes('arrendamiento') ||
+      descLower.includes('comunidad') || descLower.includes('hipoteca') ||
+      descLower.includes('mortgage') || descLower.includes('vivienda')) {
+    return 'Housing';
   }
   
-  // Entertainment
-  if (descLower.includes('cinema') || descLower.includes('theater') ||
-      descLower.includes('spotify') || descLower.includes('netflix') ||
-      descLower.includes('entertainment')) {
+  // === INSURANCE ===
+  if (descLower.includes('seguro') || descLower.includes('insurance') ||
+      descLower.includes('sanitas') || descLower.includes('adeslas') ||
+      descLower.includes('asisa') || descLower.includes('mutua') ||
+      descLower.includes('mapfre') || descLower.includes('axa') ||
+      descLower.includes('allianz') || descLower.includes('generali')) {
+    return 'Insurance';
+  }
+  
+  // === HEALTHCARE & PHARMACY ===
+  if (descLower.includes('pharmacy') || descLower.includes('farmacia') ||
+      descLower.includes('hospital') || descLower.includes('doctor') ||
+      descLower.includes('medico') || descLower.includes('clinica') ||
+      descLower.includes('medical') || descLower.includes('dentist') ||
+      descLower.includes('dentista') || descLower.includes('optica') ||
+      descLower.includes('rossmann') || descLower.includes('drogueria')) {
+    return 'Healthcare';
+  }
+  
+  // === EDUCATION ===
+  if (descLower.includes('escuela') || descLower.includes('escola') ||
+      descLower.includes('colegio') || descLower.includes('universidad') ||
+      descLower.includes('universitat') || descLower.includes('estudios') ||
+      descLower.includes('education') || descLower.includes('academy') ||
+      descLower.includes('academia') || descLower.includes('curso')) {
+    return 'Education';
+  }
+  
+  // === ENTERTAINMENT & LEISURE ===
+  if (descLower.includes('cinema') || descLower.includes('cine') ||
+      descLower.includes('theater') || descLower.includes('teatro') ||
+      descLower.includes('teatre') || descLower.includes('museum') ||
+      descLower.includes('museo') || descLower.includes('concert') ||
+      descLower.includes('concierto') || descLower.includes('entrada') ||
+      descLower.includes('ticket') || descLower.includes('ocio') ||
+      descLower.includes('parque') || descLower.includes('zoo')) {
     return 'Entertainment';
   }
   
-  // Healthcare
-  if (descLower.includes('pharmacy') || descLower.includes('hospital') ||
-      descLower.includes('doctor') || descLower.includes('medical')) {
-    return 'Healthcare';
+  // === BANK FEES & CHARGES ===
+  if (descLower.includes('comision') || descLower.includes('comisión') ||
+      descLower.includes('bank fee') || descLower.includes('cargo banco') ||
+      descLower.includes('mantenimiento') || descLower.includes('tarjeta anual')) {
+    return 'Bank Fees';
+  }
+  
+  // === TAXES ===
+  if (descLower.includes('impuesto') || descLower.includes('hacienda') ||
+      descLower.includes('tax') || descLower.includes('iva') ||
+      descLower.includes('agencia tributaria') || descLower.includes('ajuntament')) {
+    return 'Taxes';
+  }
+  
+  // === LOANS & FINANCING ===
+  if (descLower.includes('prestamo') || descLower.includes('préstamo') ||
+      descLower.includes('loan') || descLower.includes('financiera') ||
+      descLower.includes('cetelem') || descLower.includes('credito') ||
+      descLower.includes('crédito') || descLower.includes('cuota')) {
+    return 'Loans';
+  }
+  
+  // === TRANSFERS (should be excluded from budget) ===
+  if (descLower.includes('transferencia') || descLower.includes('transfer') ||
+      descLower.includes('traspaso') || descLower.includes('ingreso') ||
+      descLower.includes('reintegro')) {
+    return 'Transferencias';
+  }
+  
+  // === CASH WITHDRAWALS ===
+  if (descLower.includes('cajero') || descLower.includes('atm') ||
+      descLower.includes('efectivo') || descLower.includes('cash') ||
+      descLower.includes('retirada')) {
+    return 'Cash';
+  }
+  
+  // === FINTECH & DIGITAL WALLETS ===
+  if (descLower.includes('revolut') || descLower.includes('n26') ||
+      descLower.includes('paypal') || descLower.includes('bizum') ||
+      descLower.includes('verse') || descLower.includes('wise')) {
+    return 'Digital Payments';
   }
   
   return 'Other';
@@ -564,7 +689,8 @@ function categorizeSabadellTransaction(description) {
       return 'Regalos';
     }
     
-    return 'Otras compras';
+    // Use smart categorization instead of generic "Otras compras"
+    return categorizeTransaction(description);
   }
   
   // Direct debits (ADEUDO RECIBO)
@@ -671,7 +797,8 @@ function categorizeSabadellTransaction(description) {
     return 'Mantenimiento hogar';
   }
   
-  return 'Otros gastos';
+  // Use smart categorization as final fallback
+  return categorizeTransaction(description);
 }
 
 /**
