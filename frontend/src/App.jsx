@@ -8,6 +8,7 @@ import Trends from './components/Trends';
 import Insights from './components/Insights';
 import Budget from './components/Budget';
 import Settings from './components/Settings';
+import Admin from './components/Admin';
 import Auth from './components/Auth';
 import { getStoredAuth, clearAuth } from './utils/auth';
 import { useLanguage } from './context/LanguageContext';
@@ -61,6 +62,7 @@ function App() {
     { id: 'budget', label: t('budget') },
     { id: 'upload', label: t('upload') },
     { id: 'settings', label: t('settings') },
+    { id: 'admin', label: '👑 Admin' },
   ];
 
   // If not logged in, show only the Auth component
@@ -128,6 +130,10 @@ function App() {
           
           {activeTab === 'settings' && (
             <Settings key={refreshTrigger} />
+          )}
+          
+          {activeTab === 'admin' && (
+            <Admin key={refreshTrigger} />
           )}
         </div>
       </main>

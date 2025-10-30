@@ -11,6 +11,7 @@ import budgetRoutes from './routes/budget.js';
 import aiRoutes from './routes/ai.js';
 import settingsRoutes from './routes/settings.js';
 import cleanupRoutes from './routes/cleanup.js';
+import adminRoutes from './routes/admin.js';
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use('/api/budget', budgetRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/cleanup', cleanupRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

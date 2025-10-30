@@ -226,6 +226,27 @@ export const updateExpectedFromActual = async () => {
   return response.data;
 };
 
+// Admin endpoints
+export const getAdminUsers = async () => {
+  const response = await api.get('/admin/users');
+  return response.data;
+};
+
+export const getAdminUserDetails = async (userId) => {
+  const response = await api.get(`/admin/users/${userId}`);
+  return response.data;
+};
+
+export const getAdminStats = async () => {
+  const response = await api.get('/admin/stats');
+  return response.data;
+};
+
+export const deleteAdminUser = async (userId) => {
+  const response = await api.delete(`/admin/users/${userId}`);
+  return response.data;
+};
+
 export default api;
 
 
