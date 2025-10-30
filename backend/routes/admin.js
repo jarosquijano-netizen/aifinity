@@ -11,9 +11,12 @@ const requireAdmin = async (req, res, next) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
+    // JWT stores userId (camelCase)
+    const userId = req.user.userId || req.user.id;
+
     const result = await pool.query(
       'SELECT is_admin FROM users WHERE id = $1',
-      [req.user.id]
+      [userId]
     );
 
     if (!result.rows[0] || !result.rows[0].is_admin) {
