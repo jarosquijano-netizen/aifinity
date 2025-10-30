@@ -17,10 +17,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS Configuration - Allow production domain
+// CORS Configuration - Allow production domain and localhost
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://aifinity.app', 'https://www.aifinity.app'] 
+    ? ['https://aifinity.app', 'https://www.aifinity.app', 'http://localhost:5173', 'http://localhost:3000'] 
     : '*',
   credentials: true,
   optionsSuccessStatus: 200
