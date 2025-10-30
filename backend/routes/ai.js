@@ -15,7 +15,7 @@ router.get('/config', async (req, res) => {
        FROM ai_config 
        WHERE user_id = $1 
        ORDER BY is_active DESC, created_at DESC`,
-      [req.user.userId]
+      [req.user.id || req.user.userId]
     );
 
     res.json({ configs: result.rows });
@@ -29,7 +29,7 @@ router.get('/config', async (req, res) => {
 router.post('/config', async (req, res) => {
   try {
     const { provider, apiKey } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user.id || req.user.userId;
 
     if (!provider || !apiKey) {
       return res.status(400).json({ error: 'Provider and API key are required' });
@@ -90,7 +90,7 @@ router.post('/config', async (req, res) => {
 router.delete('/config/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.id || req.user.userId;
 
     const result = await pool.query(
       'DELETE FROM ai_config WHERE id = $1 AND user_id = $2 RETURNING id',
@@ -112,7 +112,7 @@ router.delete('/config/:id', async (req, res) => {
 router.post('/config/:id/activate', async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.id || req.user.userId;
 
     // Deactivate all configs for this user
     await pool.query(
@@ -147,7 +147,7 @@ router.post('/config/:id/activate', async (req, res) => {
 router.post('/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user.id || req.user.userId;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
@@ -209,7 +209,7 @@ router.post('/chat', async (req, res) => {
 // Get chat history
 router.get('/chat/history', async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id || req.user.userId;
     const limit = parseInt(req.query.limit) || 50;
 
     const result = await pool.query(

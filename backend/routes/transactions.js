@@ -10,7 +10,7 @@ router.post('/upload', optionalAuth, async (req, res) => {
   
   try {
     const { transactions, account_id, lastBalance } = req.body;
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     if (!transactions || !Array.isArray(transactions)) {
       return res.status(400).json({ error: 'Invalid transaction data' });
@@ -131,7 +131,7 @@ router.post('/upload', optionalAuth, async (req, res) => {
 // Get all transactions
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     const result = await pool.query(
       `SELECT 
@@ -158,7 +158,7 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { category, updateSimilar, computable } = req.body;
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     if (!category) {
       return res.status(400).json({ error: 'Category is required' });
@@ -258,7 +258,7 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
 // Get available categories
 router.get('/categories', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     
     const result = await pool.query(
       `SELECT DISTINCT category 
@@ -278,7 +278,7 @@ router.get('/categories', optionalAuth, async (req, res) => {
 // Delete all transactions (for testing/reset)
 router.delete('/all', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     
     await pool.query(
       'DELETE FROM transactions WHERE user_id IS NULL OR user_id = $1',
@@ -379,7 +379,7 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
   
   try {
     const { transactionIds, category, computable } = req.body;
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
       return res.status(400).json({ error: 'No transaction IDs provided' });
@@ -429,7 +429,7 @@ router.post('/transfer', optionalAuth, async (req, res) => {
   
   try {
     const { fromAccountId, toAccountId, amount, date, description } = req.body;
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     if (!fromAccountId || !toAccountId || !amount) {
       return res.status(400).json({ error: 'Missing required fields' });

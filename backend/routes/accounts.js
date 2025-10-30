@@ -7,7 +7,7 @@ const router = express.Router();
 // Get all bank accounts
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     
     const result = await pool.query(
       `SELECT * FROM bank_accounts 
@@ -26,7 +26,7 @@ router.get('/', optionalAuth, async (req, res) => {
 // Create new bank account
 router.post('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { name, accountType, color, initialAmount, currency, excludeFromStats, creditLimit } = req.body;
 
     if (!name) {
@@ -56,7 +56,7 @@ router.post('/', optionalAuth, async (req, res) => {
 // Update bank account
 router.put('/:id', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
     
     console.log('📥 RECEIVED REQUEST BODY:', JSON.stringify(req.body, null, 2));
@@ -109,7 +109,7 @@ router.put('/:id', optionalAuth, async (req, res) => {
 // Delete bank account
 router.delete('/:id', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
 
     const result = await pool.query(
@@ -133,7 +133,7 @@ router.delete('/:id', optionalAuth, async (req, res) => {
 // Recalculate account balance from transactions
 router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
 
     // Get the account info first

@@ -7,7 +7,7 @@ const router = express.Router();
 // Get user settings
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || 0;
+    const userId = req.user?.id || req.user?.userId || 0;
     
     const result = await pool.query(
       'SELECT * FROM user_settings WHERE user_id = $1',
@@ -33,7 +33,7 @@ router.get('/', optionalAuth, async (req, res) => {
 // Update user settings
 router.post('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || 0;
+    const userId = req.user?.id || req.user?.userId || 0;
     const { expectedMonthlyIncome } = req.body;
     
     if (expectedMonthlyIncome === undefined || expectedMonthlyIncome < 0) {
@@ -62,7 +62,7 @@ router.post('/', optionalAuth, async (req, res) => {
 // Get actual income for a specific month
 router.get('/actual-income/:month', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { month } = req.params; // Format: 'YYYY-MM'
     
     // Calculate actual income using applicable_month if available, else use date
@@ -95,7 +95,7 @@ router.get('/actual-income/:month', optionalAuth, async (req, res) => {
 // Calculate expected income based on last 3 months average
 router.get('/calculate-expected-income', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     
     // Get last 3 months of actual income
     const result = await pool.query(
@@ -143,7 +143,7 @@ router.get('/calculate-expected-income', optionalAuth, async (req, res) => {
 // Update expected income with calculated average
 router.post('/update-expected-from-actual', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || 0;
+    const userId = req.user?.id || req.user?.userId || 0;
     
     // Calculate average from last 3 months
     const calcResult = await pool.query(

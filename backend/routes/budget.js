@@ -7,7 +7,7 @@ const router = express.Router();
 // Get all categories with budgets
 router.get('/categories', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     
     const result = await pool.query(
       `SELECT * FROM categories 
@@ -26,7 +26,7 @@ router.get('/categories', optionalAuth, async (req, res) => {
 // Update category budget
 router.put('/categories/:id', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
     const { budget_amount } = req.body;
 
@@ -55,7 +55,7 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
 // Get budget vs actual spending
 router.get('/overview', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
     const { month } = req.query; // Format: YYYY-MM
     
     // Get current month if not specified

@@ -7,7 +7,7 @@ const router = express.Router();
 // Get summary statistics
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     // Get overall totals (only computable transactions)
     const totalsResult = await pool.query(

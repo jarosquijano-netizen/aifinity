@@ -7,7 +7,7 @@ const router = express.Router();
 // Get trends data
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     // Get monthly trends
     const trendsResult = await pool.query(
@@ -59,7 +59,7 @@ router.get('/', optionalAuth, async (req, res) => {
 // Get insights
 router.get('/insights', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     // Get last 2 months for comparison
     const result = await pool.query(

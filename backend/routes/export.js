@@ -8,7 +8,7 @@ const router = express.Router();
 // Export transactions as CSV
 router.get('/csv', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     const result = await pool.query(
       `SELECT bank, date, category, description, amount, type
@@ -48,7 +48,7 @@ router.get('/csv', optionalAuth, async (req, res) => {
 // Export transactions as Excel
 router.get('/excel', optionalAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || null;
+    const userId = req.user?.id || req.user?.userId || null;
 
     const result = await pool.query(
       `SELECT bank, date, category, description, amount, type
