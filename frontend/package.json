@@ -1,7 +1,7 @@
 {
   "name": "aifinity-frontend",
-  "version": "1.0.0",
-  "description": "AiFinity.app - AI-Powered Financial Intelligence Platform",
+  "version": "1.0.1",
+  "description": "AiFinity.app - AI-Powered Financial Intelligence Platform - Dashboard Fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Data Test</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            background: #f9f9f9;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error {
+            color: #f44336;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .warning {
+            color: #ff9800;
+        }
+        h1 {
+            color: #333;
+        }
+        .step {
+            background: #e3f2fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔍 Dashboard Data Diagnostic Test</h1>
+        <p>This test will check what data the API is returning for your dashboard.</p>
+        
+        <div class="step">
+            <strong>Step 1:</strong> Make sure you're logged in to https://aifinity.app
+        </div>
+        <div class="step">
+            <strong>Step 2:</strong> Click the button below to test
+        </div>
+        
+        <button onclick="runTest()">🧪 Run Diagnostic Test</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function runTest() {
+            const resultDiv = document.getElementById('result');
+            let html = '<div class="result">';
+            
+            try {
+                html += '<h3>🔍 Checking localStorage...</h3>';
+                
+                // Check for auth token
+                const authData = localStorage.getItem('finova_auth');
+                if (!authData) {
+                    html += '<p class="error">❌ No auth token found!</p>';
+                    html += '<p>Please go to <a href="https://aifinity.app">https://aifinity.app</a> and log in first.</p>';
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+                    return;
+                }
+                
+                const { token, user } = JSON.parse(authData);
+                html += `<p class="success">✅ Auth token found!</p>`;
+                html += `<p>User: ${user.email}</p>`;
+                
+                html += '<h3>🔌 Testing API Connection...</h3>';
+                
+                const API_URL = 'https://aifinity-production.up.railway.app/api';
+                
+                const response = await fetch(`${API_URL}/summary`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    html += `<p class="error">❌ API Error: ${response.status} ${response.statusText}</p>`;
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                html += '<p class="success">✅ API Response received!</p>';
+                
+                html += '<h3>📊 Dashboard Data:</h3>';
+                html += '<table style="width: 100%; border-collapse: collapse;">';
+                html += '<tr style="border-bottom: 1px solid #ddd;"><th style="text-align: left; padding: 8px;">Field</th><th style="text-align: right; padding: 8px;">Value</th><th style="text-align: left; padding: 8px;">Status</th></tr>';
+                
+                // Check actualIncome
+                html += '<tr style="border-bottom: 1px solid #ddd;">';
+                html += '<td style="padding: 8px;"><strong>actualIncome</strong></td>';
+                html += `<td style="text-align: right; padding: 8px;">€${data.actualIncome?.toFixed(2) || 'undefined'}</td>`;
+                if (data.actualIncome && Math.abs(data.actualIncome - 6584.68) < 10) {
+                    html += '<td style="padding: 8px;"><span class="success">✅ CORRECT</span></td>';
+                } else if (data.actualIncome) {
+                    html += '<td style="padding: 8px;"><span class="warning">⚠️ UNEXPECTED (expected €6,584.68)</span></td>';
+                } else {
+                    html += '<td style="padding: 8px;"><span class="error">❌ MISSING</span></td>';
+                }
+                html += '</tr>';
+                
+                // Check actualExpenses
+                html += '<tr style="border-bottom: 1px solid #ddd;">';
+                html += '<td style="padding: 8px;"><strong>actualExpenses</strong></td>';
+                html += `<td style="text-align: right; padding: 8px;">€${data.actualExpenses?.toFixed(2) || 'undefined'}</td>`;
+                if (data.actualExpenses && Math.abs(data.actualExpenses - 6817.18) < 10) {
+                    html += '<td style="padding: 8px;"><span class="success">✅ CORRECT</span></td>';
+                } else if (data.actualExpenses) {
+                    html += '<td style="padding: 8px;"><span class="warning">⚠️ UNEXPECTED (expected €6,817.18)</span></td>';
+                } else {
+                    html += '<td style="padding: 8px;"><span class="error">❌ MISSING</span></td>';
+                }
+                html += '</tr>';
+                
+                // Check actualNetBalance
+                html += '<tr style="border-bottom: 1px solid #ddd;">';
+                html += '<td style="padding: 8px;"><strong>actualNetBalance</strong></td>';
+                html += `<td style="text-align: right; padding: 8px;">€${data.actualNetBalance?.toFixed(2) || 'undefined'}</td>`;
+                if (data.actualNetBalance !== undefined && Math.abs(data.actualNetBalance - (-232.50)) < 10) {
+                    html += '<td style="padding: 8px;"><span class="success">✅ CORRECT</span></td>';
+                } else if (data.actualNetBalance !== undefined) {
+                    html += '<td style="padding: 8px;"><span class="warning">⚠️ UNEXPECTED (expected €-232.50)</span></td>';
+                } else {
+                    html += '<td style="padding: 8px;"><span class="error">❌ MISSING</span></td>';
+                }
+                html += '</tr>';
+                
+                // Check currentMonth
+                html += '<tr>';
+                html += '<td style="padding: 8px;"><strong>currentMonth</strong></td>';
+                html += `<td style="text-align: right; padding: 8px;">${data.currentMonth || 'undefined'}</td>`;
+                html += '<td style="padding: 8px;"></td>';
+                html += '</tr>';
+                
+                html += '</table>';
+                
+                html += '<h3>🔍 Full API Response:</h3>';
+                html += `<pre style="background: #f9f9f9; padding: 15px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+                
+                html += '</div>';
+                resultDiv.innerHTML = html;
+                
+            } catch (error) {
+                html += `<p class="error">❌ Error: ${error.message}</p>`;
+                html += `<pre>${error.stack}</pre>`;
+                html += '</div>';
+                resultDiv.innerHTML = html;
+            }
+        }
+    </script>
+</body>
+</html>
+
