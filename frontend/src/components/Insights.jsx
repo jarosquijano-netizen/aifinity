@@ -137,10 +137,12 @@ function Insights() {
 
   // Calculate financial metrics
   const actualIncome = data.summary.actualIncome || 0; // Actual income del mes actual
+  const actualExpenses = data.summary.actualExpenses || data.summary.totalExpenses; // Actual expenses del mes actual
+  const actualNetBalance = data.summary.actualNetBalance !== undefined ? data.summary.actualNetBalance : (actualIncome - actualExpenses);
   const monthlyIncome = data.summary.totalIncome; // Total histórico
-  const monthlyExpenses = data.summary.totalExpenses;
-  const netBalance = data.summary.netBalance;
-  const savingsRate = monthlyIncome > 0 ? ((netBalance / monthlyIncome) * 100) : 0;
+  const monthlyExpenses = actualExpenses; // Usar expenses del mes actual
+  const netBalance = actualNetBalance; // Usar balance del mes actual
+  const savingsRate = actualIncome > 0 ? ((actualNetBalance / actualIncome) * 100) : 0;
   const budgetTotal = data.budget.totals?.budget || 0;
   const budgetSpent = data.budget.totals?.spent || 0;
   // Recalcular budgetUsage para asegurar precisión
