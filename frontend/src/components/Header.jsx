@@ -3,7 +3,7 @@ import { TrendingUp, User, LogOut, Globe, Moon, Sun } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-function Header({ user, clerkUserButton }) {
+function Header({ user, onLogout, clerkUserButton }) {
   const { language, toggleLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
@@ -49,22 +49,33 @@ function Header({ user, clerkUserButton }) {
               <span className="text-sm font-semibold text-purple-700 dark:text-purple-300 uppercase">{language}</span>
             </button>
 
-            {/* Clerk User Button */}
-            {user && clerkUserButton && (
+            {/* User Info & Logout */}
+            {user && (
               <div className="flex items-center space-x-3">
+                {/* User Info */}
                 <div className="hidden md:flex items-center space-x-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl shadow-md">
                   <div className="text-right">
                     <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                      {user.fullName || user.firstName || user.emailAddresses?.[0]?.emailAddress}
+                      {user.fullName || user.email}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {user.emailAddresses?.[0]?.emailAddress}
+                      {user.email}
                     </p>
                   </div>
+                  <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-lg">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
                 </div>
-                <div className="transform hover:scale-105 transition-transform">
-                  {clerkUserButton}
-                </div>
+                
+                {/* Logout Button */}
+                <button
+                  onClick={onLogout}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 font-medium"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden md:inline">{t('logout')}</span>
+                </button>
               </div>
             )}
           </div>
