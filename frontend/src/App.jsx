@@ -21,9 +21,14 @@ function App() {
   const { t } = useLanguage();
 
   useEffect(() => {
+    console.log('🔍 Checking stored auth...');
     const auth = getStoredAuth();
+    console.log('🔐 Stored auth:', auth);
     if (auth) {
+      console.log('✅ User found in storage:', auth.user);
       setUser(auth.user);
+    } else {
+      console.log('❌ No user in storage - showing login');
     }
   }, []);
 
@@ -60,6 +65,7 @@ function App() {
 
   // If not logged in, show only the Auth component
   if (!user) {
+    console.log('🚪 Rendering login screen - user is null');
     return (
       <div className="min-h-screen transition-colors duration-300">
         <Header 
@@ -67,10 +73,12 @@ function App() {
           onLogin={() => {}} 
           onLogout={handleLogout}
         />
-        <Auth onClose={() => {}} onLogin={handleLogin} />
+        <Auth onClose={() => console.log('❌ Close clicked - but we ignore it')} onLogin={handleLogin} />
       </div>
     );
   }
+
+  console.log('✅ User is logged in, showing dashboard');
 
   // If logged in, show the full app
   return (

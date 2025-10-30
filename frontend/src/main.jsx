@@ -15,7 +15,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 );
 
-// Register Service Worker for PWA
+// Register Service Worker for PWA - DISABLED FOR NOW
+// Uncomment when service-worker.js is properly configured
+/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
@@ -28,3 +30,4 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+*/
