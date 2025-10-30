@@ -362,17 +362,17 @@ function Dashboard() {
         <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg ${cardSize.padding} border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl h-full ${cardSize.height} flex flex-col ${isLarge ? 'justify-between' : 'justify-start'}`}>
           <div className="flex items-center justify-between mb-2">
             <span className={`${cardSize.labelSize} font-medium text-gray-600 dark:text-gray-400`}>
-              {isLarge ? 'Total Expenses' : 'Expenses'}
+              {isLarge ? 'Actual Expenses (este mes)' : 'Expenses'}
             </span>
             <TrendingDown className={`${isLarge ? 'w-6 h-6' : 'w-4 h-4'} text-danger`} />
           </div>
           <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
             <p className={`${cardSize.valueSize} font-bold text-gray-900 dark:text-gray-100`}>
-              €{data.totalExpenses.toFixed(2)}
+              €{(data.actualExpenses || data.totalExpenses).toFixed(2)}
             </p>
-            {isLarge && (
+            {isLarge && data.actualIncome > 0 && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            {Math.round((data.totalExpenses / data.totalIncome) * 100)}% of income
+            {Math.round(((data.actualExpenses || data.totalExpenses) / data.actualIncome) * 100)}% of income
           </p>
             )}
             {/* Small mode: Show top expense category */}
@@ -391,18 +391,19 @@ function Dashboard() {
       'kpi-balance': (() => {
         const incomeRatio = expectedIncome > 0 ? (data.actualIncome / expectedIncome) * 100 : 0;
         const hasExpectedIncome = expectedIncome > 0;
+        const actualBalance = data.actualNetBalance !== undefined ? data.actualNetBalance : (data.actualIncome - (data.actualExpenses || data.totalExpenses));
         
         return (
           <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg ${cardSize.padding} border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl h-full ${cardSize.height} flex flex-col ${isLarge ? 'justify-between' : 'justify-start'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className={`${cardSize.labelSize} font-medium text-gray-600 dark:text-gray-400`}>
-                {isLarge ? 'Net Balance' : 'Balance'}
+                {isLarge ? 'Net Balance (este mes)' : 'Balance'}
               </span>
               <DollarSign className={`${isLarge ? 'w-6 h-6' : 'w-4 h-4'} text-primary`} />
             </div>
             <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
-              <p className={`${cardSize.valueSize} font-bold ${data.netBalance >= 0 ? 'text-success' : 'text-danger'}`}>
-                €{data.netBalance.toFixed(2)}
+              <p className={`${cardSize.valueSize} font-bold ${actualBalance >= 0 ? 'text-success' : 'text-danger'}`}>
+                €{actualBalance.toFixed(2)}
               </p>
               
               {/* Expected Income & Ratio */}
@@ -423,7 +424,7 @@ function Dashboard() {
               
               {isLarge && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {data.netBalance >= 0 ? 'Positive' : 'Negative'} balance
+                  {actualBalance >= 0 ? 'Positive' : 'Negative'} balance este mes
                 </p>
               )}
               
@@ -1088,6 +1089,7 @@ function Dashboard() {
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Balance Total:</span>
                 <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
                   €{accounts
+                    .filter(acc => !acc.exclude_from_stats)
                     .reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0)
                     .toFixed(2)}
                 </span>

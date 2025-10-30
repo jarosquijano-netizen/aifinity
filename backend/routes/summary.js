@@ -25,7 +25,7 @@ router.get('/', optionalAuth, async (req, res) => {
     const totals = totalsResult.rows[0];
     const netBalance = parseFloat(totals.total_income || 0) - parseFloat(totals.total_expenses || 0);
 
-    // Get actual income for current month (using applicable_month if available)
+    // Get actual income AND expenses for current month (using applicable_month if available)
     const currentMonth = new Date().toISOString().slice(0, 7);
     const actualIncomeResult = await pool.query(
       `SELECT SUM(amount) as actual_income
@@ -41,6 +41,22 @@ router.get('/', optionalAuth, async (req, res) => {
       [userId, currentMonth]
     );
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);
+
+    // Get actual expenses for current month
+    const actualExpensesResult = await pool.query(
+      `SELECT SUM(amount) as actual_expenses
+       FROM transactions
+       WHERE type = 'expense'
+       AND computable = true
+       AND (user_id IS NULL OR user_id = $1)
+       AND (
+         (applicable_month IS NOT NULL AND applicable_month = $2)
+         OR
+         (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+       )`,
+      [userId, currentMonth]
+    );
+    const actualExpenses = parseFloat(actualExpensesResult.rows[0]?.actual_expenses || 0);
 
     // Get category breakdown (only computable transactions)
     const categoriesResult = await pool.query(
@@ -65,6 +81,9 @@ router.get('/', optionalAuth, async (req, res) => {
       [userId]
     );
 
+    // Calculate actual net balance for current month
+    const actualNetBalance = actualIncome - actualExpenses;
+
     res.json({
       totalIncome: parseFloat(totals.total_income || 0),
       totalExpenses: parseFloat(totals.total_expenses || 0),
@@ -73,6 +92,8 @@ router.get('/', optionalAuth, async (req, res) => {
       oldestTransactionDate: totals.oldest_transaction_date,
       newestTransactionDate: totals.newest_transaction_date,
       actualIncome: actualIncome,
+      actualExpenses: actualExpenses,
+      actualNetBalance: actualNetBalance,
       currentMonth: currentMonth,
       categories: categoriesResult.rows,
       recentTransactions: recentResult.rows
