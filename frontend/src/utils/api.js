@@ -12,8 +12,8 @@ const api = axios.create({
 
 // Add JWT token to requests
 api.interceptors.request.use(async (config) => {
-  // Get JWT token from localStorage
-  const authData = localStorage.getItem('auth');
+  // Get JWT token from localStorage (using same key as auth.js)
+  const authData = localStorage.getItem('finova_auth');
   if (authData) {
     try {
       const { token } = JSON.parse(authData);

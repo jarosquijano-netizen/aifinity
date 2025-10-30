@@ -25,7 +25,7 @@ function AdminLogin({ onAdminLogin }) {
       }
 
       // Store auth and notify parent
-      storeAuth({ token: data.token, user: data.user });
+      storeAuth(data.token, data.user);
       onAdminLogin(data.user);
     } catch (error) {
       console.error('Admin login error:', error);
