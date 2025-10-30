@@ -39,14 +39,19 @@ function Admin() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Loading admin data...');
       const [usersData, statsData] = await Promise.all([
         getAdminUsers(),
         getAdminStats()
       ]);
+      console.log('📊 Users data:', usersData);
+      console.log('📈 Stats data:', statsData);
       setUsers(usersData.users);
       setStats(statsData);
+      console.log('✅ Admin data loaded successfully');
     } catch (error) {
-      console.error('Failed to load admin data:', error);
+      console.error('❌ Failed to load admin data:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }

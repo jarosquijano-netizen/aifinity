@@ -10,24 +10,18 @@ const api = axios.create({
   },
 });
 
-// Global variable to store Clerk's getToken function
-let getClerkToken = null;
-
-// Function to set the Clerk token getter (called from App.jsx)
-export const setClerkTokenGetter = (getter) => {
-  getClerkToken = getter;
-};
-
-// Add Clerk token to requests
+// Add JWT token to requests
 api.interceptors.request.use(async (config) => {
-  if (getClerkToken) {
+  // Get JWT token from localStorage
+  const authData = localStorage.getItem('auth');
+  if (authData) {
     try {
-      const token = await getClerkToken();
+      const { token } = JSON.parse(authData);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('Failed to get Clerk token:', error);
+      console.error('Failed to get JWT token:', error);
     }
   }
   return config;
