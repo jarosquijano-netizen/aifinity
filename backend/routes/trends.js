@@ -9,7 +9,7 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
 
-    // Get monthly trends
+    // Get monthly trends (exclude transfers)
     const trendsResult = await pool.query(
       `SELECT 
          TO_CHAR(date, 'YYYY-MM') as month,
@@ -17,7 +17,8 @@ router.get('/', optionalAuth, async (req, res) => {
          SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses,
          COUNT(*) as transaction_count
        FROM transactions
-       WHERE user_id IS NULL OR user_id = $1
+       WHERE (user_id IS NULL OR user_id = $1)
+       AND (computable = true OR computable IS NULL)
        GROUP BY TO_CHAR(date, 'YYYY-MM')
        ORDER BY month DESC
        LIMIT 12`,
@@ -32,7 +33,7 @@ router.get('/', optionalAuth, async (req, res) => {
       transactionCount: parseInt(row.transaction_count || 0)
     }));
 
-    // Get category trends
+    // Get category trends (exclude transfers)
     const categoryTrendsResult = await pool.query(
       `SELECT 
          TO_CHAR(date, 'YYYY-MM') as month,
@@ -40,7 +41,8 @@ router.get('/', optionalAuth, async (req, res) => {
          SUM(amount) as total,
          type
        FROM transactions
-       WHERE user_id IS NULL OR user_id = $1
+       WHERE (user_id IS NULL OR user_id = $1)
+       AND (computable = true OR computable IS NULL)
        GROUP BY TO_CHAR(date, 'YYYY-MM'), category, type
        ORDER BY month DESC, total DESC`,
       [userId]
@@ -61,14 +63,15 @@ router.get('/insights', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
 
-    // Get last 2 months for comparison
+    // Get last 2 months for comparison (exclude transfers)
     const result = await pool.query(
       `SELECT 
          TO_CHAR(date, 'YYYY-MM') as month,
          SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
          SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
        FROM transactions
-       WHERE user_id IS NULL OR user_id = $1
+       WHERE (user_id IS NULL OR user_id = $1)
+       AND (computable = true OR computable IS NULL)
        GROUP BY TO_CHAR(date, 'YYYY-MM')
        ORDER BY month DESC
        LIMIT 2`,
@@ -109,11 +112,13 @@ router.get('/insights', optionalAuth, async (req, res) => {
       }
     }
 
-    // Get top spending category
+    // Get top spending category (exclude transfers)
     const topCategoryResult = await pool.query(
       `SELECT category, SUM(amount) as total
        FROM transactions
-       WHERE (user_id IS NULL OR user_id = $1) AND type = 'expense'
+       WHERE (user_id IS NULL OR user_id = $1) 
+       AND type = 'expense'
+       AND (computable = true OR computable IS NULL)
        GROUP BY category
        ORDER BY total DESC
        LIMIT 1`,
