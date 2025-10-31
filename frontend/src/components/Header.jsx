@@ -13,11 +13,13 @@ function Header({ user, onLogout, clerkUserButton }) {
         <div className="flex items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center">
-            <img 
-              src={theme === 'dark' ? '/aifinity-logo-dark.png' : '/aifinity-logo.png'}
-              alt="AiFinity.app Logo" 
-              className="w-32 h-32 object-contain transform hover:scale-105 transition-transform duration-300"
-            />
+            <div className="w-28 h-28 overflow-hidden flex items-center justify-center">
+              <img 
+                src={theme === 'dark' ? '/aifinity-logo-dark.png' : '/aifinity-logo.png'}
+                alt="AiFinity.app Logo" 
+                className="h-full w-auto object-contain transform hover:scale-110 transition-transform duration-300"
+              />
+            </div>
           </div>
 
           {/* Actions */}
