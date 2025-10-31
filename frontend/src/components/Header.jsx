@@ -12,13 +12,31 @@ function Header({ user, onLogout, clerkUserButton }) {
       <div className="container mx-auto px-4 py-3 max-w-[95%] 2xl:max-w-[1800px]">
         <div className="flex items-center justify-between">
           {/* Logo & Brand */}
-          <div className="flex items-center">
-            <div className="w-28 h-28 overflow-hidden flex items-center justify-center">
+          <div className="flex items-center space-x-4">
+            <div className="w-20 h-20 overflow-hidden flex items-center justify-center flex-shrink-0">
               <img 
                 src={theme === 'dark' ? '/aifinity-logo-dark.png' : '/aifinity-logo.png'}
                 alt="AiFinity.app Logo" 
                 className="h-full w-auto object-contain transform hover:scale-110 transition-transform duration-300"
               />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold tracking-tight" style={{
+                background: theme === 'dark' 
+                  ? 'linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%)'
+                  : 'linear-gradient(135deg, #0891b2 0%, #7c3aed 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                fontWeight: '700',
+                letterSpacing: '-0.02em'
+              }}>
+                {t('appName')}
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide mt-0.5">
+                {t('appTagline')}
+              </p>
             </div>
           </div>
 
