@@ -84,6 +84,20 @@ router.get('/overview', optionalAuth, async (req, res) => {
       [userId, targetMonth]
     );
     
+    // Get transfers separately (not counted in total but shown for review)
+    const transfersResult = await pool.query(
+      `SELECT 
+         SUM(amount) as total_spent,
+         COUNT(*) as transaction_count
+       FROM transactions
+       WHERE (user_id IS NULL OR user_id = $1)
+       AND TO_CHAR(date, 'YYYY-MM') = $2
+       AND type = 'expense'
+       AND computable = false
+       AND category = 'Transferencias'`,
+      [userId, targetMonth]
+    );
+    
     // Create a map of actual spending
     const spendingMap = {};
     spendingResult.rows.forEach(row => {
@@ -115,9 +129,33 @@ router.get('/overview', optionalAuth, async (req, res) => {
       };
     });
     
-    // Calculate totals
-    const totalBudget = overview.reduce((sum, cat) => sum + cat.budget, 0);
-    const totalSpent = overview.reduce((sum, cat) => sum + cat.spent, 0);
+    // Add transfers as a separate entry (not counted in totals)
+    const transfersData = transfersResult.rows[0];
+    const transfersSpent = parseFloat(transfersData?.total_spent || 0);
+    const transfersCount = parseInt(transfersData?.transaction_count || 0);
+    
+    if (transfersCount > 0) {
+      overview.push({
+        id: 'transfers',
+        name: 'Transferencias',
+        budget: 0,
+        spent: transfersSpent,
+        remaining: -transfersSpent,
+        percentage: 0,
+        transactionCount: transfersCount,
+        status: 'transfer',
+        isTransfer: true,
+        note: 'No incluidas en el total (revisar si son gastos reales)'
+      });
+    }
+    
+    // Calculate totals (excluding transfers)
+    const totalBudget = overview
+      .filter(cat => !cat.isTransfer)
+      .reduce((sum, cat) => sum + cat.budget, 0);
+    const totalSpent = overview
+      .filter(cat => !cat.isTransfer)
+      .reduce((sum, cat) => sum + cat.spent, 0);
     const totalRemaining = totalBudget - totalSpent;
     
     res.json({

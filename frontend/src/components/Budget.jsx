@@ -222,7 +222,9 @@ function Budget({ onNavigateToTransactions }) {
                   return a.name.localeCompare(b.name);
                 })
                 ?.map((category) => (
-                <tr key={category.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700">
+                <tr key={category.id} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700 ${
+                  category.isTransfer ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}>
                   <td className="py-3 px-4 text-sm font-medium">
                     {category.transactionCount > 0 && onNavigateToTransactions ? (
                       <button
@@ -230,13 +232,22 @@ function Budget({ onNavigateToTransactions }) {
                         className="text-left text-primary dark:text-blue-400 hover:underline hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer font-medium"
                         title={`Ver ${category.transactionCount} transacciones de ${category.name}`}
                       >
+                        {category.isTransfer && <span className="mr-2">🔄</span>}
                         {category.name}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                           ({category.transactionCount} transacciones →)
                         </span>
+                        {category.isTransfer && (
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            ⚠️ {category.note}
+                          </div>
+                        )}
                       </button>
                     ) : (
-                      <span className="text-gray-900 dark:text-gray-100">{category.name}</span>
+                      <span className="text-gray-900 dark:text-gray-100">
+                        {category.isTransfer && <span className="mr-2">🔄</span>}
+                        {category.name}
+                      </span>
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm text-right text-gray-900 dark:text-gray-100">
@@ -306,7 +317,7 @@ function Budget({ onNavigateToTransactions }) {
       {/* Legend */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Status Legend</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div className="flex items-center space-x-2">
             <CheckCircle className="w-5 h-5 text-success" />
             <span className="text-sm text-gray-700 dark:text-gray-300">Under budget (&lt;90%)</span>
@@ -322,6 +333,17 @@ function Budget({ onNavigateToTransactions }) {
           <div className="flex items-center space-x-2">
             <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
             <span className="text-sm text-gray-700 dark:text-gray-300">No budget set</span>
+          </div>
+        </div>
+        <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-start space-x-2">
+            <span className="text-lg">🔄</span>
+            <div>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Transferencias</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                No incluidas en el Total Spent. Click para revisar - algunas pueden ser gastos reales mal categorizados.
+              </p>
+            </div>
           </div>
         </div>
       </div>
