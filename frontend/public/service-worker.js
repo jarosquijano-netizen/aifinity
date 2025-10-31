@@ -1,9 +1,11 @@
-const CACHE_NAME = 'aifinity-v1';
+const CACHE_NAME = 'aifinity-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/aifinity-logo.png',
-  '/aifinity-logo-dark.png'
+  '/aifinity-logo-dark.png',
+  '/aifinity-icon-full-light.png',
+  '/aifinity-icon-full-dark.png'
 ];
 
 // Install service worker
