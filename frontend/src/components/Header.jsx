@@ -9,19 +9,15 @@ function Header({ user, onLogout, clerkUserButton }) {
 
   return (
     <header className="bg-white dark:bg-gray-900 backdrop-blur-xl shadow-premium border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300">
-      <div className="container mx-auto px-4 py-4 max-w-[95%] 2xl:max-w-[1800px]">
+      <div className="container mx-auto px-4 py-3 max-w-[95%] 2xl:max-w-[1800px]">
         <div className="flex items-center justify-between">
           {/* Logo & Brand */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center">
             <img 
               src={theme === 'dark' ? '/aifinity-logo-dark.png' : '/aifinity-logo.png'}
               alt="AiFinity.app Logo" 
-              className="w-16 h-16 object-contain transform hover:scale-105 transition-transform duration-300"
+              className="w-32 h-32 object-contain transform hover:scale-105 transition-transform duration-300"
             />
-            <div>
-              <h1 className="text-2xl font-bold text-gradient">{t('appName')}</h1>
-              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium tracking-wide">{t('appTagline')}</p>
-            </div>
           </div>
 
           {/* Actions */}
