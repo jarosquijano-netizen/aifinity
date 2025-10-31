@@ -69,7 +69,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
       [userId]
     );
     
-    // Get actual spending for the month
+    // Get actual spending for the month (exclude transfers)
     const spendingResult = await pool.query(
       `SELECT 
          category,
@@ -79,6 +79,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
        WHERE (user_id IS NULL OR user_id = $1)
        AND TO_CHAR(date, 'YYYY-MM') = $2
        AND type = 'expense'
+       AND (computable = true OR computable IS NULL)
        GROUP BY category`,
       [userId, targetMonth]
     );
