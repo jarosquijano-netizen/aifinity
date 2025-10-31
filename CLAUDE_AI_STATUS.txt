@@ -1,0 +1,85 @@
+═══════════════════════════════════════════════════════════
+  🤖 CLAUDE AI - ASISTENTE FINANCIERO LISTO!
+═══════════════════════════════════════════════════════════
+
+✅ ESTADO ACTUAL:
+   👤 Usuario: jarosquijano@gmail.com
+   🟢 Provider: CLAUDE (3.5 Sonnet - Latest Model)
+   🔑 API Key: ****-QAA (configurada y activa)
+   ✅ Status: ACTIVO y funcionando
+   💬 Chats: 0 (sin conversaciones previas)
+
+─────────────────────────────────────────────────────────
+
+🎯 CÓMO PROBAR:
+
+   1. Ve a: https://aifinity.app
+   2. Login con tu cuenta
+   3. Ve al tab "Insights"
+   4. Busca el botón flotante azul (abajo derecha)
+   5. Click para abrir el chat
+   6. Escribe: "¿Puedes ver mis datos financieros?"
+
+─────────────────────────────────────────────────────────
+
+🧪 PREGUNTAS DE PRUEBA:
+
+   • "¿En qué categoría gasto más dinero?"
+   • "¿Cómo voy con mi presupuesto este mes?"
+   • "¿Cuál es mi situación financiera actual?"
+   • "Dame 3 consejos para ahorrar dinero"
+   • "¿Por qué mi balance de octubre es negativo?"
+   • "Si sigo gastando así, ¿cómo terminaré el mes?"
+
+─────────────────────────────────────────────────────────
+
+💡 CLAUDE TIENE ACCESO A:
+
+   ✅ Tus últimos 30 días de transacciones
+   ✅ Tu income y expenses del mes actual
+   ✅ Tus budgets configurados
+   ✅ Tus top 5 categorías de gasto
+   ✅ Tu historial de chat completo
+
+─────────────────────────────────────────────────────────
+
+📊 TU CONTEXTO ACTUAL (Octubre 2025):
+
+   Income:        €123.40     (con income shifting)
+   Expenses:      €6,817.18
+   Balance:       €-6,693.78
+   Transactions:  141
+
+─────────────────────────────────────────────────────────
+
+💰 COSTOS (MUY ECONÓMICO):
+
+   • ~$0.0033 por mensaje
+   • 100 mensajes ≈ $0.33
+   • 1,000 mensajes ≈ $3.30
+
+─────────────────────────────────────────────────────────
+
+📝 DOCUMENTACIÓN COMPLETA:
+
+   → CLAUDE_AI_TEST_GUIDE.md (guía detallada)
+   → backend/check-ai-config.js (verificar config)
+   → backend/test-claude-api.js (test directo API)
+
+─────────────────────────────────────────────────────────
+
+✅ VERIFICAR QUE FUNCIONA:
+
+   1. El botón del chat aparece en Insights ✓
+   2. El chat se abre al hacer click ✓
+   3. Puedes escribir un mensaje ✓
+   4. Claude responde en 2-5 segundos ✓
+   5. La respuesta es relevante a tus datos ✓
+   6. El historial se guarda ✓
+
+─────────────────────────────────────────────────────────
+
+🚀 ¡VE A INSIGHTS Y PRUEBA EL CHAT AHORA!
+
+═══════════════════════════════════════════════════════════
+
