@@ -9,17 +9,17 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
 
-    // Get monthly trends (exclude transfers)
+    // Get monthly trends (exclude transfers, use applicable_month if available)
     const trendsResult = await pool.query(
       `SELECT 
-         TO_CHAR(date, 'YYYY-MM') as month,
+         COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM')) as month,
          SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
          SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses,
          COUNT(*) as transaction_count
        FROM transactions
        WHERE (user_id IS NULL OR user_id = $1)
        AND (computable = true OR computable IS NULL)
-       GROUP BY TO_CHAR(date, 'YYYY-MM')
+       GROUP BY COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM'))
        ORDER BY month DESC
        LIMIT 12`,
       [userId]
@@ -33,17 +33,17 @@ router.get('/', optionalAuth, async (req, res) => {
       transactionCount: parseInt(row.transaction_count || 0)
     }));
 
-    // Get category trends (exclude transfers)
+    // Get category trends (exclude transfers, use applicable_month if available)
     const categoryTrendsResult = await pool.query(
       `SELECT 
-         TO_CHAR(date, 'YYYY-MM') as month,
+         COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM')) as month,
          category,
          SUM(amount) as total,
          type
        FROM transactions
        WHERE (user_id IS NULL OR user_id = $1)
        AND (computable = true OR computable IS NULL)
-       GROUP BY TO_CHAR(date, 'YYYY-MM'), category, type
+       GROUP BY COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM')), category, type
        ORDER BY month DESC, total DESC`,
       [userId]
     );
