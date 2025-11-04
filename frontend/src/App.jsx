@@ -89,11 +89,14 @@ function App() {
         onLogout={handleLogout}
       />
       
-      <main className="container mx-auto px-4 py-8 max-w-[95%] 2xl:max-w-[1800px]">
-        <div className="mb-8 animate-fadeIn">
+      {/* Menu Section - Full Width */}
+      <div className="w-full px-4">
+        <div className="w-full md:container md:mx-auto md:max-w-[95%] 2xl:max-w-[1800px] mb-8 animate-fadeIn">
           <PremiumTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
         </div>
-        
+      </div>
+
+      <main className="container mx-auto px-4 py-8 max-w-[95%] 2xl:max-w-[1800px]">
         <div className="mt-6">
           {activeTab === 'dashboard' && (
             <Dashboard key={refreshTrigger} />
