@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarSign, PieChart, Target, Shield, Calendar, MessageCircle, Send, Bot, User, Sparkles, X, Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarSign, PieChart, Target, Shield, Calendar, MessageCircle, Send, Bot, User, Sparkles, X, Building2, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory, getAccounts, getSettings } from '../utils/api';
 import api from '../utils/api';
 
@@ -443,6 +443,23 @@ function Insights() {
         <span className="font-semibold hidden sm:inline">Asistente AI</span>
         <Sparkles className="w-5 h-5" />
       </button>
+
+      {/* Header with Refresh Button */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Financial Insights</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI-powered analysis of your financial data</p>
+        </div>
+        <button
+          onClick={fetchAllData}
+          disabled={loading}
+          className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
+          title="Update financial insights"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="font-medium">Update Insights</span>
+        </button>
+      </div>
 
       {/* Main Content - 2x2 Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
