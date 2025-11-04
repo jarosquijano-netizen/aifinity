@@ -58,7 +58,7 @@ router.get('/', optionalAuth, async (req, res) => {
     );
     const actualExpenses = parseFloat(actualExpensesResult.rows[0]?.actual_expenses || 0);
 
-    // Get category breakdown (only computable transactions)
+    // Get category breakdown for current month (only computable transactions)
     const categoriesResult = await pool.query(
       `SELECT 
          category,
@@ -66,10 +66,16 @@ router.get('/', optionalAuth, async (req, res) => {
          COUNT(*) as count,
          type
        FROM transactions
-       WHERE (user_id IS NULL OR user_id = $1) AND computable = true
+       WHERE (user_id IS NULL OR user_id = $1) 
+       AND computable = true
+       AND (
+         (applicable_month IS NOT NULL AND applicable_month = $2)
+         OR
+         (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+       )
        GROUP BY category, type
        ORDER BY total DESC`,
-      [userId]
+      [userId, currentMonth]
     );
 
     // Get recent transactions

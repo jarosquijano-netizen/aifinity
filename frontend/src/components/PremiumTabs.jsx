@@ -52,7 +52,7 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
     <>
       {/* Desktop Menu */}
       <div className="hidden md:block w-full">
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-premium p-2 flex flex-wrap gap-2 justify-center items-center border border-gray-100/50 dark:border-gray-700/50 animate-fadeIn w-full overflow-x-auto" role="tablist" style={{ minWidth: '100%' }}>
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-premium p-2 flex flex-wrap gap-2 justify-between items-center border border-gray-100/50 dark:border-gray-700/50 animate-fadeIn w-full overflow-x-auto" role="tablist" style={{ minWidth: '100%' }}>
           {tabs.map((tab) => {
             const Icon = tabIcons[tab.id];
             const isActive = activeTab === tab.id;

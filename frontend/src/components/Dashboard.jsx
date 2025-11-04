@@ -273,8 +273,8 @@ function Dashboard() {
     .slice(0, 8);
 
   const incomeVsExpense = [
-    { name: 'Income', value: data.totalIncome, color: '#22c55e' },
-    { name: 'Expenses', value: data.totalExpenses, color: '#ef4444' }
+    { name: 'Income', value: data.actualIncome || 0, color: '#22c55e' },
+    { name: 'Expenses', value: data.actualExpenses || 0, color: '#ef4444' }
   ];
 
   // Helper: Get last 2 income transactions
@@ -285,21 +285,22 @@ function Dashboard() {
   // Helper: Get top expense category
   const topExpenseCategory = categoryData[0] || { name: 'N/A', value: 0 };
 
-  // Helper: Calculate daily average expense
+  // Helper: Calculate daily average expense for current month
   const getDailyAvgExpense = () => {
-    if (!data.oldestTransactionDate || !data.newestTransactionDate) return 0;
+    const currentDate = new Date();
+    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    const daysPassed = Math.max(1, currentDate.getDate()); // Days passed in current month
     
-    const oldestDate = new Date(data.oldestTransactionDate);
-    const newestDate = new Date(data.newestTransactionDate);
-    const daysDiff = Math.max(1, Math.ceil((newestDate - oldestDate) / (1000 * 60 * 60 * 24)) + 1); // +1 to include both start and end day
-    
-    return data.totalExpenses / daysDiff;
+    return (data.actualExpenses || 0) / daysPassed;
   };
 
-  // Helper: Get balance advice
+  // Helper: Get balance advice using current month data
   const getBalanceAdvice = () => {
-    const savingsRate = data.totalIncome > 0 ? (data.netBalance / data.totalIncome) * 100 : 0;
-    if (data.netBalance < 0) return '⚠️ Reduce gastos';
+    const currentIncome = data.actualIncome || 0;
+    const currentBalance = data.actualNetBalance || 0;
+    const savingsRate = currentIncome > 0 ? (currentBalance / currentIncome) * 100 : 0;
+    if (currentBalance < 0) return '⚠️ Reduce gastos';
     if (savingsRate < 10) return '💡 Ahorra más';
     if (savingsRate < 20) return '✅ Buen avance';
     return '🎯 ¡Excelente!';
@@ -432,7 +433,7 @@ function Dashboard() {
               {!isLarge && !hasExpectedIncome && (
                 <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <div className={`text-xs font-semibold px-2 py-1 rounded-lg inline-block ${
-                    data.netBalance >= 0 
+                    actualBalance >= 0 
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
                       : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                   }`}>
@@ -445,7 +446,9 @@ function Dashboard() {
         );
       })(),
       'kpi-savings-total': (() => {
-        const savingsRate = data.totalIncome > 0 ? ((data.netBalance / data.totalIncome) * 100) : 0;
+        const currentIncome = data.actualIncome || 0;
+        const currentBalance = data.actualNetBalance || 0;
+        const savingsRate = currentIncome > 0 ? ((currentBalance / currentIncome) * 100) : 0;
         const totalSavings = accounts
           .filter(acc => (acc.account_type === 'savings' || acc.account_type === 'investment') && !acc.exclude_from_stats)
           .reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
@@ -1104,17 +1107,17 @@ function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Action Buttons */}
-      <div className="flex justify-between items-center flex-wrap gap-3">
-        <div className="flex items-center space-x-3">
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <div className="flex items-center space-x-2">
           <button 
             onClick={() => {
               localStorage.removeItem('dashboardWidgetOrder');
               localStorage.removeItem('dashboardWidgetSizes');
               window.location.reload();
             }}
-            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center space-x-2"
+            className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center space-x-2 text-sm"
             title="Resetear widgets a valores predeterminados"
           >
             <GripVertical className="w-4 h-4" />
@@ -1125,7 +1128,7 @@ function Dashboard() {
           {accounts.length >= 2 && (
             <button 
               onClick={() => setShowTransferModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center space-x-2"
+              className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center space-x-2 text-sm"
               title="Crear transferencia entre cuentas"
             >
               <ArrowRightLeft className="w-4 h-4" />
@@ -1134,16 +1137,16 @@ function Dashboard() {
           )}
         </div>
         
-        <div className="flex space-x-3">
-          <button onClick={exportCSV} className="btn-secondary flex items-center space-x-2">
+        <div className="flex space-x-2">
+          <button onClick={exportCSV} className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm">
             <Download className="w-4 h-4" />
             <span>Export CSV</span>
           </button>
-          <button onClick={exportExcel} className="btn-secondary flex items-center space-x-2">
+          <button onClick={exportExcel} className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm">
             <Download className="w-4 h-4" />
             <span>Export Excel</span>
           </button>
-          <button onClick={handleReset} className="btn-danger flex items-center space-x-2">
+          <button onClick={handleReset} className="btn-danger flex items-center space-x-2 px-3 py-1.5 text-sm">
             <Trash2 className="w-4 h-4" />
             <span>Reset Data</span>
           </button>

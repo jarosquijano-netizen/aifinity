@@ -90,7 +90,7 @@ function App() {
       />
       
       {/* Menu Section - Full Width */}
-      <div className="w-full px-4 pt-6 md:pt-10">
+      <div className="w-full px-4 pt-4 md:pt-6">
         <div className="w-full md:container md:mx-auto md:max-w-[95%] 2xl:max-w-[1800px] mb-8 animate-fadeIn">
           <PremiumTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
         </div>
