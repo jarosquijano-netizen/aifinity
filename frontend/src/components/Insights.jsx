@@ -135,14 +135,28 @@ function Insights() {
     );
   }
 
-  // Calculate financial metrics
+  // Calculate financial metrics - FORCE correct calculation
   const actualIncome = data.summary.actualIncome || 0; // Actual income del mes actual
-  const actualExpenses = data.summary.actualExpenses || data.summary.totalExpenses; // Actual expenses del mes actual
-  const actualNetBalance = data.summary.actualNetBalance !== undefined ? data.summary.actualNetBalance : (actualIncome - actualExpenses);
+  const actualExpenses = data.summary.actualExpenses !== undefined ? data.summary.actualExpenses : (data.summary.totalExpenses || 0); // Actual expenses del mes actual
+  // Always recalculate net balance to ensure correctness: Income - Expenses
+  const actualNetBalance = actualIncome - actualExpenses;
   const monthlyIncome = data.summary.totalIncome; // Total histórico
   const monthlyExpenses = actualExpenses; // Usar expenses del mes actual
   const netBalance = actualNetBalance; // Usar balance del mes actual
+  // Recalcular el savings rate correctamente
   const savingsRate = actualIncome > 0 ? ((actualNetBalance / actualIncome) * 100) : 0;
+  
+  // Debug: Log values to verify calculations
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Insights Calculations:', {
+      actualIncome,
+      actualExpenses,
+      actualNetBalance,
+      netBalance,
+      savingsRate,
+      backendActualNetBalance: data.summary.actualNetBalance
+    });
+  }
   const budgetTotal = data.budget.totals?.budget || 0;
   const budgetSpent = data.budget.totals?.spent || 0;
   // Recalcular budgetUsage para asegurar precisión
