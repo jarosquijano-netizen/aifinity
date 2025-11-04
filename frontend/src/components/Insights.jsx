@@ -145,18 +145,6 @@ function Insights() {
   const netBalance = actualNetBalance; // Usar balance del mes actual
   // Recalcular el savings rate correctamente
   const savingsRate = actualIncome > 0 ? ((actualNetBalance / actualIncome) * 100) : 0;
-  
-  // Debug: Log values to verify calculations
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Insights Calculations:', {
-      actualIncome,
-      actualExpenses,
-      actualNetBalance,
-      netBalance,
-      savingsRate,
-      backendActualNetBalance: data.summary.actualNetBalance
-    });
-  }
   const budgetTotal = data.budget.totals?.budget || 0;
   const budgetSpent = data.budget.totals?.spent || 0;
   // Recalcular budgetUsage para asegurar precisión
