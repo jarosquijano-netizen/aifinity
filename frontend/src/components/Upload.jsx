@@ -97,6 +97,11 @@ function Upload({ onUploadComplete }) {
     setError('');
     setResults(null);
 
+    // CRITICAL: Force visible logging
+    alert(`🚀 Starting upload process with ${files.length} file(s)`);
+    console.log('🚀🚀🚀 PROCESS AND UPLOAD CALLED 🚀🚀🚀');
+    console.log('Files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
     try {
       let allTransactions = [];
       let lastBalance = null;
@@ -124,10 +129,13 @@ function Upload({ onUploadComplete }) {
           parseResult = await parsePDFTransactions(file);
         } else if (isCSV) {
           console.log('📄 File detected as CSV/Excel - calling parseCSVTransactions...');
+          alert(`📄 Parsing CSV file: ${file.name}`);
           parseResult = await parseCSVTransactions(file);
           console.log('📄 parseCSVTransactions returned:', parseResult);
+          alert(`✅ Parsed ${parseResult?.transactions?.length || 0} transactions from CSV`);
         } else {
           console.error(`❌ Unknown file type: ${file.type}, file: ${file.name}`);
+          alert(`❌ Unknown file type: ${file.type}`);
           setError(`Unsupported file type: ${file.type || 'unknown'}. Please upload PDF or CSV files.`);
           setProcessing(false);
           return;
