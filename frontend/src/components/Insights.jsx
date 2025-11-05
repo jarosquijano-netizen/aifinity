@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarSign, PieChart, Target, Shield, Calendar, MessageCircle, Send, Bot, User, Sparkles, X, Building2, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, CreditCard } from 'lucide-react';
+import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarSign, PieChart, Target, Shield, Calendar, MessageCircle, Send, Bot, User, Sparkles, X, Building2, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, CreditCard, RotateCcw } from 'lucide-react';
 import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory, getAccounts, getSettings } from '../utils/api';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -24,23 +24,19 @@ function Insights() {
     fetchAllData();
   }, []);
 
-  // Load chat history when component mounts
+  // Clear chat messages when opening the chat panel (fresh start every time)
   useEffect(() => {
-    const loadChatHistory = async () => {
-      try {
-        const response = await getAIChatHistory(20);
-        const history = response.history.map(msg => ([
-          { role: 'user', content: msg.user_message, timestamp: msg.created_at },
-          { role: 'assistant', content: msg.ai_response, provider: msg.provider, timestamp: msg.created_at }
-        ])).flat();
-        setChatMessages(history);
-      } catch (err) {
-        console.error('Failed to load chat history:', err);
-      }
-    };
-    
-    loadChatHistory();
-  }, []);
+    if (showChat) {
+      // Clear all messages when chat panel opens
+      setChatMessages([]);
+      setChatError('');
+      setChatInput('');
+      // Focus input when chat opens
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
+    }
+  }, [showChat]);
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
@@ -708,12 +704,28 @@ function Insights() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowChat(false)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {chatMessages.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setChatMessages([]);
+                          setChatError('');
+                          setChatInput('');
+                          chatInputRef.current?.focus();
+                        }}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        title={language === 'es' ? 'Nueva conversación' : 'New conversation'}
+                      >
+                        <RotateCcw className="w-5 h-5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowChat(false)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
                 </div>
                 {/* Time Period Selector */}
                 <div className="mt-4">
