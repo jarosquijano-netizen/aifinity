@@ -762,7 +762,7 @@ function parseINGSpanishCSV(lines) {
     });
   }
   
-  console.log(`✅ ING CSV parsed: ${transactions.length} transactions, ${skippedCount} skipped`);
+  console.log(`✅ ING CSV parsed: ${transactions.length} transactions, ${skippedCount} skipped, ${processedCount} rows processed`);
   
   if (transactions.length === 0) {
     console.error('❌ No transactions parsed from ING CSV!');
@@ -774,8 +774,12 @@ function parseINGSpanishCSV(lines) {
       balanceColumn
     });
   } else if (transactions.length === 1) {
-    console.warn('⚠️ Only 1 transaction parsed - this seems wrong!');
-    console.warn('Expected many more transactions. Check skipped count:', skippedCount);
+    console.error('⚠️ WARNING: Only parsed 1 transaction from ING CSV! Expected many more.');
+    console.error(`Processed ${processedCount} rows, skipped ${skippedCount}`);
+    console.error('CSV lines:', lines.length);
+    console.error('Header row index:', headerRowIndex);
+    console.error('First 10 lines:', lines.slice(0, 10));
+    console.error('Sample parsed transaction:', transactions[0]);
   }
   
   return {
@@ -1581,6 +1585,7 @@ function categorizeCreditCardTransaction(description, isRefund) {
 
 /**
  * Parse CSV line handling quoted fields
+ * Handles: "field with, commas" correctly
  */
 function parseCSVLine(line) {
   const fields = [];
@@ -1591,16 +1596,22 @@ function parseCSVLine(line) {
     const char = line[i];
     
     if (char === '"') {
+      // Toggle quote state
       inQuotes = !inQuotes;
+      // Don't add quote to current field
     } else if ((char === ',' || char === '\t') && !inQuotes) {
+      // Field separator (only if not inside quotes)
       fields.push(current.trim());
       current = '';
     } else {
+      // Regular character - add to current field
       current += char;
     }
   }
   
+  // Add the last field (after final comma or end of line)
   fields.push(current.trim());
+  
   return fields;
 }
 
