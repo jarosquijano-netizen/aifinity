@@ -99,6 +99,8 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     setSelectedTransaction(null);
     if (shouldRefresh) {
       fetchTransactions();
+      // Dispatch event to refresh dashboard
+      window.dispatchEvent(new CustomEvent('transactionUpdated'));
     }
   };
 
@@ -140,6 +142,8 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       setBulkCategory('');
       setShowBulkPanel(false);
       fetchTransactions();
+      // Dispatch event to refresh dashboard
+      window.dispatchEvent(new CustomEvent('transactionUpdated'));
     } catch (error) {
       console.error('Error updating transactions:', error);
       alert('Error al actualizar transacciones');

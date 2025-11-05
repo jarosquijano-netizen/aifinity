@@ -71,7 +71,7 @@ function DraggableChart({ id, children, onToggleSize, currentSize, className }) 
   );
 }
 
-function Dashboard() {
+function Dashboard({ refreshTrigger }) {
   const [data, setData] = useState(null);
   const [monthlyData, setMonthlyData] = useState([]);
   const [budgetData, setBudgetData] = useState(null);
@@ -81,6 +81,9 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
   const chartTheme = useChartTheme();
+  
+  // Track last refresh trigger to detect changes
+  const [lastRefreshTrigger, setLastRefreshTrigger] = useState(0);
   
   // Widget order state - load from localStorage or use default
   const [widgetOrder, setWidgetOrder] = useState(() => {
@@ -107,9 +110,19 @@ function Dashboard() {
     })
   );
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+function Dashboard({ refreshTrigger }) {
+  const [data, setData] = useState(null);
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [budgetData, setBudgetData] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [expectedIncome, setExpectedIncome] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const chartTheme = useChartTheme();
+  
+  // Track last refresh trigger to detect changes
+  const [lastRefreshTrigger, setLastRefreshTrigger] = useState(0);
 
   // Save widget order to localStorage whenever it changes
   useEffect(() => {
@@ -120,6 +133,46 @@ function Dashboard() {
   useEffect(() => {
     localStorage.setItem('dashboardWidgetSizes', JSON.stringify(widgetSizes));
   }, [widgetSizes]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Refresh data when refreshTrigger prop changes (from App.jsx after upload)
+  useEffect(() => {
+    if (refreshTrigger !== undefined && refreshTrigger !== lastRefreshTrigger) {
+      setLastRefreshTrigger(refreshTrigger);
+      fetchData();
+    }
+  }, [refreshTrigger, lastRefreshTrigger]);
+
+  // Refresh when component becomes visible (user switches to dashboard tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchData();
+      }
+    };
+
+    // Refresh when tab becomes visible
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh when window regains focus (user switches back to browser tab)
+    window.addEventListener('focus', fetchData);
+
+    // Listen for custom event when transactions are updated
+    const handleTransactionUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener('transactionUpdated', handleTransactionUpdate);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', fetchData);
+      window.removeEventListener('transactionUpdated', handleTransactionUpdate);
+    };
+  }, []);
 
   const toggleWidgetSize = (widgetId) => {
     setWidgetSizes(prev => ({
@@ -230,6 +283,8 @@ function Dashboard() {
       fetchData();
       fetchAccounts();
       setShowTransferModal(false);
+      // Dispatch event so other components can refresh if needed
+      window.dispatchEvent(new CustomEvent('transactionUpdated'));
     } catch (err) {
       throw err; // Re-throw to be handled by the modal
     }
