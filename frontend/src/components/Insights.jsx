@@ -978,8 +978,6 @@ function Insights() {
       </div>
 
       </div>
-
-      </div>
     </>
   );
 }
