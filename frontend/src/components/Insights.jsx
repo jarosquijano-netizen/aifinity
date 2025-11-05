@@ -151,43 +151,42 @@ function Insights() {
   const budgetUsage = budgetTotal > 0 ? (budgetSpent / budgetTotal * 100) : 0;
   
   // Calcular días del mes y predicción de gasto
-  // Excluir los primeros días del mes (donde suelen estar los pagos grandes)
+  // Ajuste: Excluir los primeros días del mes donde suelen estar los pagos grandes únicos
   const today = new Date();
   const currentDay = today.getDate();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const daysRemaining = daysInMonth - currentDay;
   const daysElapsed = currentDay;
   
-  // Excluir los primeros 3 días del mes para calcular el gasto diario promedio
-  // porque muchos pagos grandes (hipoteca, alquiler, etc.) se hacen al inicio del mes
-  const excludeFirstDays = 3;
-  const effectiveDaysElapsed = Math.max(1, daysElapsed - excludeFirstDays);
+  // Calcular el promedio diario esperado del presupuesto mensual
+  const expectedDailyAverage = budgetTotal > 0 ? (budgetTotal / daysInMonth) : 0;
   
-  // Para obtener el gasto real de los días excluidos, necesitamos datos históricos
-  // Por ahora, usamos una estimación más conservadora: si ya pasaron más de 3 días,
-  // calculamos el promedio solo de los días después del día 3
-  // Si estamos en los primeros 3 días, usamos el promedio completo pero con un factor de ajuste
+  // Calcular el promedio diario actual (incluye pagos grandes del inicio)
+  const currentDailyAverage = daysElapsed > 0 ? (budgetSpent / daysElapsed) : 0;
+  
+  // Determinar si el gasto actual es sospechosamente alto (probablemente incluye pagos grandes únicos)
+  // Si el gasto diario actual es más del 150% del promedio esperado, probablemente hay pagos grandes
+  const isHighSpendingPattern = currentDailyAverage > expectedDailyAverage * 1.5;
   
   let dailySpendRate;
-  if (daysElapsed > excludeFirstDays) {
-    // Ya pasaron los primeros días: calcular promedio solo de los días después del día 3
-    // Asumimos que el 60% del gasto del mes se hizo en los primeros 3 días (pagos grandes)
-    // y el 40% restante se distribuye en los días posteriores
-    const estimatedSpendAfterDay3 = budgetSpent * 0.4; // Estimación conservadora
-    dailySpendRate = effectiveDaysElapsed > 0 ? (estimatedSpendAfterDay3 / effectiveDaysElapsed) : 0;
-    
-    // Si tenemos datos reales, usaríamos: gastoDesdeDia4 / díasDesdeDia4
-    // Por ahora usamos una estimación más conservadora basada en el patrón típico
-    // Ajuste: si el gasto es muy alto al inicio, probablemente incluya pagos grandes únicos
-    if (budgetSpent / daysElapsed > budgetTotal / daysInMonth * 1.5) {
-      // El gasto diario es mucho más alto que el promedio esperado
-      // Probablemente hay pagos grandes incluidos, usar estimación más conservadora
-      dailySpendRate = (budgetTotal / daysInMonth) * 0.8; // 80% del promedio diario esperado
-    }
+  if (daysElapsed <= 5) {
+    // Estamos en los primeros 5 días del mes: usar estimación conservadora
+    // Asumimos que el 70% del gasto hasta ahora son pagos grandes únicos (hipoteca, alquiler, etc.)
+    // Solo el 30% restante es gasto regular
+    const regularSpending = budgetSpent * 0.3;
+    dailySpendRate = daysElapsed > 0 ? (regularSpending / daysElapsed) : expectedDailyAverage * 0.7;
+  } else if (isHighSpendingPattern) {
+    // El gasto diario es muy alto: usar promedio esperado del presupuesto (más conservador)
+    // Esto evita sobreestimar el gasto futuro basándose en pagos grandes únicos
+    dailySpendRate = expectedDailyAverage;
   } else {
-    // Estamos en los primeros días: usar promedio pero con factor de ajuste menor
-    dailySpendRate = daysElapsed > 0 ? (budgetSpent / daysElapsed) * 0.5 : 0;
+    // Patrón de gasto normal: usar el promedio actual
+    dailySpendRate = currentDailyAverage;
   }
+  
+  // Asegurar que el gasto diario proyectado no sea menor que el 50% del promedio esperado
+  // ni mayor que el 120% del promedio esperado (límites razonables)
+  dailySpendRate = Math.max(expectedDailyAverage * 0.5, Math.min(dailySpendRate, expectedDailyAverage * 1.2));
   
   const projectedMonthEndSpend = budgetSpent + (dailySpendRate * daysRemaining);
   const projectedBudgetUsage = budgetTotal > 0 ? (projectedMonthEndSpend / budgetTotal * 100) : 0;
