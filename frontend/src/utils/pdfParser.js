@@ -481,6 +481,12 @@ export async function parseCSVTransactions(file) {
       return parseSabadellCSV(lines);
     }
     
+    // Detect ING Spanish format (Movimientos de la Cuenta with F. VALOR header)
+    const isINGSpanishFormat = detectINGSpanishFormat(text, lines);
+    if (isINGSpanishFormat) {
+      return parseINGSpanishCSV(lines);
+    }
+    
     // Try to detect other bank formats
     const detectedFormat = detectBankFormat(text, lines);
     if (detectedFormat) {
@@ -515,6 +521,169 @@ function detectSabadellFormat(text) {
          text.includes('Concepto') && 
          text.includes('F. Valor') &&
          text.includes('Importe');
+}
+
+/**
+ * Detect ING Spanish CSV format (Movimientos de la Cuenta)
+ */
+function detectINGSpanishFormat(text, lines) {
+  const textLower = text.toLowerCase();
+  
+  // Check for ING-specific indicators
+  if (textLower.includes('movimientos de la cuenta') || 
+      textLower.includes('número de cuenta')) {
+    
+    // Look for the specific header row
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const line = lines[i].toLowerCase();
+      if (line.includes('f. valor') && 
+          line.includes('categoría') && 
+          line.includes('importe')) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Parse ING Spanish CSV format
+ * Format: F. VALOR,CATEGORÍA,SUBCATEGORÍA,DESCRIPCIÓN,COMENTARIO,IMAGEN,IMPORTE (€),SALDO (€)
+ */
+function parseINGSpanishCSV(lines) {
+  const transactions = [];
+  let accountNumber = '';
+  let lastBalance = null;
+  let headerRowIndex = -1;
+  
+  // Find header row and account number
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i];
+    
+    // Extract account number from first line
+    if (i === 0 && line.includes('Número de cuenta:')) {
+      const accountMatch = line.match(/Número de cuenta:\s*([\d\s]+)/);
+      if (accountMatch) {
+        accountNumber = accountMatch[1].replace(/\s/g, '');
+      }
+    }
+    
+    // Find header row
+    const lineLower = line.toLowerCase();
+    if (lineLower.includes('f. valor') && 
+        lineLower.includes('categoría') && 
+        lineLower.includes('importe')) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+  
+  if (headerRowIndex === -1) {
+    console.error('Could not find ING header row');
+    return {
+      bank: 'ING',
+      transactions: []
+    };
+  }
+  
+  // Parse header row to get column indices
+  const headerRow = lines[headerRowIndex];
+  const headers = parseCSVLine(headerRow);
+  
+  const dateColumn = headers.findIndex(h => h.toLowerCase().includes('f. valor') || h.toLowerCase().includes('fecha'));
+  const categoryColumn = headers.findIndex(h => h.toLowerCase().includes('categoría'));
+  const descriptionColumn = headers.findIndex(h => h.toLowerCase().includes('descripción'));
+  const amountColumn = headers.findIndex(h => h.toLowerCase().includes('importe'));
+  const balanceColumn = headers.findIndex(h => h.toLowerCase().includes('saldo'));
+  
+  // Parse transactions
+  for (let i = headerRowIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const fields = parseCSVLine(line);
+    
+    // Skip if not enough columns
+    if (fields.length <= Math.max(dateColumn, descriptionColumn, amountColumn)) {
+      continue;
+    }
+    
+    const dateStr = fields[dateColumn];
+    const category = fields[categoryColumn] || '';
+    const description = fields[descriptionColumn] || '';
+    const amountStr = fields[amountColumn];
+    const balanceStr = balanceColumn >= 0 ? fields[balanceColumn] : null;
+    
+    // Skip if missing required fields
+    if (!dateStr || !amountStr || !description) {
+      continue;
+    }
+    
+    // Parse date (DD/MM/YYYY format)
+    const parsedDate = parseDate(dateStr);
+    
+    // Parse amount (can be negative)
+    const parsedAmount = parseAmount(amountStr);
+    if (isNaN(parsedAmount) || parsedAmount === 0) {
+      continue;
+    }
+    
+    // Determine type from amount sign
+    const type = parsedAmount > 0 ? 'income' : 'expense';
+    
+    // Store last balance (first valid one)
+    if (balanceStr && lastBalance === null) {
+      const parsedBalance = parseAmount(balanceStr);
+      if (!isNaN(parsedBalance)) {
+        lastBalance = parsedBalance;
+      }
+    }
+    
+    // Map ING categories to our categories
+    let mappedCategory = category;
+    if (category) {
+      const categoryLower = category.toLowerCase();
+      
+      // Map ING categories to our system
+      if (categoryLower.includes('alimentación') || categoryLower.includes('supermercado')) {
+        mappedCategory = 'Food & Dining';
+      } else if (categoryLower.includes('vehículo') || categoryLower.includes('transporte')) {
+        mappedCategory = 'Transportation';
+      } else if (categoryLower.includes('hogar')) {
+        mappedCategory = 'Housing';
+      } else if (categoryLower.includes('compras')) {
+        mappedCategory = 'Shopping';
+      } else if (categoryLower.includes('ocio') || categoryLower.includes('viajes')) {
+        mappedCategory = 'Entertainment';
+      } else if (categoryLower.includes('ingresos')) {
+        mappedCategory = 'Ingresos';
+      } else if (categoryLower.includes('transferencia')) {
+        mappedCategory = 'Transferencias';
+      } else {
+        // Use smart categorization
+        mappedCategory = categorizeTransaction(description);
+      }
+    } else {
+      mappedCategory = categorizeTransaction(description);
+    }
+    
+    transactions.push({
+      bank: 'ING',
+      date: parsedDate,
+      category: mappedCategory,
+      description: description.trim(),
+      amount: Math.abs(parsedAmount),
+      type: type
+    });
+  }
+  
+  return {
+    bank: 'ING',
+    accountNumber: accountNumber || null,
+    lastBalance: lastBalance,
+    transactions
+  };
 }
 
 /**
