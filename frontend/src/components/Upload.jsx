@@ -141,6 +141,11 @@ function Upload({ onUploadComplete }) {
           transactions: parseResult?.transactions?.slice(0, 3) // Show first 3
         });
         
+        // Show alert if only 1 transaction parsed (should be many more)
+        if (parseResult?.transactions?.length === 1) {
+          alert(`⚠️ WARNING: Only parsed 1 transaction from CSV!\n\nExpected many more. Check console for details.`);
+        }
+        
         if (!parseResult || !parseResult.transactions) {
           console.error(`❌ No transactions found in ${file.name}`);
           continue;
