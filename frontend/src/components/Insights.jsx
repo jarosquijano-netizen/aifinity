@@ -19,22 +19,28 @@ function Insights() {
   const [chatTimePeriod, setChatTimePeriod] = useState('all'); // 'all', 'day', 'week', 'month', 'year'
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
+  const chatWasOpenRef = useRef(false); // Track if chat was previously open
 
   useEffect(() => {
     fetchAllData();
   }, []);
 
   // Clear chat messages when opening the chat panel (fresh start every time)
+  // Only clear when chat changes from closed to open, not on every render
   useEffect(() => {
-    if (showChat) {
-      // Clear all messages when chat panel opens
+    if (showChat && !chatWasOpenRef.current) {
+      // Chat is opening for the first time - clear all messages
       setChatMessages([]);
       setChatError('');
       setChatInput('');
+      chatWasOpenRef.current = true;
       // Focus input when chat opens
       setTimeout(() => {
         chatInputRef.current?.focus();
       }, 100);
+    } else if (!showChat && chatWasOpenRef.current) {
+      // Chat is closing - reset the flag so next open will clear
+      chatWasOpenRef.current = false;
     }
   }, [showChat]);
 
