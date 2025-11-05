@@ -38,6 +38,31 @@ router.post('/upload', optionalAuth, async (req, res) => {
     for (const transaction of transactions) {
       const { bank, date, category, description, amount, type, computable } = transaction;
       
+      // Validate required fields
+      if (!date || !description || amount === undefined || amount === null || !type) {
+        console.error('❌ Invalid transaction skipped:', {
+          date,
+          description,
+          amount,
+          type,
+          bank
+        });
+        continue;
+      }
+      
+      // Validate date format (should be YYYY-MM-DD)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        console.error('❌ Invalid date format skipped:', date);
+        continue;
+      }
+      
+      // Validate amount is a number
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount) || parsedAmount === 0) {
+        console.error('❌ Invalid amount skipped:', amount);
+        continue;
+      }
+      
       // Auto-exclude Transferencias from analytics
       let isComputable;
       if (category === 'Transferencias') {
@@ -86,11 +111,17 @@ router.post('/upload', optionalAuth, async (req, res) => {
         }
       }
 
+      // Ensure all values are properly formatted
+      const cleanBank = bank || 'Unknown';
+      const cleanCategory = category || 'Uncategorized';
+      const cleanDescription = description.trim() || 'Transaction';
+      const cleanAmount = parseFloat(amount);
+      
       const result = await client.query(
         `INSERT INTO transactions (user_id, bank, date, category, description, amount, type, account_id, computable, applicable_month)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
-        [userId, bank, date, category, description, amount, type, account_id, isComputable, applicableMonth]
+        [userId, cleanBank, date, cleanCategory, cleanDescription, cleanAmount, type, account_id, isComputable, applicableMonth]
       );
 
       insertedTransactions.push(result.rows[0]);

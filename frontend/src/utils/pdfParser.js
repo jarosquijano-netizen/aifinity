@@ -150,13 +150,36 @@ function parseSabadellStatement(text) {
 
 /**
  * Parse date string to YYYY-MM-DD format
+ * Handles multiple date formats: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, etc.
  */
 function parseDate(dateStr) {
+  if (!dateStr) return new Date().toISOString().split('T')[0];
+  
+  // Trim whitespace
+  dateStr = dateStr.trim();
+  
+  // If already in YYYY-MM-DD format, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
+  
   // Handle DD-MM-YYYY or DD/MM/YYYY
-  const parts = dateStr.split(/[-/]/);
+  const parts = dateStr.split(/[-/\.]/);
   
   if (parts.length === 3) {
-    let [day, month, year] = parts;
+    let day, month, year;
+    
+    // Try to detect format (DD-MM-YYYY vs YYYY-MM-DD)
+    const firstPart = parts[0];
+    const thirdPart = parts[2];
+    
+    if (firstPart.length === 4) {
+      // YYYY-MM-DD format
+      [year, month, day] = parts;
+    } else {
+      // DD-MM-YYYY format
+      [day, month, year] = parts;
+    }
     
     // Pad day and month with leading zeros
     day = day.padStart(2, '0');
@@ -167,9 +190,20 @@ function parseDate(dateStr) {
       year = '20' + year;
     }
     
-    return `${year}-${month}-${day}`;
+    // Validate date parts
+    if (year.length === 4 && month.length === 2 && day.length === 2) {
+      return `${year}-${month}-${day}`;
+    }
   }
   
+  // Try parsing as ISO date
+  const isoDate = new Date(dateStr);
+  if (!isNaN(isoDate.getTime())) {
+    return isoDate.toISOString().split('T')[0];
+  }
+  
+  // Fallback to today's date
+  console.warn(`⚠️ Could not parse date: "${dateStr}", using today's date`);
   return new Date().toISOString().split('T')[0];
 }
 
@@ -968,11 +1002,21 @@ function parseDetectedFormat(lines, format) {
       type = parsedAmount > 0 ? 'income' : 'expense';
     }
     
+    // Validate transaction before adding
+    const parsedDate = parseDate(dateStr);
+    const cleanDescription = (description || '').trim();
+    
+    // Skip if description is empty
+    if (!cleanDescription) {
+      console.warn(`⚠️ Skipping transaction with empty description on date: ${parsedDate}`);
+      continue;
+    }
+    
     const transaction = {
-      bank: format.bank,
-      date: parseDate(dateStr),
-      category: categorizeTransaction(description || ''),
-      description: description || '',
+      bank: format.bank || 'Unknown',
+      date: parsedDate,
+      category: categorizeTransaction(cleanDescription),
+      description: cleanDescription,
       amount: Math.abs(parsedAmount),
       type: type
     };
