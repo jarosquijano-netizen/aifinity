@@ -72,6 +72,60 @@ export const CATEGORY_BENCHMARKS = {
 export function formatFinancialContext(data, timeRange) {
   let context = '';
   
+  // ⭐ START WITH ACCOUNT BALANCES - Most important for "how much money" questions
+  if (data.accounts && data.accounts.length > 0) {
+    context += `\n## ⭐ YOUR CURRENT MONEY - Account Balances\n\n`;
+    let totalBalance = 0;
+    let totalSavings = 0;
+    let totalChecking = 0;
+    let totalCreditDebt = 0;
+    
+    data.accounts.forEach(acc => {
+      if (acc.type === 'credit') {
+        const debt = Math.abs(acc.balance || 0);
+        totalCreditDebt += debt;
+      } else if (acc.type === 'savings') {
+        totalSavings += (acc.balance || 0);
+        totalBalance += (acc.balance || 0);
+      } else if (acc.type === 'checking') {
+        totalChecking += (acc.balance || 0);
+        totalBalance += (acc.balance || 0);
+      } else {
+        totalBalance += (acc.balance || 0);
+      }
+    });
+    
+    context += `**⭐ TOTAL AVAILABLE MONEY: €${totalBalance.toFixed(2)}**\n\n`;
+    if (totalChecking > 0) {
+      context += `- Checking Accounts: €${totalChecking.toFixed(2)}\n`;
+    }
+    if (totalSavings > 0) {
+      context += `- Savings Accounts: €${totalSavings.toFixed(2)}\n`;
+    }
+    if (totalCreditDebt > 0) {
+      context += `- Credit Card Debt: €${totalCreditDebt.toFixed(2)}\n`;
+    }
+    context += `- Net Worth (Accounts - Credit Debt): €${(totalBalance - totalCreditDebt).toFixed(2)}\n\n`;
+    
+    context += `**Individual Accounts:**\n`;
+    data.accounts.forEach(acc => {
+      if (acc.type === 'credit') {
+        const utilization = acc.creditLimit > 0
+          ? ((Math.abs(acc.balance || 0) / acc.creditLimit) * 100).toFixed(1)
+          : 0;
+        context += `- ${acc.name} (Credit Card): €${Math.abs(acc.balance || 0).toFixed(2)} debt / €${(acc.creditLimit || 0).toFixed(2)} limit (${utilization}%)\n`;
+      } else {
+        context += `- ${acc.name} (${acc.type}): €${(acc.balance || 0).toFixed(2)}\n`;
+      }
+    });
+    context += '\n';
+  } else if (data.summary && data.summary.allTime && data.summary.allTime.transactionCount > 0) {
+    // If no accounts configured but there are transactions, mention this
+    context += `\n## ⚠️ Account Balances\n\n`;
+    context += `No accounts configured in the system. However, you have ${data.summary.allTime.transactionCount} transactions recorded.\n`;
+    context += `💡 To see your actual account balances, configure your accounts in the Accounts section.\n\n`;
+  }
+  
   // Time period header
   context += `\n## Time Period: ${timeRange || 'all'}\n\n`;
   
@@ -80,7 +134,17 @@ export function formatFinancialContext(data, timeRange) {
   context += `- All-time Income: €${data.summary.allTime.totalIncome.toFixed(2)}\n`;
   context += `- All-time Expenses: €${data.summary.allTime.totalExpenses.toFixed(2)}\n`;
   context += `- All-time Net Balance: €${data.summary.allTime.netBalance.toFixed(2)}\n`;
-  context += `- Total Transactions: ${data.summary.allTime.transactionCount}\n\n`;
+  context += `- Total Transactions: ${data.summary.allTime.transactionCount}\n`;
+  
+  if (data.summary.allTime.transactionCount > 0) {
+    context += `- ✅ Data Available: ${data.summary.allTime.transactionCount} transactions recorded\n`;
+    if (data.summary.allTime.oldestTransactionDate) {
+      const oldestDate = new Date(data.summary.allTime.oldestTransactionDate).toLocaleDateString();
+      const newestDate = new Date(data.summary.allTime.newestTransactionDate).toLocaleDateString();
+      context += `- Date Range: ${oldestDate} to ${newestDate}\n`;
+    }
+  }
+  context += '\n';
   
   // Filtered Period Summary
   if (timeRange && timeRange !== 'all') {
@@ -153,20 +217,53 @@ export function formatFinancialContext(data, timeRange) {
     context += '\n';
   }
   
-  // Account Balances
+  // Account Balances - CRITICAL for "how much money" questions
   if (data.accounts && data.accounts.length > 0) {
-    context += `🏦 **Account Balances:**\n`;
+    context += `🏦 **Account Balances (This is where the user's money is!):**\n`;
+    let totalBalance = 0;
+    let totalSavings = 0;
+    let totalChecking = 0;
+    let totalCreditDebt = 0;
+    
     data.accounts.forEach(acc => {
       if (acc.type === 'credit') {
         const utilization = acc.creditLimit > 0
           ? ((Math.abs(acc.balance) / acc.creditLimit) * 100).toFixed(1)
           : 0;
-        context += `- ${acc.name} (${acc.type}): €${Math.abs(acc.balance).toFixed(2)} debt / €${acc.creditLimit.toFixed(2)} limit (${utilization}% utilization)\n`;
+        const debt = Math.abs(acc.balance);
+        totalCreditDebt += debt;
+        context += `- ${acc.name} (${acc.type}): €${debt.toFixed(2)} debt / €${acc.creditLimit.toFixed(2)} limit (${utilization}% utilization)\n`;
+      } else if (acc.type === 'savings') {
+        totalSavings += acc.balance;
+        totalBalance += acc.balance;
+        context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
+      } else if (acc.type === 'checking') {
+        totalChecking += acc.balance;
+        totalBalance += acc.balance;
+        context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
       } else {
+        totalBalance += acc.balance;
         context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
       }
     });
-    context += '\n';
+    
+    context += `\n**Total Account Balances:**\n`;
+    context += `- Total Available Money: €${totalBalance.toFixed(2)}\n`;
+    if (totalChecking > 0) {
+      context += `- Checking Accounts: €${totalChecking.toFixed(2)}\n`;
+    }
+    if (totalSavings > 0) {
+      context += `- Savings Accounts: €${totalSavings.toFixed(2)}\n`;
+    }
+    if (totalCreditDebt > 0) {
+      context += `- Total Credit Card Debt: €${totalCreditDebt.toFixed(2)}\n`;
+    }
+    context += `- Net Worth (Accounts - Credit Debt): €${(totalBalance - totalCreditDebt).toFixed(2)}\n\n`;
+  } else if (data.summary && data.summary.allTime && data.summary.allTime.transactionCount > 0) {
+    // If no accounts configured but there are transactions, mention this
+    context += `🏦 **Account Balances:**\n`;
+    context += `⚠️ No accounts configured in the system. However, you have ${data.summary.allTime.transactionCount} transactions recorded.\n`;
+    context += `💡 To see your actual account balances, configure your accounts in the Accounts section.\n\n`;
   }
   
   // Recent Transactions
@@ -227,7 +324,16 @@ ${dataContext}
 - Format with clear sections and bullet points for readability
 - Include specific euro amounts in recommendations
 - End with 1-2 immediate action items
-- If values are €0.00, this means no transactions were recorded for that period, not that data is missing
+
+## CRITICAL: Data Interpretation Rules
+- **FOR "HOW MUCH MONEY" QUESTIONS**: Always check the "⭐ Total Available Money" section first - this is the actual money in bank accounts
+- If account balances are shown, USE THOSE NUMBERS - they represent actual money in bank accounts
+- Account balances (🏦 section) show CURRENT money, not historical transactions
+- Transaction summaries show income/expense FLOWS, not current balances
+- If transaction count > 0, the user HAS data - don't say "no data"
+- If all values are €0.00 AND transaction count is 0, then say no transactions recorded
+- If account balances exist, prioritize those over transaction summaries for "how much money" questions
+- The "Total Available Money" is the most important number for "how much money do I have" questions
 
 Please provide a comprehensive financial analysis and advice:`;
 

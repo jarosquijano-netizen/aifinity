@@ -174,6 +174,19 @@ export async function handleAIChatRequest(req, res, db) {
     // Fetch user's financial data
     const financialData = await fetchUserFinancialData(db, userId, timePeriod);
 
+    // Log financial data for debugging (especially account balances)
+    console.log('🔍 Financial Data for AI:', {
+      userId,
+      transactionCount: financialData.summary?.allTime?.transactionCount || 0,
+      accountCount: financialData.accounts?.length || 0,
+      totalAccountsBalance: financialData.accounts?.reduce((sum, acc) => {
+        if (acc.type === 'credit') return sum;
+        return sum + (acc.balance || 0);
+      }, 0) || 0,
+      hasAccounts: financialData.accounts && financialData.accounts.length > 0,
+      accountNames: financialData.accounts?.map(a => a.name) || []
+    });
+
     // Initialize AI service
     const aiService = new EnhancedAIService(apiKey);
 
