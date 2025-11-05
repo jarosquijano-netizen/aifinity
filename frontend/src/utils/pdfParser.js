@@ -463,18 +463,20 @@ export async function parsePDFTransactions(file) {
  * Parse CSV file - detects format automatically
  */
 export async function parseCSVTransactions(file) {
-  console.log('🚀 parseCSVTransactions CALLED with file:', file.name, file.type);
+  console.error('🚀🚀🚀 parseCSVTransactions CALLED with file:', file.name, file.type);
+  alert(`🚀 CSV Parser Called: ${file.name}`);
   
   try {
     const text = await file.text();
-    console.log('📖 File text read, length:', text.length);
+    console.error('📖 File text read, length:', text.length);
     
     // Handle both Windows (\r\n) and Unix (\n) line endings
     // DON'T filter empty lines - we need to preserve line indices for header detection
     const lines = text.split(/\r?\n/);
     
-    console.log(`📄 CSV file: ${file.name}, ${lines.length} lines`);
-    console.log(`📄 First 5 lines with indices:`, lines.slice(0, 5).map((l, i) => `[${i}] ${l.substring(0, 80)}`));
+    console.error(`📄 CSV file: ${file.name}, ${lines.length} lines`);
+    console.error(`📄 First 5 lines with indices:`, lines.slice(0, 5).map((l, i) => `[${i}] ${l.substring(0, 80)}`));
+    alert(`📄 CSV has ${lines.length} lines\nFirst line: ${lines[0]?.substring(0, 50)}`);
     
     // Check if it's a credit card statement
     const isCreditCard = detectSabadellCreditCardFormat(text);
@@ -493,24 +495,29 @@ export async function parseCSVTransactions(file) {
     }
     
     // Detect ING Spanish format (Movimientos de la Cuenta with F. VALOR header)
-    console.log('🔍 Checking for ING Spanish format...');
+    console.error('🔍 Checking for ING Spanish format...');
+    console.error('🔍 Text preview:', text.substring(0, 200));
+    console.error('🔍 First 10 lines:', lines.slice(0, 10));
     const isINGSpanishFormat = detectINGSpanishFormat(text, lines);
-    console.log('🔍 ING format detection result:', isINGSpanishFormat);
+    console.error('🔍 ING format detection result:', isINGSpanishFormat);
     
     if (isINGSpanishFormat) {
-      console.log('🏦 Detected: ING Spanish format');
+      console.error('🏦 Detected: ING Spanish format - CALLING parseINGSpanishCSV');
       const result = parseINGSpanishCSV(lines);
-      console.log(`✅ ING parser returned ${result.transactions.length} transactions`);
+      console.error(`✅ ING parser returned ${result.transactions.length} transactions`);
       
-      // Alert if only 1 transaction (should be many more)
+      // CRITICAL ALERT if only 1 transaction
       if (result.transactions.length <= 1) {
-        console.error('⚠️ WARNING: Only parsed 1 transaction from ING CSV! Expected many more.');
-        console.error('CSV lines:', lines.length);
-        console.error('First 10 lines:', lines.slice(0, 10));
-        console.error('Header row index should be around 3-4');
+        const errorMsg = `⚠️ WARNING: Only parsed ${result.transactions.length} transaction from ING CSV!\n\nExpected many more.\n\nCSV lines: ${lines.length}\nFirst 10 lines:\n${lines.slice(0, 10).join('\n')}`;
+        console.error('❌ CRITICAL:', errorMsg);
+        alert(errorMsg);
       }
       
       return result;
+    } else {
+      console.error('❌ ING format NOT detected!');
+      console.error('Text contains "movimientos":', text.toLowerCase().includes('movimientos'));
+      console.error('Text contains "número de cuenta":', text.toLowerCase().includes('número de cuenta'));
     }
     
     // Try to detect other bank formats
@@ -594,7 +601,8 @@ function detectINGSpanishFormat(text, lines) {
  * Format: F. VALOR,CATEGORÍA,SUBCATEGORÍA,DESCRIPCIÓN,COMENTARIO,IMAGEN,IMPORTE (€),SALDO (€)
  */
 function parseINGSpanishCSV(lines) {
-  console.log('🔵 parseINGSpanishCSV CALLED with', lines.length, 'lines');
+  console.error('🔵🔵🔵 parseINGSpanishCSV CALLED with', lines.length, 'lines');
+  alert(`🔵 ING Parser Called with ${lines.length} lines`);
   
   const transactions = [];
   let accountNumber = '';
@@ -620,7 +628,8 @@ function parseINGSpanishCSV(lines) {
         lineLower.includes('categoría') && 
         lineLower.includes('importe')) {
       headerRowIndex = i;
-      console.log('✅ Found header row at index:', i, 'Content:', line.substring(0, 100));
+      console.error('✅ Found header row at index:', i, 'Content:', line.substring(0, 100));
+      alert(`✅ Header row found at line ${i + 1}: ${line.substring(0, 80)}`);
       break;
     }
   }
@@ -638,9 +647,9 @@ function parseINGSpanishCSV(lines) {
   const headerRow = lines[headerRowIndex];
   const headers = parseCSVLine(headerRow);
   
-  console.log('📋 ING CSV Headers:', headers);
-  console.log('📋 Header row index:', headerRowIndex);
-  console.log('📋 Total lines:', lines.length);
+  console.error('📋 ING CSV Headers:', headers);
+  console.error('📋 Header row index:', headerRowIndex);
+  console.error('📋 Total lines:', lines.length);
   
   const dateColumn = headers.findIndex(h => h.toLowerCase().includes('f. valor') || h.toLowerCase().includes('fecha'));
   const categoryColumn = headers.findIndex(h => h.toLowerCase().includes('categoría'));
@@ -648,13 +657,15 @@ function parseINGSpanishCSV(lines) {
   const amountColumn = headers.findIndex(h => h.toLowerCase().includes('importe'));
   const balanceColumn = headers.findIndex(h => h.toLowerCase().includes('saldo'));
   
-  console.log('📍 Column indices:', {
+  console.error('📍 Column indices:', {
     dateColumn,
     categoryColumn,
     descriptionColumn,
     amountColumn,
     balanceColumn
   });
+  
+  alert(`📍 Column indices:\nDate: ${dateColumn}, Desc: ${descriptionColumn}, Amount: ${amountColumn}\nTotal lines: ${lines.length}`);
   
   if (dateColumn === -1 || amountColumn === -1) {
     console.error('❌ Missing required columns:', { dateColumn, amountColumn });
@@ -669,7 +680,7 @@ function parseINGSpanishCSV(lines) {
   let processedCount = 0;
   let validCount = 0;
   
-  console.log(`🔄 Starting to parse transactions from line ${headerRowIndex + 1} to ${lines.length - 1}`);
+  console.error(`🔄 Starting to parse transactions from line ${headerRowIndex + 1} to ${lines.length - 1}`);
   
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -804,9 +815,12 @@ function parseINGSpanishCSV(lines) {
     });
   }
   
-  console.log(`✅ ING CSV parsed: ${transactions.length} transactions`);
-  console.log(`📊 Summary: ${validCount} valid, ${skippedCount} skipped, ${processedCount} rows processed`);
-  console.log(`📊 Header at row ${headerRowIndex}, parsing from row ${headerRowIndex + 1} to ${lines.length - 1}`);
+  console.error(`✅ ING CSV parsed: ${transactions.length} transactions`);
+  console.error(`📊 Summary: ${validCount} valid, ${skippedCount} skipped, ${processedCount} rows processed`);
+  console.error(`📊 Header at row ${headerRowIndex}, parsing from row ${headerRowIndex + 1} to ${lines.length - 1}`);
+  
+  // CRITICAL ALERT with summary
+  alert(`📊 ING Parse Summary:\n✅ Valid: ${validCount}\n⏭️ Skipped: ${skippedCount}\n📄 Processed: ${processedCount}\n💾 Saved: ${transactions.length}`);
   
   if (transactions.length === 0) {
     console.error('❌ No transactions parsed from ING CSV!');
