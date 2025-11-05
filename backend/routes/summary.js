@@ -27,8 +27,10 @@ router.get('/', optionalAuth, async (req, res) => {
 
     // Get actual income AND expenses for current month (using applicable_month if available)
     const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    // Get only the most recent salary (1 salary) for current month
     const actualIncomeResult = await pool.query(
-      `SELECT SUM(amount) as actual_income
+      `SELECT amount as actual_income
        FROM transactions
        WHERE type = 'income'
        AND computable = true
@@ -37,28 +39,30 @@ router.get('/', optionalAuth, async (req, res) => {
          (applicable_month IS NOT NULL AND applicable_month = $2)
          OR
          (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
-       )`,
+       )
+       ORDER BY date DESC, id DESC
+       LIMIT 1`,
       [userId, currentMonth]
     );
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);
 
-    // Get actual expenses for current month
+    // Get actual expenses for current month (only use actual date, not applicable_month)
+    // Use DATE_TRUNC to ensure we're comparing dates correctly, ignoring time components
+    // Explicitly ignore applicable_month for expenses - expenses should always use actual transaction date
+    const currentMonthDate = currentMonth + '-01';
     const actualExpensesResult = await pool.query(
       `SELECT SUM(amount) as actual_expenses
        FROM transactions
        WHERE type = 'expense'
        AND computable = true
        AND (user_id IS NULL OR user_id = $1)
-       AND (
-         (applicable_month IS NOT NULL AND applicable_month = $2)
-         OR
-         (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
-       )`,
-      [userId, currentMonth]
+       AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)`,
+      [userId, currentMonthDate]
     );
     const actualExpenses = parseFloat(actualExpensesResult.rows[0]?.actual_expenses || 0);
 
     // Get category breakdown for current month (only computable transactions)
+    // For expenses, use actual date only (never applicable_month); for income, use applicable_month if available
     const categoriesResult = await pool.query(
       `SELECT 
          category,
@@ -69,13 +73,17 @@ router.get('/', optionalAuth, async (req, res) => {
        WHERE (user_id IS NULL OR user_id = $1) 
        AND computable = true
        AND (
-         (applicable_month IS NOT NULL AND applicable_month = $2)
+         (type = 'income' AND (
+           (applicable_month IS NOT NULL AND applicable_month = $2)
+           OR
+           (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+         ))
          OR
-         (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+         (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
        )
        GROUP BY category, type
        ORDER BY total DESC`,
-      [userId, currentMonth]
+      [userId, currentMonth, currentMonthDate]
     );
 
     // Get recent transactions

@@ -299,7 +299,10 @@ function Dashboard() {
   const getBalanceAdvice = () => {
     const currentIncome = data.actualIncome || 0;
     const currentExpenses = data.actualExpenses !== undefined ? data.actualExpenses : (data.totalExpenses || 0);
-    const currentBalance = currentIncome - currentExpenses; // Always recalculate
+    // Use backend calculated balance if available, otherwise recalculate
+    const currentBalance = data.actualNetBalance !== undefined 
+      ? data.actualNetBalance 
+      : (currentIncome - currentExpenses);
     const savingsRate = currentIncome > 0 ? (currentBalance / currentIncome) * 100 : 0;
     if (currentBalance < 0) return '⚠️ Reduce gastos';
     if (savingsRate < 10) return '💡 Ahorra más';
@@ -393,10 +396,12 @@ function Dashboard() {
       'kpi-balance': (() => {
         const incomeRatio = expectedIncome > 0 ? (data.actualIncome / expectedIncome) * 100 : 0;
         const hasExpectedIncome = expectedIncome > 0;
-        // Always recalculate net balance to ensure correctness: Income - Expenses
+        // Use backend calculated balance if available, otherwise recalculate: Income - Expenses
         const actualIncome = data.actualIncome || 0;
         const actualExpenses = data.actualExpenses !== undefined ? data.actualExpenses : (data.totalExpenses || 0);
-        const actualBalance = actualIncome - actualExpenses;
+        const actualBalance = data.actualNetBalance !== undefined 
+          ? data.actualNetBalance 
+          : (actualIncome - actualExpenses);
         
         return (
           <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg ${cardSize.padding} border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl h-full ${cardSize.height} flex flex-col ${isLarge ? 'justify-between' : 'justify-start'}`}>
