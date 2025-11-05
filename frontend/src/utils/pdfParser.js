@@ -445,9 +445,16 @@ export async function parseCSVTransactions(file) {
     
     if (isSabadellFormat) {
       return parseSabadellCSV(lines);
-    } else {
-      return parseGenericCSV(lines);
     }
+    
+    // Try to detect other bank formats
+    const detectedFormat = detectBankFormat(text, lines);
+    if (detectedFormat) {
+      return parseDetectedFormat(lines, detectedFormat);
+    }
+    
+    // Fall back to generic CSV parsing
+    return parseGenericCSV(lines);
   } catch (error) {
     console.error('Error parsing CSV:', error);
     throw error;
@@ -802,7 +809,187 @@ function categorizeSabadellTransaction(description) {
 }
 
 /**
- * Parse generic CSV format
+ * Detect bank format from CSV headers/content
+ */
+function detectBankFormat(text, lines) {
+  const textLower = text.toLowerCase();
+  const firstFewLines = lines.slice(0, 10).join('\n').toLowerCase();
+  
+  // Try to find header row
+  let headerRowIndex = -1;
+  let headerRow = '';
+  
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i].toLowerCase();
+    // Common header patterns
+    if (line.includes('date') || line.includes('fecha') || line.includes('f. operativa') ||
+        line.includes('transaction date') || line.includes('fecha operativa')) {
+      headerRowIndex = i;
+      headerRow = lines[i];
+      break;
+    }
+  }
+  
+  if (headerRowIndex === -1) return null;
+  
+  const headers = parseCSVLine(headerRow);
+  const headerLower = headerRow.toLowerCase();
+  
+  // Detect format based on header combinations
+  const format = {
+    headerRowIndex,
+    headers,
+    bank: 'Unknown',
+    dateColumn: -1,
+    descriptionColumn: -1,
+    amountColumn: -1,
+    balanceColumn: -1,
+    typeColumn: -1
+  };
+  
+  // Find column indices
+  headers.forEach((header, index) => {
+    const h = header.toLowerCase();
+    if (h.includes('date') || h.includes('fecha') || h.includes('f. operativa') || h.includes('operation date')) {
+      format.dateColumn = index;
+    }
+    if (h.includes('description') || h.includes('descripcion') || h.includes('concepto') || 
+        h.includes('details') || h.includes('memo') || h.includes('narrative')) {
+      format.descriptionColumn = index;
+    }
+    if (h.includes('amount') || h.includes('importe') || h.includes('value') || 
+        h.includes('balance') || h.includes('saldo')) {
+      if (h.includes('balance') || h.includes('saldo')) {
+        format.balanceColumn = index;
+      } else {
+        format.amountColumn = index;
+      }
+    }
+    if (h.includes('type') || h.includes('tipo') || h.includes('category') || h.includes('categoria')) {
+      format.typeColumn = index;
+    }
+  });
+  
+  // Detect bank from content
+  if (textLower.includes('ing') || textLower.includes('ing bank')) {
+    format.bank = 'ING';
+  } else if (textLower.includes('sabadell') || textLower.includes('banco sabadell')) {
+    format.bank = 'Sabadell';
+  } else if (textLower.includes('santander') || textLower.includes('banco santander')) {
+    format.bank = 'Santander';
+  } else if (textLower.includes('bbva') || textLower.includes('banco bilbao')) {
+    format.bank = 'BBVA';
+  } else if (textLower.includes('caixa') || textLower.includes('la caixa')) {
+    format.bank = 'CaixaBank';
+  } else if (textLower.includes('bankia') || textLower.includes('unicaja')) {
+    format.bank = 'Bankia';
+  } else {
+    format.bank = 'Unknown';
+  }
+  
+  // Check if we have minimum required columns
+  if (format.dateColumn === -1 || format.amountColumn === -1) {
+    return null;
+  }
+  
+  return format;
+}
+
+/**
+ * Parse CSV using detected format
+ */
+function parseDetectedFormat(lines, format) {
+  const transactions = [];
+  let accountNumber = '';
+  let lastBalance = null;
+  let balanceFound = false;
+  
+  // Look for account number in first few lines
+  for (let i = 0; i < Math.min(format.headerRowIndex, 10); i++) {
+    const line = lines[i];
+    const accountMatch = line.match(/ES\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}/);
+    if (accountMatch) {
+      accountNumber = accountMatch[0].replace(/\s/g, '');
+      break;
+    }
+  }
+  
+  // Parse transactions starting after header
+  for (let i = format.headerRowIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const fields = parseCSVLine(line);
+    
+    // Check if we have enough fields
+    const maxColumn = Math.max(
+      format.dateColumn,
+      format.descriptionColumn,
+      format.amountColumn,
+      format.balanceColumn || 0,
+      format.typeColumn || 0
+    );
+    
+    if (fields.length <= maxColumn) continue;
+    
+    const dateStr = fields[format.dateColumn];
+    const description = format.descriptionColumn >= 0 ? fields[format.descriptionColumn] : '';
+    const amountStr = fields[format.amountColumn];
+    const balanceStr = format.balanceColumn >= 0 ? fields[format.balanceColumn] : null;
+    const typeStr = format.typeColumn >= 0 ? fields[format.typeColumn] : null;
+    
+    // Extract balance if available (first valid one)
+    if (balanceStr && !balanceFound) {
+      const parsedBalance = parseAmount(balanceStr);
+      if (!isNaN(parsedBalance)) {
+        lastBalance = parsedBalance;
+        balanceFound = true;
+      }
+    }
+    
+    if (!dateStr || !amountStr) continue;
+    
+    const parsedAmount = parseAmount(amountStr);
+    if (parsedAmount === 0 || isNaN(parsedAmount)) continue;
+    
+    // Determine transaction type
+    let type = 'expense';
+    if (typeStr) {
+      const typeLower = typeStr.toLowerCase();
+      if (typeLower.includes('income') || typeLower.includes('ingreso') || 
+          typeLower.includes('credit') || typeLower.includes('deposit')) {
+        type = 'income';
+      } else if (typeLower.includes('expense') || typeLower.includes('gasto') || 
+                 typeLower.includes('debit') || typeLower.includes('payment')) {
+        type = 'expense';
+      }
+    } else {
+      // Infer from amount sign
+      type = parsedAmount > 0 ? 'income' : 'expense';
+    }
+    
+    const transaction = {
+      bank: format.bank,
+      date: parseDate(dateStr),
+      category: categorizeTransaction(description || ''),
+      description: description || '',
+      amount: Math.abs(parsedAmount),
+      type: type
+    };
+    
+    transactions.push(transaction);
+  }
+  
+  return {
+    bank: format.bank,
+    accountNumber: accountNumber || null,
+    lastBalance: lastBalance,
+    transactions
+  };
+}
+
+/**
+ * Parse generic CSV format (fallback)
  */
 function parseGenericCSV(lines) {
   const transactions = [];
@@ -815,7 +1002,9 @@ function parseGenericCSV(lines) {
     // Parse CSV line (handle quoted fields)
     const fields = parseCSVLine(line);
     
+    // Try different column orders
     if (fields.length >= 5) {
+      // Format: Bank,Date,Category,Description,Amount,Type
       const [bank, date, category, description, amount, type] = fields;
       
       if (date && amount) {
@@ -826,6 +1015,21 @@ function parseGenericCSV(lines) {
           description: description || '',
           amount: Math.abs(parseFloat(amount)),
           type: type || (parseFloat(amount) > 0 ? 'income' : 'expense')
+        });
+      }
+    } else if (fields.length >= 3) {
+      // Format: Date,Description,Amount (minimal)
+      const [date, description, amount] = fields;
+      
+      if (date && amount) {
+        const parsedAmount = parseAmount(amount);
+        transactions.push({
+          bank: 'CSV Import',
+          date: parseDate(date),
+          category: categorizeTransaction(description || ''),
+          description: description || '',
+          amount: Math.abs(parsedAmount),
+          type: parsedAmount > 0 ? 'income' : 'expense'
         });
       }
     }
