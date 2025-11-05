@@ -215,8 +215,21 @@ function Upload({ onUploadComplete }) {
       }, 2000);
 
     } catch (err) {
-      console.error('Processing error:', err);
-      setError(err.message || 'Failed to process files');
+      console.error('❌ Processing error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      });
+      
+      // Show more detailed error message
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          err.message || 
+                          'Failed to process files';
+      
+      setError(errorMessage);
     } finally {
       setProcessing(false);
     }
