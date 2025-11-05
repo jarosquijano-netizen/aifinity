@@ -7,23 +7,65 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.j
  * Extract text from PDF file
  */
 export async function extractTextFromPDF(file) {
+  console.error('📄 extractTextFromPDF CALLED');
+  
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    console.error(`📄 PDF has ${pdf.numPages} pages`);
     
     let fullText = '';
     
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
+      
+      // Improved text extraction - preserve structure better
+      // For table-like PDFs, items might have positioning info
+      let pageText = '';
+      
+      // Try to preserve line structure by checking y-coordinates
+      let lastY = null;
+      const items = textContent.items;
+      
+      for (let j = 0; j < items.length; j++) {
+        const item = items[j];
+        const currentY = item.transform ? item.transform[5] : null; // y-coordinate
+        
+        // If y-coordinate changed significantly, it's a new line
+        if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 5) {
+          pageText += '\n';
+        }
+        
+        pageText += item.str;
+        
+        // Add space unless next item is very close horizontally
+        if (j < items.length - 1) {
+          const nextItem = items[j + 1];
+          const currentX = item.transform ? item.transform[4] : null;
+          const nextX = nextItem.transform ? nextItem.transform[4] : null;
+          
+          if (currentX !== null && nextX !== null && nextX - currentX > item.width * 1.5) {
+            pageText += ' ';
+          }
+        }
+        
+        lastY = currentY;
+      }
+      
       fullText += pageText + '\n';
+      
+      if (i === 1) {
+        console.error(`📄 Page 1 text (first 500 chars):`, pageText.substring(0, 500));
+      }
     }
     
+    console.error(`📄 Total extracted text length: ${fullText.length}`);
     return fullText;
   } catch (error) {
-    console.error('Error extracting PDF text:', error);
-    throw new Error('Failed to extract text from PDF');
+    console.error('❌ Error extracting PDF text:', error);
+    throw new Error('Failed to extract text from PDF: ' + error.message);
   }
 }
 
@@ -199,8 +241,11 @@ function parseINGStatement(text) {
   console.error(`✅ PDF parsing complete: ${transactions.length} transactions, ${skippedCount} skipped, ${processedCount} rows with dates`);
   
   if (transactions.length < 5) {
-    console.error('⚠️ WARNING: Only parsed', transactions.length, 'transactions from PDF. Expected more.');
-    console.error('Sample lines:', lines.slice(0, 30));
+    const warningMsg = `⚠️ WARNING: Only parsed ${transactions.length} transactions from PDF!\n\nExpected more.\n\nProcessed: ${processedCount} rows with dates\nSkipped: ${skippedCount}\n\nFirst 30 lines:\n${lines.slice(0, 30).join('\n')}`;
+    console.error('⚠️ WARNING:', warningMsg);
+    alert(warningMsg);
+  } else {
+    alert(`✅ PDF Parsed Successfully!\n${transactions.length} transactions\n${skippedCount} skipped\n${processedCount} rows processed`);
   }
   
   return transactions;
@@ -542,20 +587,35 @@ function categorizeTransaction(description) {
  * Main function to parse PDF transactions
  */
 export async function parsePDFTransactions(file) {
+  console.error('🚀🚀🚀 parsePDFTransactions CALLED with file:', file.name);
+  alert(`🚀 PDF Parser Called: ${file.name}`);
+  
   try {
+    console.error('📄 Extracting text from PDF...');
     const text = await extractTextFromPDF(file);
+    console.error('📄 PDF text extracted, length:', text.length);
+    console.error('📄 First 500 chars:', text.substring(0, 500));
+    alert(`📄 PDF text extracted: ${text.length} chars\nPreview: ${text.substring(0, 100)}`);
+    
     const bank = detectBank(text);
+    console.error('🏦 Detected bank:', bank);
+    alert(`🏦 Detected bank: ${bank}`);
     
     let transactions = [];
     
     if (bank === 'ING') {
+      console.error('🏦 Using ING parser...');
       transactions = parseINGStatement(text);
     } else if (bank === 'Sabadell') {
+      console.error('🏦 Using Sabadell parser...');
       transactions = parseSabadellStatement(text);
     } else {
-      // Try generic parsing
+      console.error('🏦 Bank unknown, using ING parser as fallback...');
       transactions = parseINGStatement(text); // Use ING parser as fallback
     }
+    
+    console.error(`✅ PDF parsing complete: ${transactions.length} transactions found`);
+    alert(`✅ PDF Parsed: ${transactions.length} transactions\nFirst 3:\n${transactions.slice(0, 3).map(t => `${t.date} - ${t.description.substring(0, 30)} - ${t.amount}`).join('\n')}`);
     
     return {
       bank,
@@ -563,7 +623,8 @@ export async function parsePDFTransactions(file) {
       rawText: text
     };
   } catch (error) {
-    console.error('Error parsing PDF:', error);
+    console.error('❌ Error parsing PDF:', error);
+    alert(`❌ PDF Parse Error: ${error.message}`);
     throw error;
   }
 }
