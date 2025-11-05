@@ -50,7 +50,9 @@ router.post('/upload', optionalAuth, async (req, res) => {
        LIMIT 10`,
       [userId]
     );
-    const recurringIncomeDescriptions = commonIncomes.rows.map(r => r.description.toLowerCase());
+    const recurringIncomeDescriptions = commonIncomes.rows
+      .filter(r => r.description) // Filter out null descriptions
+      .map(r => r.description.toLowerCase());
 
     for (const transaction of transactions) {
       const { bank, date, category, description, amount, type, computable } = transaction;
@@ -138,8 +140,15 @@ router.post('/upload', optionalAuth, async (req, res) => {
       // Ensure all values are properly formatted
       const cleanBank = bank || 'Unknown';
       const cleanCategory = category || 'Uncategorized';
-      const cleanDescription = description.trim() || 'Transaction';
+      const cleanDescription = (description && typeof description === 'string') ? description.trim() : 'Transaction';
       const cleanAmount = parseFloat(amount);
+      
+      // Validate cleanAmount is valid
+      if (isNaN(cleanAmount)) {
+        skippedInvalid++;
+        console.error('❌ Invalid cleanAmount after parsing:', amount);
+        continue;
+      }
       
       const result = await client.query(
         `INSERT INTO transactions (user_id, bank, date, category, description, amount, type, account_id, computable, applicable_month)
