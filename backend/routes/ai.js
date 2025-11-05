@@ -234,7 +234,6 @@ async function getUserFinancialContext(userId, timePeriod = null) {
     // Build date filter based on time period
     let dateFilter = '';
     let dateParams = [];
-    let dateParamIndex = 1;
     
     if (timePeriod === 'day') {
       dateFilter = `AND DATE_TRUNC('day', date) = DATE_TRUNC('day', CURRENT_DATE)`;
