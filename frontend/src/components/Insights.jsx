@@ -493,87 +493,87 @@ function Insights() {
         </button>
       </div>
 
-      {/* Main Content - 2x2 Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Main Content - Better Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start">
 
       {/* 1. ESTADO FINANCIERO */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
         <button
           onClick={() => toggleSection('financial')}
-          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-t-2xl"
+          className="w-full p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-t-2xl"
         >
           <div className="flex items-center space-x-2">
-            <DollarSign className="w-6 h-6 text-green-600" />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">💰 Estado Financiero</h3>
+            <DollarSign className="w-5 h-5 text-green-600" />
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">💰 Estado Financiero</h3>
           </div>
           {expandedSections.financial ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
+            <ChevronUp className="w-4 h-4 text-gray-400" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
+            <ChevronDown className="w-4 h-4 text-gray-400" />
           )}
         </button>
         
         {expandedSections.financial && (
-          <div className="px-6 pb-6">
+          <div className="px-4 pb-4">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">Concepto</th>
-                <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">Monto (€)</th>
+                <th className="text-left py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Concepto</th>
+                <th className="text-right py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Monto (€)</th>
               </tr>
             </thead>
             <tbody>
               {expectedIncome > 0 && (
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/10">
-                  <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
+                  <td className="py-2 px-3 text-xs text-gray-700 dark:text-gray-300">
                     Ingreso esperado mensual
-                    <span className="ml-2 text-xs text-gray-500">(configurado)</span>
+                    <span className="ml-1 text-[10px] text-gray-500">(configurado)</span>
                   </td>
-                  <td className="py-3 px-4 text-sm text-right font-semibold text-blue-600">€{expectedIncome.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-xs text-right font-semibold text-blue-600">€{expectedIncome.toFixed(2)}</td>
                 </tr>
               )}
               <tr className="border-b border-gray-100 dark:border-gray-700">
-                <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
+                <td className="py-2 px-3 text-xs text-gray-900 dark:text-gray-100">
                   Ingresos reales (mes actual)
                   {expectedIncome > 0 && (
-                    <span className={`ml-2 text-xs font-semibold ${incomeRatio >= 100 ? 'text-green-600' : incomeRatio >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <span className={`ml-1 text-[10px] font-semibold ${incomeRatio >= 100 ? 'text-green-600' : incomeRatio >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
                       ({incomeRatio.toFixed(1)}% del esperado)
                     </span>
                   )}
-                  <span className="ml-2 text-xs text-gray-500">({data.summary.currentMonth})</span>
+                  <span className="ml-1 text-[10px] text-gray-500">({data.summary.currentMonth})</span>
                 </td>
-                <td className="py-3 px-4 text-sm text-right font-bold text-green-600">€{actualIncome.toFixed(2)}</td>
+                <td className="py-2 px-3 text-xs text-right font-bold text-green-600">€{actualIncome.toFixed(2)}</td>
               </tr>
               <tr className="border-b border-gray-100 dark:border-gray-700">
-                <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
+                <td className="py-2 px-3 text-xs text-gray-900 dark:text-gray-100">
                   Gastos totales
-                  <span className="ml-2 text-xs text-gray-500">(€{dailyAvgExpense.toFixed(2)}/día)</span>
+                  <span className="ml-1 text-[10px] text-gray-500">(€{dailyAvgExpense.toFixed(2)}/día)</span>
                 </td>
-                <td className="py-3 px-4 text-sm text-right font-bold text-red-600">€{monthlyExpenses.toFixed(2)}</td>
+                <td className="py-2 px-3 text-xs text-right font-bold text-red-600">€{monthlyExpenses.toFixed(2)}</td>
               </tr>
               <tr className="bg-blue-50 dark:bg-blue-900/20 border-b-2 border-blue-200 dark:border-blue-700">
-                <td className="py-3 px-4 text-sm font-bold text-gray-900 dark:text-gray-100">Balance neto (transacciones)</td>
-                <td className={`py-3 px-4 text-sm text-right font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <td className="py-2 px-3 text-xs font-bold text-gray-900 dark:text-gray-100">Balance neto (transacciones)</td>
+                <td className={`py-2 px-3 text-xs text-right font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   €{netBalance.toFixed(2)} ({savingsRate.toFixed(1)}%)
                 </td>
               </tr>
               <tr className="bg-green-50 dark:bg-green-900/20 border-b-2 border-green-200 dark:border-green-700">
-                <td className="py-3 px-4 text-sm font-bold text-gray-900 dark:text-gray-100">
+                <td className="py-2 px-3 text-xs font-bold text-gray-900 dark:text-gray-100">
                   Balance real en cuentas
-                  <span className="ml-2 text-xs text-gray-500">({data.accounts.length} cuentas)</span>
+                  <span className="ml-1 text-[10px] text-gray-500">({data.accounts.length} cuentas)</span>
                 </td>
-                <td className="py-3 px-4 text-sm text-right font-bold text-green-600">
+                <td className="py-2 px-3 text-xs text-right font-bold text-green-600">
                   €{totalAccountsBalance.toFixed(2)}
                 </td>
               </tr>
               {totalSavings > 0 && (
                 <tr className="bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-700">
-                  <td className="py-3 px-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <td className="py-2 px-3 text-xs font-semibold text-gray-900 dark:text-gray-100">
                     💰 Ahorro en cuentas
-                    <span className="ml-2 text-xs text-gray-500">({savingsAccountsCount} cuentas de ahorro)</span>
+                    <span className="ml-1 text-[10px] text-gray-500">({savingsAccountsCount} cuentas de ahorro)</span>
                   </td>
-                  <td className="py-3 px-4 text-sm text-right font-bold text-emerald-600">
+                  <td className="py-2 px-3 text-xs text-right font-bold text-emerald-600">
                     €{totalSavings.toFixed(2)}
                   </td>
                 </tr>
@@ -582,8 +582,8 @@ function Insights() {
           </table>
         </div>
 
-        <div className={`mt-4 p-4 rounded-lg ${savingsRate >= 20 ? 'bg-green-50 dark:bg-green-900/20' : savingsRate >= 10 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
-          <p className="text-sm mb-2">
+        <div className={`mt-3 p-3 rounded-lg ${savingsRate >= 20 ? 'bg-green-50 dark:bg-green-900/20' : savingsRate >= 10 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
+          <p className="text-xs mb-1">
             <span className="font-bold">💡 Evaluación:</span> {healthStatus.text} - {
               savingsRate >= 20 ? 'Posición sólida con margen de ahorro estable.' :
               savingsRate >= 10 ? 'Situación aceptable, pero hay margen de mejora.' :
@@ -592,13 +592,13 @@ function Insights() {
             }
           </p>
           {expectedIncome > 0 && incomeRatio < 100 && (
-            <p className="text-sm mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+            <p className="text-[10px] mt-1.5 pt-1.5 border-t border-gray-300 dark:border-gray-600">
               <span className="font-bold">⚠️ Nota:</span> Tus ingresos reales ({incomeRatio.toFixed(1)}%) están por debajo del esperado. 
               {incomeRatio < 50 && ' Verifica que hayas importado todas las transacciones de ingreso.'}
             </p>
           )}
           {totalAccountsBalance > 0 && netBalance < 0 && (
-            <p className="text-sm mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+            <p className="text-[10px] mt-1.5 pt-1.5 border-t border-gray-300 dark:border-gray-600">
               <span className="font-bold">💚 Nota positiva:</span> Aunque el balance de transacciones es negativo, tu balance real en cuentas es positivo (€{totalAccountsBalance.toFixed(2)}). Esto indica que tus cuentas están bien capitalizadas.
             </p>
           )}
@@ -635,62 +635,62 @@ function Insights() {
           <div className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-2xl shadow-lg border-2 border-red-200 dark:border-red-700">
             <button
               onClick={() => toggleSection('creditCards')}
-              className="w-full p-4 flex items-center justify-between hover:bg-red-100/50 dark:hover:bg-red-900/30 transition-colors rounded-t-2xl"
+              className="w-full p-3 flex items-center justify-between hover:bg-red-100/50 dark:hover:bg-red-900/30 transition-colors rounded-t-2xl"
             >
               <div className="flex items-center space-x-2">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">💳 Crédito & Deudas</h3>
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">💳 Crédito & Deudas</h3>
               </div>
               {expandedSections.creditCards ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-4 h-4 text-gray-400" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-4 h-4 text-gray-400" />
               )}
             </button>
             
             {expandedSections.creditCards && (
-              <div className="px-6 pb-6">
+              <div className="px-4 pb-4">
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border-2 border-red-200 dark:border-red-700">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Deuda Total</p>
-                <p className="text-2xl font-bold text-red-600">€{totalDebt.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">{creditCards.length} tarjeta{creditCards.length > 1 ? 's' : ''}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-red-200 dark:border-red-700">
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Deuda Total</p>
+                <p className="text-lg font-bold text-red-600">€{totalDebt.toFixed(2)}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">{creditCards.length} tarjeta{creditCards.length > 1 ? 's' : ''}</p>
               </div>
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-700">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Límite Total</p>
-                <p className="text-2xl font-bold text-blue-600">€{totalCreditLimit.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">Disponible: €{totalAvailableCredit.toFixed(2)}</p>
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-blue-200 dark:border-blue-700">
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Límite Total</p>
+                <p className="text-lg font-bold text-blue-600">€{totalCreditLimit.toFixed(2)}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Disponible: €{totalAvailableCredit.toFixed(2)}</p>
               </div>
-              <div className={`rounded-xl p-4 border-2 ${overallUtilization < 30 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : overallUtilization < 70 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Utilización</p>
-                <p className={`text-2xl font-bold ${overallUtilization < 30 ? 'text-green-600' : overallUtilization < 70 ? 'text-amber-600' : 'text-red-600'}`}>
+              <div className={`rounded-xl p-3 border-2 ${overallUtilization < 30 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : overallUtilization < 70 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Utilización</p>
+                <p className={`text-lg font-bold ${overallUtilization < 30 ? 'text-green-600' : overallUtilization < 70 ? 'text-amber-600' : 'text-red-600'}`}>
                   {overallUtilization.toFixed(1)}%
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-[10px] text-gray-500 mt-0.5">
                   {overallUtilization < 30 ? '✅ Excelente' : overallUtilization < 70 ? '⚠️ Revisar' : '🔴 Peligroso'}
                 </p>
               </div>
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border-2 border-purple-200 dark:border-purple-700">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Pago Mínimo</p>
-                <p className="text-2xl font-bold text-purple-600">€{minimumPayments.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">/mes</p>
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-purple-200 dark:border-purple-700">
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Pago Mínimo</p>
+                <p className="text-lg font-bold text-purple-600">€{minimumPayments.toFixed(2)}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">/mes</p>
               </div>
             </div>
 
             {/* Detailed Analysis */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 mb-4">
-              <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">📊 Análisis por Tarjeta</h4>
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3">
+              <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">📊 Análisis por Tarjeta</h4>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-3 px-2 text-sm font-bold text-gray-700 dark:text-gray-300">Tarjeta</th>
-                      <th className="text-right py-3 px-2 text-sm font-bold text-gray-700 dark:text-gray-300">Deuda</th>
-                      <th className="text-right py-3 px-2 text-sm font-bold text-gray-700 dark:text-gray-300">Límite</th>
-                      <th className="text-right py-3 px-2 text-sm font-bold text-gray-700 dark:text-gray-300">Uso</th>
-                      <th className="text-center py-3 px-2 text-sm font-bold text-gray-700 dark:text-gray-300">Estado</th>
+                      <th className="text-left py-1.5 px-2 text-[10px] font-bold text-gray-700 dark:text-gray-300">Tarjeta</th>
+                      <th className="text-right py-1.5 px-2 text-[10px] font-bold text-gray-700 dark:text-gray-300">Deuda</th>
+                      <th className="text-right py-1.5 px-2 text-[10px] font-bold text-gray-700 dark:text-gray-300">Límite</th>
+                      <th className="text-right py-1.5 px-2 text-[10px] font-bold text-gray-700 dark:text-gray-300">Uso</th>
+                      <th className="text-center py-1.5 px-2 text-[10px] font-bold text-gray-700 dark:text-gray-300">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -701,12 +701,12 @@ function Insights() {
                       
                       return (
                         <tr key={index} className="border-b border-gray-100 dark:border-gray-700">
-                          <td className="py-3 px-2 text-sm font-medium text-gray-900 dark:text-gray-100">{card.name}</td>
-                          <td className="py-3 px-2 text-sm text-right text-red-600 font-semibold">€{debt.toFixed(2)}</td>
-                          <td className="py-3 px-2 text-sm text-right text-gray-900 dark:text-gray-100">€{limit.toFixed(0)}</td>
-                          <td className="py-3 px-2 text-sm text-right font-semibold">{utilization.toFixed(1)}%</td>
-                          <td className="py-3 px-2 text-center">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          <td className="py-1.5 px-2 text-[10px] font-medium text-gray-900 dark:text-gray-100">{card.name}</td>
+                          <td className="py-1.5 px-2 text-[10px] text-right text-red-600 font-semibold">€{debt.toFixed(2)}</td>
+                          <td className="py-1.5 px-2 text-[10px] text-right text-gray-900 dark:text-gray-100">€{limit.toFixed(0)}</td>
+                          <td className="py-1.5 px-2 text-[10px] text-right font-semibold">{utilization.toFixed(1)}%</td>
+                          <td className="py-1.5 px-2 text-center">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
                               utilization < 30 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                               utilization < 70 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' :
                               'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
@@ -723,12 +723,12 @@ function Insights() {
             </div>
 
             {/* Warnings & Recommendations */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Utilization Warning */}
               {overallUtilization > 70 && (
-                <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded">
-                  <p className="text-sm font-bold text-red-800 dark:text-red-200">🔴 Alerta: Utilización Crítica</p>
-                  <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-2.5 rounded">
+                  <p className="text-xs font-bold text-red-800 dark:text-red-200">🔴 Alerta: Utilización Crítica</p>
+                  <p className="text-[10px] text-red-700 dark:text-red-300 mt-0.5">
                     Tu utilización del {overallUtilization.toFixed(1)}% es muy alta. Esto afecta negativamente tu score crediticio y aumenta el riesgo de sobreendeudamiento.
                   </p>
                 </div>
@@ -736,27 +736,27 @@ function Insights() {
 
               {/* Debt to Income Ratio */}
               {expectedIncome > 0 && debtToIncomeRatio > 50 && (
-                <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4 rounded">
-                  <p className="text-sm font-bold text-orange-800 dark:text-orange-200">⚠️ Ratio Deuda/Ingreso Alto</p>
-                  <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-2.5 rounded">
+                  <p className="text-xs font-bold text-orange-800 dark:text-orange-200">⚠️ Ratio Deuda/Ingreso Alto</p>
+                  <p className="text-[10px] text-orange-700 dark:text-orange-300 mt-0.5">
                     Tu deuda representa el {debtToIncomeRatio.toFixed(1)}% de tu ingreso mensual. Idealmente debería estar por debajo del 30%.
                   </p>
                 </div>
               )}
 
               {/* Interest Cost Alert */}
-              <div className="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 p-4 rounded">
-                <p className="text-sm font-bold text-purple-800 dark:text-purple-200">💸 Costo de Intereses Estimado</p>
-                <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+              <div className="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 p-2.5 rounded">
+                <p className="text-xs font-bold text-purple-800 dark:text-purple-200">💸 Costo de Intereses Estimado</p>
+                <p className="text-[10px] text-purple-700 dark:text-purple-300 mt-0.5">
                   Con una tasa promedio del 20% APR, pagas aproximadamente <strong>€{monthlyInterestCost.toFixed(2)}/mes</strong> en intereses 
                   (€{annualInterestCost.toFixed(2)}/año). Pagar solo el mínimo perpetúa la deuda.
                 </p>
               </div>
 
               {/* Recommendations */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded">
-                <p className="text-sm font-bold text-blue-800 dark:text-blue-200">💡 Recomendaciones</p>
-                <ul className="text-sm text-blue-700 dark:text-blue-300 mt-2 space-y-1 list-disc list-inside">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-2.5 rounded">
+                <p className="text-xs font-bold text-blue-800 dark:text-blue-200">💡 Recomendaciones</p>
+                <ul className="text-[10px] text-blue-700 dark:text-blue-300 mt-1 space-y-0.5 list-disc list-inside">
                   {overallUtilization > 30 && (
                     <li>Reduce la utilización a menos del 30% para mejorar tu score crediticio</li>
                   )}
@@ -776,9 +776,9 @@ function Insights() {
                 const totalInterestPaid = (monthsToPayoff * monthlyInterestCost);
                 
                 return (
-                  <div className="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded">
-                    <p className="text-sm font-bold text-green-800 dark:text-green-200">🎯 Proyección de Pago</p>
-                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                  <div className="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-2.5 rounded">
+                    <p className="text-xs font-bold text-green-800 dark:text-green-200">🎯 Proyección de Pago</p>
+                    <p className="text-[10px] text-green-700 dark:text-green-300 mt-0.5">
                       Si pagas <strong>€{doubleMinimum.toFixed(2)}/mes</strong> (el doble del mínimo), 
                       podrías estar libre de deuda en aproximadamente <strong>{monthsToPayoff} meses</strong>, 
                       pagando €{totalInterestPaid.toFixed(2)} en intereses.
@@ -797,40 +797,40 @@ function Insights() {
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
         <button
           onClick={() => toggleSection('expenses')}
-          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-t-2xl"
+          className="w-full p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-t-2xl"
         >
           <div className="flex items-center space-x-2">
-            <PieChart className="w-6 h-6 text-purple-600" />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">📊 Gastos por Categoría</h3>
+            <PieChart className="w-5 h-5 text-purple-600" />
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">📊 Gastos por Categoría</h3>
           </div>
           {expandedSections.expenses ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
+            <ChevronUp className="w-4 h-4 text-gray-400" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
+            <ChevronDown className="w-4 h-4 text-gray-400" />
           )}
         </button>
         
         {expandedSections.expenses && (
-          <div className="px-6 pb-6">
+          <div className="px-4 pb-4">
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">Categoría</th>
-                <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">Gasto (€)</th>
-                <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">% del total</th>
-                <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300">Evaluación</th>
+                <th className="text-left py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Categoría</th>
+                <th className="text-right py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Gasto (€)</th>
+                <th className="text-right py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">% del total</th>
+                <th className="text-center py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Evaluación</th>
               </tr>
             </thead>
             <tbody>
               {topCategories.map((cat, index) => (
                 <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700">
-                  <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100">{cat.name}</td>
-                  <td className="py-3 px-4 text-sm text-right text-gray-900 dark:text-gray-100">€{cat.amount.toFixed(2)}</td>
-                  <td className="py-3 px-4 text-sm text-right text-gray-900 dark:text-gray-100">{cat.percentage.toFixed(1)}%</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  <td className="py-2 px-3 text-xs font-medium text-gray-900 dark:text-gray-100">{cat.name}</td>
+                  <td className="py-2 px-3 text-xs text-right text-gray-900 dark:text-gray-100">€{cat.amount.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-xs text-right text-gray-900 dark:text-gray-100">{cat.percentage.toFixed(1)}%</td>
+                  <td className="py-2 px-3 text-center">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                       cat.percentage < 15 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                       cat.percentage < 25 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                       'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
@@ -851,26 +851,26 @@ function Insights() {
       <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl shadow-lg border-2 border-indigo-200 dark:border-indigo-700">
         <button
           onClick={() => toggleSection('global')}
-          className="w-full p-4 flex items-center justify-between hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors rounded-t-2xl"
+          className="w-full p-3 flex items-center justify-between hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors rounded-t-2xl"
         >
           <div className="flex items-center space-x-2">
-            <Target className="w-6 h-6 text-indigo-600" />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">🎯 Proyecciones & Metas</h3>
+            <Target className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">🎯 Proyecciones & Metas</h3>
           </div>
           {expandedSections.global ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
+            <ChevronUp className="w-4 h-4 text-gray-400" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
+            <ChevronDown className="w-4 h-4 text-gray-400" />
           )}
         </button>
         
         {expandedSections.global && (
-          <div className="px-6 pb-6">
+          <div className="px-4 pb-4">
 
         {/* Capacidad de Gasto Actual */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-5 mb-4 border-2 border-indigo-300 dark:border-indigo-600">
-          <h4 className="text-lg font-bold text-indigo-900 dark:text-indigo-100 mb-3 flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3 border-2 border-indigo-300 dark:border-indigo-600">
+          <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-100 mb-2 flex items-center gap-2">
+            <DollarSign className="w-4 h-4" />
             ¿Cuánto puedes gastar este mes?
           </h4>
           
@@ -888,31 +888,31 @@ function Insights() {
             
             return (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Balance Total en Cuentas</p>
-                    <p className="text-2xl font-bold text-blue-600">€{balanceDisponible.toFixed(2)}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Balance Total en Cuentas</p>
+                    <p className="text-xl font-bold text-blue-600">€{balanceDisponible.toFixed(2)}</p>
                   </div>
-                  <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Ingreso Esperado Pendiente</p>
-                    <p className="text-2xl font-bold text-purple-600">€{ingresoEsperadoPendiente.toFixed(2)}</p>
+                  <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg">
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Ingreso Esperado Pendiente</p>
+                    <p className="text-xl font-bold text-purple-600">€{ingresoEsperadoPendiente.toFixed(2)}</p>
                   </div>
-                  <div className={`p-4 rounded-lg ${capacidadSegura > 1000 ? 'bg-green-50 dark:bg-green-900/30' : capacidadSegura > 500 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Capacidad de Gasto Segura</p>
-                    <p className={`text-2xl font-bold ${capacidadSegura > 1000 ? 'text-green-600' : capacidadSegura > 500 ? 'text-amber-600' : 'text-red-600'}`}>
+                  <div className={`p-3 rounded-lg ${capacidadSegura > 1000 ? 'bg-green-50 dark:bg-green-900/30' : capacidadSegura > 500 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Capacidad de Gasto Segura</p>
+                    <p className={`text-xl font-bold ${capacidadSegura > 1000 ? 'text-green-600' : capacidadSegura > 500 ? 'text-amber-600' : 'text-red-600'}`}>
                       €{capacidadSegura.toFixed(2)}
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 p-4 rounded-lg">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                <div className="bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 p-3 rounded-lg">
+                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">
                     💡 Recomendación:
                   </p>
-                  <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300">
+                  <p className="text-base font-bold text-indigo-700 dark:text-indigo-300">
                     Puedes gastar hasta €{gastoDiarioSeguro.toFixed(2)}/día de forma segura
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1">
                     (Basado en {diasRestantesMes} días restantes del mes, manteniendo un colchón del 20%)
                   </p>
                 </div>
@@ -922,19 +922,19 @@ function Insights() {
         </div>
 
         {/* Análisis de Situación */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-5 mb-4 border-2 border-purple-300 dark:border-purple-600">
-          <h4 className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-3">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3 border-2 border-purple-300 dark:border-purple-600">
+          <h4 className="text-sm font-bold text-purple-900 dark:text-purple-100 mb-2">
             📊 Análisis de tu Situación
           </h4>
           
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* Income Status */}
             {expectedIncome > 0 && (
-              <div className={`p-3 rounded-lg border-l-4 ${incomeRatio >= 100 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : incomeRatio >= 75 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <div className={`p-2 rounded-lg border-l-4 ${incomeRatio >= 100 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : incomeRatio >= 75 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                   {incomeRatio >= 100 ? '✅ Ingresos al día' : incomeRatio >= 75 ? '⚠️ Ingresos por debajo de lo esperado' : '🔴 Ingresos muy bajos'}
                 </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
                   Has recibido €{actualIncome.toFixed(2)} de €{expectedIncome.toFixed(2)} esperados ({incomeRatio.toFixed(1)}%)
                   {incomeRatio < 100 && ' - Considera reducir gastos hasta recibir el resto'}
                 </p>
@@ -943,21 +943,21 @@ function Insights() {
 
             {/* Budget Status */}
             {budgetTotal > 0 && (
-              <div className={`p-3 rounded-lg border-l-4 ${budgetUsage < 80 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : budgetUsage < 100 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <div className={`p-2 rounded-lg border-l-4 ${budgetUsage < 80 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : budgetUsage < 100 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                   {budgetUsage < 80 ? '✅ Presupuesto bajo control' : budgetUsage < 100 ? '⚠️ Acercándote al límite del presupuesto' : '🔴 Presupuesto superado'}
                 </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
                   Has gastado €{budgetSpent.toFixed(2)} de €{budgetTotal.toFixed(2)} ({budgetUsage.toFixed(1)}%)
                   {budgetUsage > 80 && budgetUsage < 100 && ` - Quedan €${(budgetTotal - budgetSpent).toFixed(2)} disponibles`}
                   {budgetUsage >= 100 && ` - Sobrepasado por €${(budgetSpent - budgetTotal).toFixed(2)}`}
                 </p>
                 {daysRemaining > 0 && (
-                  <div className={`mt-2 pt-2 border-t ${budgetUsage < 80 ? 'border-green-200 dark:border-green-700' : budgetUsage < 100 ? 'border-amber-200 dark:border-amber-700' : 'border-red-200 dark:border-red-700'}`}>
-                    <p className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+                  <div className={`mt-1.5 pt-1.5 border-t ${budgetUsage < 80 ? 'border-green-200 dark:border-green-700' : budgetUsage < 100 ? 'border-amber-200 dark:border-amber-700' : 'border-red-200 dark:border-red-700'}`}>
+                    <p className="text-[10px] text-gray-700 dark:text-gray-300 font-medium">
                       📊 Predicción fin de mes:
                     </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
                       Al ritmo actual (€{dailySpendRate.toFixed(2)}/día), terminarás gastando €{projectedMonthEndSpend.toFixed(2)} ({projectedBudgetUsage.toFixed(1)}%)
                       {projectedBudgetUsage > 100 && (
                         <span className="text-red-600 dark:text-red-400 font-semibold">
@@ -975,7 +975,7 @@ function Insights() {
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    <p className="text-[9px] text-gray-500 dark:text-gray-500 mt-0.5">
                       {daysRemaining} días restantes del mes
                     </p>
                   </div>
@@ -984,11 +984,11 @@ function Insights() {
             )}
 
             {/* Savings Status */}
-            <div className={`p-3 rounded-lg border-l-4 ${totalSavings > 1000 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : totalSavings > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            <div className={`p-2 rounded-lg border-l-4 ${totalSavings > 1000 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : totalSavings > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                 {totalSavings > 1000 ? '✅ Buen colchón de ahorro' : totalSavings > 0 ? '⚠️ Ahorro bajo' : '🔴 Sin ahorro acumulado'}
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
                 Tienes €{totalSavings.toFixed(2)} en cuentas de ahorro
                 {totalSavings < 1000 && ' - Intenta ahorrar al menos €50/mes'}
                 {totalSavings >= 1000 && ' - Continúa así, vas por buen camino'}
@@ -998,33 +998,33 @@ function Insights() {
         </div>
 
         {/* Estado por Cuenta Bancaria */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-5 mb-4 border-2 border-blue-300 dark:border-blue-600">
-          <h4 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
-            <Building2 className="w-5 h-5" />
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3 border-2 border-blue-300 dark:border-blue-600">
+          <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
             🏦 Estado por Cuenta Bancaria
           </h4>
           
-          <div className="space-y-3">
+          <div className="space-y-2">
             {accountsWithActivity.map((account, idx) => (
               <div 
                 key={idx}
-                className={`p-3 rounded-lg border-l-4 ${
+                className={`p-2 rounded-lg border-l-4 ${
                   account.balanceStatus === 'good' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : 
                   account.balanceStatus === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 
                   'bg-red-50 dark:bg-red-900/20 border-red-500'
                 } ${account.excludedFromStats ? 'opacity-60' : ''}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
                     {account.balanceStatus === 'good' ? '✅' : account.balanceStatus === 'medium' ? '⚠️' : '🔴'}
                     {account.name}
                     {account.excludedFromStats && (
-                      <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
+                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
                         excluida
                       </span>
                     )}
                   </p>
-                  <p className={`text-sm font-bold ${
+                  <p className={`text-xs font-bold ${
                     account.balanceStatus === 'good' ? 'text-green-600 dark:text-green-400' : 
                     account.balanceStatus === 'medium' ? 'text-amber-600 dark:text-amber-400' : 
                     'text-red-600 dark:text-red-400'
@@ -1032,7 +1032,7 @@ function Insights() {
                     €{account.balance.toFixed(2)}
                   </p>
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-[10px] text-gray-600 dark:text-gray-400">
                   {account.accountType === 'savings' && '💰 Cuenta de ahorro'}
                   {account.accountType === 'investment' && '📈 Cuenta de inversión'}
                   {account.accountType === 'checking' && '🏦 Cuenta corriente'}
@@ -1047,8 +1047,8 @@ function Insights() {
             ))}
             
             {accountsWithActivity.length === 0 && (
-              <div className="p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="p-3 bg-gray-50 dark:bg-gray-900/20 rounded-lg text-center">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
                   No hay cuentas bancarias registradas
                 </p>
               </div>
@@ -1057,12 +1057,12 @@ function Insights() {
         </div>
 
         {/* Acciones Recomendadas */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-5 border-2 border-green-300 dark:border-green-600">
-          <h4 className="text-lg font-bold text-green-900 dark:text-green-100 mb-3">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-green-300 dark:border-green-600">
+          <h4 className="text-sm font-bold text-green-900 dark:text-green-100 mb-2">
             ✅ Acciones Recomendadas
           </h4>
           
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {(() => {
               const actions = [];
               
