@@ -104,6 +104,7 @@ function Upload({ onUploadComplete }) {
       
       for (const file of files) {
         console.log(`📄 Processing file: ${file.name}, type: ${file.type}`);
+        console.log(`📄 File size: ${(file.size / 1024).toFixed(2)} KB`);
         
         let parseResult;
         
@@ -116,12 +117,15 @@ function Upload({ onUploadComplete }) {
                      fileName.endsWith('.xls') || 
                      fileName.endsWith('.xlsx');
         
+        console.log(`📄 File type check:`, { isPDF, isCSV, fileName, fileType: file.type });
+        
         if (isPDF) {
           console.log('📄 File detected as PDF');
           parseResult = await parsePDFTransactions(file);
         } else if (isCSV) {
-          console.log('📄 File detected as CSV/Excel');
+          console.log('📄 File detected as CSV/Excel - calling parseCSVTransactions...');
           parseResult = await parseCSVTransactions(file);
+          console.log('📄 parseCSVTransactions returned:', parseResult);
         } else {
           console.error(`❌ Unknown file type: ${file.type}, file: ${file.name}`);
           setError(`Unsupported file type: ${file.type || 'unknown'}. Please upload PDF or CSV files.`);

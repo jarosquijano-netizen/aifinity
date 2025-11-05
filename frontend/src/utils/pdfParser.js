@@ -463,8 +463,12 @@ export async function parsePDFTransactions(file) {
  * Parse CSV file - detects format automatically
  */
 export async function parseCSVTransactions(file) {
+  console.log('🚀 parseCSVTransactions CALLED with file:', file.name, file.type);
+  
   try {
     const text = await file.text();
+    console.log('📖 File text read, length:', text.length);
+    
     // Handle both Windows (\r\n) and Unix (\n) line endings
     // DON'T filter empty lines - we need to preserve line indices for header detection
     const lines = text.split(/\r?\n/);
@@ -489,15 +493,28 @@ export async function parseCSVTransactions(file) {
     }
     
     // Detect ING Spanish format (Movimientos de la Cuenta with F. VALOR header)
+    console.log('🔍 Checking for ING Spanish format...');
     const isINGSpanishFormat = detectINGSpanishFormat(text, lines);
+    console.log('🔍 ING format detection result:', isINGSpanishFormat);
+    
     if (isINGSpanishFormat) {
       console.log('🏦 Detected: ING Spanish format');
       const result = parseINGSpanishCSV(lines);
       console.log(`✅ ING parser returned ${result.transactions.length} transactions`);
+      
+      // Alert if only 1 transaction (should be many more)
+      if (result.transactions.length <= 1) {
+        console.error('⚠️ WARNING: Only parsed 1 transaction from ING CSV! Expected many more.');
+        console.error('CSV lines:', lines.length);
+        console.error('First 10 lines:', lines.slice(0, 10));
+        console.error('Header row index should be around 3-4');
+      }
+      
       return result;
     }
     
     // Try to detect other bank formats
+    console.log('🔍 Checking for other bank formats...');
     const detectedFormat = detectBankFormat(text, lines);
     if (detectedFormat) {
       console.log(`🏦 Detected: ${detectedFormat.bank} format`);
