@@ -14,6 +14,7 @@ function Insights() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
   const [showChat, setShowChat] = useState(false);
+  const [chatTimePeriod, setChatTimePeriod] = useState('all'); // 'all', 'day', 'week', 'month', 'year'
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
 
@@ -88,7 +89,7 @@ function Insights() {
     setChatLoading(true);
 
     try {
-      const response = await sendAIChat(userMessage);
+      const response = await sendAIChat(userMessage, chatTimePeriod === 'all' ? null : chatTimePeriod);
       
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -712,6 +713,24 @@ function Insights() {
                   >
                     <X className="w-6 h-6" />
                   </button>
+                </div>
+                {/* Time Period Selector */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-purple-100 mb-2">
+                    Período de análisis:
+                  </label>
+                  <select
+                    value={chatTimePeriod}
+                    onChange={(e) => setChatTimePeriod(e.target.value)}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+                    style={{ color: 'white' }}
+                  >
+                    <option value="all" style={{ color: '#1f2937' }}>Todos los períodos</option>
+                    <option value="day" style={{ color: '#1f2937' }}>Hoy</option>
+                    <option value="week" style={{ color: '#1f2937' }}>Esta semana</option>
+                    <option value="month" style={{ color: '#1f2937' }}>Este mes</option>
+                    <option value="year" style={{ color: '#1f2937' }}>Este año</option>
+                  </select>
                 </div>
               </div>
 

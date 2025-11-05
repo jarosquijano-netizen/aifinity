@@ -146,7 +146,7 @@ router.post('/config/:id/activate', async (req, res) => {
 // Chat with AI - Financial Q&A
 router.post('/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, timePeriod } = req.body; // timePeriod: 'day', 'week', 'month', 'year', or null for all
     const userId = req.user.id || req.user.userId;
 
     if (!message) {
@@ -167,8 +167,8 @@ router.post('/chat', async (req, res) => {
 
     const { provider, api_key } = configResult.rows[0];
 
-    // Fetch user's financial data for context
-    const financialData = await getUserFinancialContext(userId);
+    // Fetch user's comprehensive financial data for context
+    const financialData = await getUserFinancialContext(userId, timePeriod);
 
     // Call appropriate AI API based on provider
     let aiResponse;
@@ -228,21 +228,78 @@ router.get('/chat/history', async (req, res) => {
   }
 });
 
-// Helper function to get user's financial context
-async function getUserFinancialContext(userId) {
+// Helper function to get user's comprehensive financial context
+async function getUserFinancialContext(userId, timePeriod = null) {
   try {
-    // Get summary data
-    const summaryResult = await pool.query(
+    // Build date filter based on time period
+    let dateFilter = '';
+    let dateParams = [];
+    let dateParamIndex = 1;
+    
+    if (timePeriod === 'day') {
+      dateFilter = `AND DATE_TRUNC('day', date) = DATE_TRUNC('day', CURRENT_DATE)`;
+    } else if (timePeriod === 'week') {
+      dateFilter = `AND date >= DATE_TRUNC('week', CURRENT_DATE)`;
+    } else if (timePeriod === 'month') {
+      dateFilter = `AND DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)`;
+    } else if (timePeriod === 'year') {
+      dateFilter = `AND DATE_TRUNC('year', date) = DATE_TRUNC('year', CURRENT_DATE)`;
+    }
+    // If timePeriod is null or 'all', no date filter is applied (get all data)
+
+    // Get comprehensive summary data (all time periods)
+    const summaryAllResult = await pool.query(
       `SELECT 
-         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income,
-         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expenses,
-         COUNT(*) as transaction_count
+         SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+         SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+         COUNT(*) as transaction_count,
+         MIN(date) as oldest_transaction_date,
+         MAX(date) as newest_transaction_date
        FROM transactions 
-       WHERE user_id = $1 AND date >= NOW() - INTERVAL '30 days'`,
+       WHERE (user_id IS NULL OR user_id = $1)`,
       [userId]
     );
 
-    // Get budget data
+    // Get filtered summary data (based on time period)
+    const summaryFilteredResult = await pool.query(
+      `SELECT 
+         SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+         SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+         COUNT(*) as transaction_count
+       FROM transactions 
+       WHERE (user_id IS NULL OR user_id = $1) ${dateFilter}`,
+      dateParams.length > 0 ? [userId, ...dateParams] : [userId]
+    );
+
+    // Get current month data
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonthDate = currentMonth + '-01';
+    const currentMonthIncomeResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as actual_income
+       FROM transactions
+       WHERE type = 'income'
+       AND computable = true
+       AND (user_id IS NULL OR user_id = $1)
+       AND (
+         (applicable_month IS NOT NULL AND applicable_month = $2)
+         OR
+         (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+       )
+       AND amount > 0`,
+      [userId, currentMonth]
+    );
+    const currentMonthExpensesResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as actual_expenses
+       FROM transactions
+       WHERE type = 'expense'
+       AND computable = true
+       AND (user_id IS NULL OR user_id = $1)
+       AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
+       AND amount > 0`,
+      [userId, currentMonthDate]
+    );
+
+    // Get all budget data
     const budgetResult = await pool.query(
       `SELECT category, amount, spent 
        FROM budgets 
@@ -250,37 +307,135 @@ async function getUserFinancialContext(userId) {
       [userId]
     );
 
-    // Get top categories
+    // Get all transactions by category (filtered by time period)
     const categoriesResult = await pool.query(
-      `SELECT category, SUM(amount) as total 
+      `SELECT category, type, SUM(amount) as total, COUNT(*) as count
        FROM transactions 
-       WHERE user_id = $1 AND type = 'expense' AND date >= NOW() - INTERVAL '30 days'
-       GROUP BY category 
-       ORDER BY total DESC 
-       LIMIT 5`,
+       WHERE (user_id IS NULL OR user_id = $1) 
+       AND computable = true
+       ${dateFilter}
+       GROUP BY category, type 
+       ORDER BY total DESC`,
+      dateParams.length > 0 ? [userId, ...dateParams] : [userId]
+    );
+
+    // Get all accounts
+    const accountsResult = await pool.query(
+      `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
+       FROM accounts 
+       WHERE user_id = $1 OR user_id IS NULL
+       ORDER BY account_type, name`,
       [userId]
     );
 
-    const summary = summaryResult.rows[0] || {};
+    // Get recent transactions (last 20)
+    const recentTransactionsResult = await pool.query(
+      `SELECT id, date, description, category, type, amount, bank, computable
+       FROM transactions
+       WHERE (user_id IS NULL OR user_id = $1)
+       ${dateFilter}
+       ORDER BY date DESC, id DESC
+       LIMIT 20`,
+      dateParams.length > 0 ? [userId, ...dateParams] : [userId]
+    );
+
+    // Get monthly trends (last 6 months)
+    const trendsResult = await pool.query(
+      `SELECT 
+         TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') as month,
+         SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as income,
+         SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as expenses
+       FROM transactions
+       WHERE (user_id IS NULL OR user_id = $1)
+       AND date >= CURRENT_DATE - INTERVAL '6 months'
+       GROUP BY TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM')
+       ORDER BY month DESC`,
+      [userId]
+    );
+
+    // Get settings (expected income)
+    const settingsResult = await pool.query(
+      `SELECT expected_monthly_income
+       FROM settings
+       WHERE user_id = $1 OR user_id IS NULL
+       LIMIT 1`,
+      [userId]
+    );
+
+    const summaryAll = summaryAllResult.rows[0] || {};
+    const summaryFiltered = summaryFilteredResult.rows[0] || {};
+    const currentMonthIncome = parseFloat(currentMonthIncomeResult.rows[0]?.actual_income || 0);
+    const currentMonthExpenses = parseFloat(currentMonthExpensesResult.rows[0]?.actual_expenses || 0);
     const budgets = budgetResult.rows || [];
-    const topCategories = categoriesResult.rows || [];
+    const categories = categoriesResult.rows || [];
+    const accounts = accountsResult.rows || [];
+    const recentTransactions = recentTransactionsResult.rows || [];
+    const trends = trendsResult.rows || [];
+    const expectedIncome = parseFloat(settingsResult.rows[0]?.expected_monthly_income || 0);
 
     return {
+      timePeriod: timePeriod || 'all',
       summary: {
-        totalIncome: parseFloat(summary.total_income || 0),
-        totalExpenses: parseFloat(summary.total_expenses || 0),
-        netBalance: parseFloat(summary.total_income || 0) - parseFloat(summary.total_expenses || 0),
-        transactionCount: parseInt(summary.transaction_count || 0)
+        // All-time totals
+        allTime: {
+          totalIncome: parseFloat(summaryAll.total_income || 0),
+          totalExpenses: parseFloat(summaryAll.total_expenses || 0),
+          netBalance: parseFloat(summaryAll.total_income || 0) - parseFloat(summaryAll.total_expenses || 0),
+          transactionCount: parseInt(summaryAll.transaction_count || 0),
+          oldestTransactionDate: summaryAll.oldest_transaction_date,
+          newestTransactionDate: summaryAll.newest_transaction_date
+        },
+        // Filtered totals (based on time period)
+        filtered: {
+          totalIncome: parseFloat(summaryFiltered.total_income || 0),
+          totalExpenses: parseFloat(summaryFiltered.total_expenses || 0),
+          netBalance: parseFloat(summaryFiltered.total_income || 0) - parseFloat(summaryFiltered.total_expenses || 0),
+          transactionCount: parseInt(summaryFiltered.transaction_count || 0)
+        },
+        // Current month totals
+        currentMonth: {
+          income: currentMonthIncome,
+          expenses: currentMonthExpenses,
+          netBalance: currentMonthIncome - currentMonthExpenses,
+          expectedIncome: expectedIncome
+        }
       },
       budgets: budgets.map(b => ({
         category: b.category,
         budget: parseFloat(b.amount),
         spent: parseFloat(b.spent),
-        remaining: parseFloat(b.amount) - parseFloat(b.spent)
+        remaining: parseFloat(b.amount) - parseFloat(b.spent),
+        usagePercent: parseFloat(b.amount) > 0 ? (parseFloat(b.spent) / parseFloat(b.amount)) * 100 : 0
       })),
-      topCategories: topCategories.map(c => ({
+      categories: categories.map(c => ({
         category: c.category,
-        total: parseFloat(c.total)
+        type: c.type,
+        total: parseFloat(c.total),
+        count: parseInt(c.count)
+      })),
+      accounts: accounts.map(a => ({
+        id: a.id,
+        name: a.name,
+        type: a.account_type,
+        balance: parseFloat(a.balance || 0),
+        creditLimit: parseFloat(a.credit_limit || 0),
+        excludeFromStats: a.exclude_from_stats
+      })),
+      recentTransactions: recentTransactions.map(t => ({
+        id: t.id,
+        date: t.date,
+        description: t.description,
+        category: t.category,
+        type: t.type,
+        amount: parseFloat(t.amount),
+        bank: t.bank,
+        computable: t.computable
+      })),
+      trends: trends.map(t => ({
+        month: t.month,
+        income: parseFloat(t.income || 0),
+        expenses: parseFloat(t.expenses || 0),
+        netBalance: parseFloat(t.income || 0) - parseFloat(t.expenses || 0)
       }))
     };
   } catch (error) {
@@ -302,10 +457,32 @@ async function callOpenAI(apiKey, userMessage, financialData) {
       messages: [
         {
           role: 'system',
-          content: `You are a helpful financial advisor assistant. You have access to the user's financial data:
+          content: `You are an expert financial advisor assistant with access to comprehensive financial data. Analyze the following data carefully:
+
 ${JSON.stringify(financialData, null, 2)}
 
-Provide helpful, accurate financial advice based on this data. Be concise and actionable. Always use Euro (€) for currency.`
+Key capabilities:
+- Analyze data by time period (day, week, month, year, or all-time)
+- Compare current period vs historical trends
+- Identify spending patterns and anomalies
+- Provide budget recommendations
+- Analyze account balances and credit utilization
+- Suggest actionable improvements
+
+The data includes:
+- Summary: All-time totals, filtered totals (by time period), and current month data
+- Budgets: Budget vs actual spending by category
+- Categories: Spending breakdown by category and type
+- Accounts: All bank accounts, credit cards, and their balances
+- Recent Transactions: Latest 20 transactions
+- Trends: Monthly income/expense trends for last 6 months
+
+Always:
+- Use Euro (€) for currency
+- Be specific with numbers and percentages
+- Reference the time period being analyzed
+- Provide actionable recommendations
+- Compare current performance to historical trends when relevant`
         },
         {
           role: 'user',
@@ -339,12 +516,34 @@ async function callClaude(apiKey, userMessage, financialData) {
       messages: [
         {
           role: 'user',
-          content: `You are a helpful financial advisor assistant. You have access to the user's financial data:
+          content: `You are an expert financial advisor assistant with access to comprehensive financial data. Analyze the following data carefully:
+
 ${JSON.stringify(financialData, null, 2)}
+
+Key capabilities:
+- Analyze data by time period (day, week, month, year, or all-time)
+- Compare current period vs historical trends
+- Identify spending patterns and anomalies
+- Provide budget recommendations
+- Analyze account balances and credit utilization
+- Suggest actionable improvements
+
+The data includes:
+- Summary: All-time totals, filtered totals (by time period), and current month data
+- Budgets: Budget vs actual spending by category
+- Categories: Spending breakdown by category and type
+- Accounts: All bank accounts, credit cards, and their balances
+- Recent Transactions: Latest 20 transactions
+- Trends: Monthly income/expense trends for last 6 months
 
 User question: ${userMessage}
 
-Provide helpful, accurate financial advice based on this data. Be concise and actionable. Always use Euro (€) for currency.`
+Always:
+- Use Euro (€) for currency
+- Be specific with numbers and percentages
+- Reference the time period being analyzed
+- Provide actionable recommendations
+- Compare current performance to historical trends when relevant`
         }
       ]
     })
@@ -367,12 +566,34 @@ async function callGemini(apiKey, userMessage, financialData) {
     body: JSON.stringify({
       contents: [{
         parts: [{
-          text: `You are a helpful financial advisor assistant. You have access to the user's financial data:
+          text: `You are an expert financial advisor assistant with access to comprehensive financial data. Analyze the following data carefully:
+
 ${JSON.stringify(financialData, null, 2)}
+
+Key capabilities:
+- Analyze data by time period (day, week, month, year, or all-time)
+- Compare current period vs historical trends
+- Identify spending patterns and anomalies
+- Provide budget recommendations
+- Analyze account balances and credit utilization
+- Suggest actionable improvements
+
+The data includes:
+- Summary: All-time totals, filtered totals (by time period), and current month data
+- Budgets: Budget vs actual spending by category
+- Categories: Spending breakdown by category and type
+- Accounts: All bank accounts, credit cards, and their balances
+- Recent Transactions: Latest 20 transactions
+- Trends: Monthly income/expense trends for last 6 months
 
 User question: ${userMessage}
 
-Provide helpful, accurate financial advice based on this data. Be concise and actionable. Always use Euro (€) for currency.`
+Always:
+- Use Euro (€) for currency
+- Be specific with numbers and percentages
+- Reference the time period being analyzed
+- Provide actionable recommendations
+- Compare current performance to historical trends when relevant`
         }]
       }]
     })
