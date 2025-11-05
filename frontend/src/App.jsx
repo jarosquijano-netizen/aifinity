@@ -166,6 +166,17 @@ function App() {
           {activeTab === 'settings' && (
             <Settings key={refreshTrigger} />
           )}
+          
+          {!activeTab && (
+            <div className="text-center py-20">
+              <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">
+                {t('selectATab') || 'Please select a tab to begin'}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500">
+                Click on any tab above to navigate
+              </p>
+            </div>
+          )}
         </div>
       </main>
 
