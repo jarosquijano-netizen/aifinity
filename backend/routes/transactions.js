@@ -12,14 +12,31 @@ router.post('/upload', optionalAuth, async (req, res) => {
     const { transactions, account_id, lastBalance } = req.body;
     const userId = req.user?.id || req.user?.userId || null;
 
+    console.log(`📥 Upload request received:`, {
+      transactionCount: transactions?.length || 0,
+      account_id,
+      lastBalance,
+      userId
+    });
+
     if (!transactions || !Array.isArray(transactions)) {
+      console.error('❌ Invalid transaction data - not an array');
       return res.status(400).json({ error: 'Invalid transaction data' });
     }
+
+    if (transactions.length === 0) {
+      console.warn('⚠️ Empty transactions array received');
+      return res.status(400).json({ error: 'No transactions provided' });
+    }
+
+    // Log first transaction for debugging
+    console.log('📋 First transaction sample:', transactions[0]);
 
     await client.query('BEGIN');
 
     const insertedTransactions = [];
     let skippedDuplicates = 0;
+    let skippedInvalid = 0;
 
     // Get common income patterns for auto-detection
     const commonIncomes = await client.query(
@@ -40,25 +57,29 @@ router.post('/upload', optionalAuth, async (req, res) => {
       
       // Validate required fields
       if (!date || !description || amount === undefined || amount === null || !type) {
+        skippedInvalid++;
         console.error('❌ Invalid transaction skipped:', {
           date,
           description,
           amount,
           type,
-          bank
+          bank,
+          reason: 'Missing required fields'
         });
         continue;
       }
       
       // Validate date format (should be YYYY-MM-DD)
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        console.error('❌ Invalid date format skipped:', date);
+        skippedInvalid++;
+        console.error('❌ Invalid date format skipped:', date, 'Expected YYYY-MM-DD format');
         continue;
       }
       
       // Validate amount is a number
       const parsedAmount = parseFloat(amount);
       if (isNaN(parsedAmount) || parsedAmount === 0) {
+        skippedInvalid++;
         console.error('❌ Invalid amount skipped:', amount);
         continue;
       }
@@ -87,6 +108,9 @@ router.post('/upload', optionalAuth, async (req, res) => {
       if (duplicateCheck.rows.length > 0) {
         // Skip duplicate transaction
         skippedDuplicates++;
+        if (insertedTransactions.length < 5 || skippedDuplicates <= 3) {
+          console.log(`⏭️  Skipped duplicate: ${description} on ${date}`);
+        }
         continue;
       }
 
@@ -143,10 +167,18 @@ router.post('/upload', optionalAuth, async (req, res) => {
 
     await client.query('COMMIT');
 
+    console.log(`✅ Upload completed:`, {
+      inserted: insertedTransactions.length,
+      skippedDuplicates,
+      skippedInvalid,
+      total: transactions.length
+    });
+
     res.status(201).json({
       message: 'Transactions uploaded successfully',
       count: insertedTransactions.length,
       skipped: skippedDuplicates,
+      skippedInvalid: skippedInvalid,
       transactions: insertedTransactions,
       balanceUpdated: account_id && lastBalance !== undefined
     });
