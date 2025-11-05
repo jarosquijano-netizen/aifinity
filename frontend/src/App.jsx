@@ -13,12 +13,41 @@ import { getStoredAuth, clearAuth } from './utils/auth';
 import { useLanguage } from './context/LanguageContext';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Initialize activeTab from URL hash, fallback to 'dashboard'
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace('#/', '').replace('#', '');
+    const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
+    return validTabs.includes(hash) ? hash : 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [transactionFilters, setTransactionFilters] = useState({});
   const { t } = useLanguage();
+
+  // Update URL hash when activeTab changes
+  useEffect(() => {
+    if (user) {
+      // Only update hash if user is logged in
+      window.location.hash = `#/${activeTab}`;
+    }
+  }, [activeTab, user]);
+
+  // Listen for hash changes (back/forward browser buttons)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '').replace('#', '');
+      const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     console.log('🔍 Checking stored auth...');
