@@ -43,55 +43,164 @@ function detectBank(text) {
 }
 
 /**
- * Parse ING bank statement
+ * Parse ING bank statement (PDF format)
+ * Improved parser that handles table structure and multi-line transactions
  */
 function parseINGStatement(text) {
+  console.error('📄 parseINGStatement CALLED - PDF text length:', text.length);
+  
   const transactions = [];
   const lines = text.split('\n');
   
-  // ING format typically: Date Description Amount
-  // Pattern: DD-MM-YYYY or DD/MM/YYYY
-  const datePattern = /(\d{1,2}[-/]\d{1,2}[-/]\d{4})/;
-  const amountPattern = /[-+]?\d+[.,]\d{2}/;
+  console.error('📄 Total lines in PDF:', lines.length);
+  console.error('📄 First 20 lines:', lines.slice(0, 20));
   
+  // ING PDF format: Date Pattern DD/MM/YYYY or DD-MM-YYYY
+  const datePattern = /(\d{1,2}[-/]\d{1,2}[-/]\d{4})/;
+  // Amount pattern: can be negative, with comma or dot as decimal separator
+  const amountPattern = /[-+]?\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|[-+]?\d+[.,]\d{2}/;
+  
+  let processedCount = 0;
+  let skippedCount = 0;
+  
+  // Look for lines with dates - they mark transaction rows
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) continue;
+    if (!line || line.length < 5) continue; // Skip very short lines
     
     const dateMatch = line.match(datePattern);
-    const amountMatches = line.match(new RegExp(amountPattern, 'g'));
     
-    if (dateMatch && amountMatches) {
+    if (dateMatch) {
+      processedCount++;
+      
+      // Found a date - this might be a transaction row
       const dateStr = dateMatch[1];
       const date = parseDate(dateStr);
       
-      // Get the last amount (usually the balance change)
-      const amountStr = amountMatches[amountMatches.length - 1];
-      const amount = parseAmount(amountStr);
+      // Try to find amounts in this line and following lines (in case transaction spans multiple lines)
+      let fullLine = line;
       
-      // Extract description (text between date and amount)
-      let description = line
-        .replace(dateMatch[0], '')
-        .replace(amountStr, '')
-        .trim();
+      // Check next 2 lines for continuation (sometimes description spans lines)
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        // If next line doesn't start with a date, it might be part of this transaction
+        if (nextLine && !nextLine.match(datePattern)) {
+          fullLine += ' ' + nextLine;
+        }
+      }
       
-      // Clean up description
-      description = description.replace(/\s+/g, ' ').trim();
+      // Find all amounts in the line
+      const amountMatches = fullLine.match(new RegExp(amountPattern, 'g'));
       
-      if (description && amount !== 0) {
-        const category = categorizeTransaction(description);
-        const type = amount > 0 ? 'income' : 'expense';
+      if (amountMatches && amountMatches.length > 0) {
+        // In ING PDF, transactions usually have:
+        // - Date
+        // - Category/Description
+        // - Amount (IMPORTE) - the transaction amount
+        // - Balance (SALDO) - the running balance
         
-        transactions.push({
-          date,
-          description,
-          amount: Math.abs(amount),
-          type,
-          category,
-          bank: 'ING'
-        });
+        // Typically the first amount after the date is the transaction amount
+        // But if there are multiple amounts, we need to identify which is the transaction amount
+        // Usually it's the one that's not the balance (balance is usually last and larger)
+        
+        let transactionAmount = null;
+        let description = '';
+        
+        // Try to extract the transaction amount
+        // If there's only one amount, use it
+        if (amountMatches.length === 1) {
+          transactionAmount = parseAmount(amountMatches[0]);
+        } else {
+          // Multiple amounts - usually the transaction amount is smaller/more varied
+          // The balance is usually the last one and might be cumulative
+          // For now, try the first amount that's not too large (heuristic)
+          for (const amountStr of amountMatches) {
+            const amount = parseAmount(amountStr);
+            // Skip if it's 0 or very large (likely a balance)
+            if (amount !== 0 && Math.abs(amount) < 100000) {
+              transactionAmount = amount;
+              break;
+            }
+          }
+          // If no good candidate, use the first non-zero amount
+          if (!transactionAmount) {
+            for (const amountStr of amountMatches) {
+              const amount = parseAmount(amountStr);
+              if (amount !== 0) {
+                transactionAmount = amount;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Extract description - remove date and amounts
+        description = fullLine
+          .replace(dateMatch[0], '')
+          .replace(/\d{1,2}[-/]\d{1,2}[-/]\d{4}/g, '') // Remove any other dates
+          .replace(new RegExp(amountPattern, 'g'), '') // Remove amounts
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+        
+        // Clean up description - remove common table artifacts
+        description = description
+          .replace(/^\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)*\s*/i, '') // Remove category at start
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        // If we have a valid transaction amount and description
+        if (transactionAmount !== null && transactionAmount !== 0 && description.length > 0) {
+          // Skip if description is too short (likely not a real transaction)
+          if (description.length < 3) {
+            skippedCount++;
+            if (i < 10) {
+              console.error(`  ⏭️ Skipped row ${i}: description too short: "${description}"`);
+            }
+            continue;
+          }
+          
+          const category = categorizeTransaction(description);
+          const type = transactionAmount > 0 ? 'income' : 'expense';
+          
+          transactions.push({
+            date,
+            description,
+            amount: Math.abs(transactionAmount),
+            type,
+            category,
+            bank: 'ING'
+          });
+          
+          if (transactions.length <= 5) {
+            console.error(`✅ Parsed transaction ${transactions.length}: ${date} | ${description.substring(0, 40)} | ${transactionAmount}`);
+          }
+        } else {
+          skippedCount++;
+          if (i < 10) {
+            console.error(`  ⏭️ Skipped row ${i}:`, {
+              dateStr,
+              date,
+              transactionAmount,
+              description,
+              amountMatches,
+              fullLine: fullLine.substring(0, 100)
+            });
+          }
+        }
+      } else {
+        skippedCount++;
+        if (i < 10) {
+          console.error(`  ⏭️ Skipped row ${i}: no amounts found`, { dateStr, line: line.substring(0, 80) });
+        }
       }
     }
+  }
+  
+  console.error(`✅ PDF parsing complete: ${transactions.length} transactions, ${skippedCount} skipped, ${processedCount} rows with dates`);
+  
+  if (transactions.length < 5) {
+    console.error('⚠️ WARNING: Only parsed', transactions.length, 'transactions from PDF. Expected more.');
+    console.error('Sample lines:', lines.slice(0, 30));
   }
   
   return transactions;
