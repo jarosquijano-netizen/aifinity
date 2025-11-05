@@ -52,7 +52,7 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
     <>
       {/* Desktop Menu */}
       <div className="hidden md:block w-full">
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-premium p-2 flex flex-wrap gap-2 justify-between items-center border border-gray-100/50 dark:border-gray-700/50 animate-fadeIn w-full overflow-x-auto" role="tablist" style={{ minWidth: '100%' }}>
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-premium p-3 flex flex-wrap gap-3 md:gap-4 justify-between items-center border border-gray-100/50 dark:border-gray-700/50 animate-fadeIn w-full overflow-x-auto" role="tablist" style={{ minWidth: '100%' }}>
           {tabs.map((tab) => {
             const Icon = tabIcons[tab.id];
             const isActive = activeTab === tab.id;
@@ -62,7 +62,7 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
                 key={tab.id}
                 onClick={() => handleTabClick(tab.id)}
                 className={`
-                  relative px-4 md:px-6 py-2.5 md:py-3 rounded-xl text-sm md:text-base font-medium transition-all duration-300 transform whitespace-nowrap flex-shrink-0
+                  relative px-5 md:px-8 py-3 md:py-4 rounded-xl text-base md:text-lg font-semibold transition-all duration-300 transform whitespace-nowrap flex-shrink-0
                   ${isActive
                     ? 'text-white shadow-lg scale-105'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-102'
@@ -75,8 +75,8 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
                 aria-selected={isActive}
                 aria-controls={`panel-${tab.id}`}
               >
-                <div className="flex items-center space-x-2">
-                  {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
+                <div className="flex items-center space-x-2.5 md:space-x-3">
+                  {Icon && <Icon className="w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />}
                   <span className="truncate">{t(tab.id)}</span>
                 </div>
                 {isActive && (
@@ -105,7 +105,7 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
                 {React.createElement(tabIcons[activeTab], { className: "w-5 h-5 text-white" })}
               </div>
             )}
-            <span className="font-semibold text-base text-gray-700 dark:text-gray-200">
+            <span className="font-semibold text-lg text-gray-700 dark:text-gray-200">
               {t(activeTab)}
             </span>
           </div>
@@ -153,8 +153,8 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
                     className={`
-                      w-full relative px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 transform
-                      flex items-center space-x-3 text-left
+                      w-full relative px-5 py-4 rounded-xl text-lg font-semibold transition-all duration-300 transform
+                      flex items-center space-x-4 text-left
                       ${isActive
                         ? 'text-white shadow-lg scale-[1.02]'
                         : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -168,7 +168,7 @@ function PremiumTabs({ tabs, activeTab, onChange }) {
                     aria-controls={`panel-${tab.id}`}
                   >
                     {Icon && (
-                      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
+                      <Icon className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
                     )}
                     <span className="flex-1">{t(tab.id)}</span>
                     {isActive && (
