@@ -455,8 +455,13 @@ function Dashboard() {
         );
       })(),
       'kpi-savings-total': (() => {
+        // Use current month values for savings rate calculation
         const currentIncome = data.actualIncome || 0;
-        const currentBalance = data.actualNetBalance || 0;
+        const currentExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0;
+        // Recalculate balance if not available from backend
+        const currentBalance = data.actualNetBalance !== undefined 
+          ? data.actualNetBalance 
+          : (currentIncome - currentExpenses);
         const savingsRate = currentIncome > 0 ? ((currentBalance / currentIncome) * 100) : 0;
         const totalSavings = accounts
           .filter(acc => (acc.account_type === 'savings' || acc.account_type === 'investment') && !acc.exclude_from_stats)
@@ -473,7 +478,13 @@ function Dashboard() {
         let statusColor = 'text-green-600 dark:text-green-400';
         let bgColor = 'bg-green-50 dark:bg-green-900/20';
         
-        if (savingsRate < minRate) {
+        // Handle negative savings rate (expenses > income)
+        if (savingsRate < 0) {
+          status = 'negative';
+          statusText = '⚠️ Gastos > Ingresos';
+          statusColor = 'text-red-600 dark:text-red-400';
+          bgColor = 'bg-red-50 dark:bg-red-900/20';
+        } else if (savingsRate < minRate) {
           status = 'low';
           statusText = '⚠️ Bajo';
           statusColor = 'text-red-600 dark:text-red-400';
@@ -513,7 +524,7 @@ function Dashboard() {
                   {isLarge ? 'Tasa de Ahorro' : 'Tasa'}
                 </span>
                 <span className={`${isLarge ? 'text-xs' : 'text-[10px]'} font-bold ${statusColor}`}>
-                  {isLarge ? statusText : status === 'low' ? '⚠️' : status === 'moderate' ? '📊' : '✅'}
+                  {isLarge ? statusText : status === 'negative' || status === 'low' ? '⚠️' : status === 'moderate' ? '📊' : '✅'}
                 </span>
               </div>
               <p className={`${isLarge ? 'text-2xl' : 'text-xl'} font-bold text-gray-900 dark:text-gray-100`}>
@@ -525,7 +536,8 @@ function Dashboard() {
                 <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 pt-2 border-t border-green-200 dark:border-green-700">
                   <p className="font-medium mb-1">💡 Recomendado: {minRate}-{maxRate}%</p>
                   <p className="text-[10px] leading-tight">
-                    {savingsRate < minRate && `Intenta ahorrar al menos ${minRate}% de tus ingresos mensuales`}
+                    {savingsRate < 0 && `⚠️ Tus gastos superan tus ingresos. Revisa tu presupuesto y reduce gastos.`}
+                    {savingsRate >= 0 && savingsRate < minRate && `Intenta ahorrar al menos ${minRate}% de tus ingresos mensuales`}
                     {savingsRate >= minRate && savingsRate < recommendedRate && `Muy bien, acércate al ${recommendedRate}% ideal`}
                     {savingsRate >= recommendedRate && savingsRate <= maxRate && `¡Perfecto! Estás en el rango óptimo de ahorro`}
                     {savingsRate > maxRate && `¡Impresionante! Estás ahorrando más del ${maxRate}%`}
