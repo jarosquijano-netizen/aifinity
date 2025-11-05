@@ -821,11 +821,26 @@ function parseINGSpanishCSV(lines) {
   console.error('📋 Header row index:', headerRowIndex);
   console.error('📋 Total lines:', lines.length);
   
-  const dateColumn = headers.findIndex(h => h.toLowerCase().includes('f. valor') || h.toLowerCase().includes('fecha'));
-  const categoryColumn = headers.findIndex(h => h.toLowerCase().includes('categoría'));
-  const descriptionColumn = headers.findIndex(h => h.toLowerCase().includes('descripción'));
-  const amountColumn = headers.findIndex(h => h.toLowerCase().includes('importe'));
-  const balanceColumn = headers.findIndex(h => h.toLowerCase().includes('saldo'));
+  const dateColumn = headers.findIndex(h => {
+    const hLower = h.toLowerCase();
+    return hLower.includes('f. valor') || hLower.includes('fecha') || hLower.includes('f.operativa');
+  });
+  const categoryColumn = headers.findIndex(h => {
+    const hLower = h.toLowerCase();
+    return hLower.includes('categoría') || hLower.includes('categoria');
+  });
+  const descriptionColumn = headers.findIndex(h => {
+    const hLower = h.toLowerCase();
+    return hLower.includes('descripción') || hLower.includes('descripcion') || hLower.includes('concepto');
+  });
+  const amountColumn = headers.findIndex(h => {
+    const hLower = h.toLowerCase();
+    return hLower.includes('importe') || hLower.includes('amount') || hLower.includes('cantidad');
+  });
+  const balanceColumn = headers.findIndex(h => {
+    const hLower = h.toLowerCase();
+    return hLower.includes('saldo') || hLower.includes('balance');
+  });
   
   console.error('📍 Column indices:', {
     dateColumn,
