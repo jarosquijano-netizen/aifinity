@@ -565,21 +565,28 @@ function detectINGSpanishFormat(text, lines) {
   const textLower = text.toLowerCase();
   
   // Check for ING-specific indicators
-  if (textLower.includes('movimientos de la cuenta') || 
-      textLower.includes('número de cuenta')) {
+  const hasMovimientos = textLower.includes('movimientos de la cuenta') || 
+                         textLower.includes('número de cuenta');
+  
+  // Look for the specific header row - check first 15 lines (more than before)
+  let foundHeader = false;
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
+    const line = lines[i];
+    if (!line) continue; // Skip empty lines
     
-    // Look for the specific header row
-    for (let i = 0; i < Math.min(10, lines.length); i++) {
-      const line = lines[i].toLowerCase();
-      if (line.includes('f. valor') && 
-          line.includes('categoría') && 
-          line.includes('importe')) {
-        return true;
-      }
+    const lineLower = line.toLowerCase();
+    if (lineLower.includes('f. valor') && 
+        lineLower.includes('categoría') && 
+        lineLower.includes('importe')) {
+      foundHeader = true;
+      break;
     }
   }
   
-  return false;
+  const result = hasMovimientos && foundHeader;
+  console.log('🔍 ING format detection:', { hasMovimientos, foundHeader, result });
+  
+  return result;
 }
 
 /**
@@ -587,13 +594,15 @@ function detectINGSpanishFormat(text, lines) {
  * Format: F. VALOR,CATEGORÍA,SUBCATEGORÍA,DESCRIPCIÓN,COMENTARIO,IMAGEN,IMPORTE (€),SALDO (€)
  */
 function parseINGSpanishCSV(lines) {
+  console.log('🔵 parseINGSpanishCSV CALLED with', lines.length, 'lines');
+  
   const transactions = [];
   let accountNumber = '';
   let lastBalance = null;
   let headerRowIndex = -1;
   
-  // Find header row and account number
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
+  // Find header row and account number - check more lines
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
     const line = lines[i];
     
     // Extract account number from first line
@@ -601,6 +610,7 @@ function parseINGSpanishCSV(lines) {
       const accountMatch = line.match(/Número de cuenta:\s*([\d\s]+)/);
       if (accountMatch) {
         accountNumber = accountMatch[1].replace(/\s/g, '');
+        console.log('✅ Found account number:', accountNumber);
       }
     }
     
@@ -610,12 +620,14 @@ function parseINGSpanishCSV(lines) {
         lineLower.includes('categoría') && 
         lineLower.includes('importe')) {
       headerRowIndex = i;
+      console.log('✅ Found header row at index:', i, 'Content:', line.substring(0, 100));
       break;
     }
   }
   
   if (headerRowIndex === -1) {
-    console.error('Could not find ING header row');
+    console.error('❌ Could not find ING header row');
+    console.error('First 10 lines:', lines.slice(0, 10));
     return {
       bank: 'ING',
       transactions: []
@@ -627,6 +639,8 @@ function parseINGSpanishCSV(lines) {
   const headers = parseCSVLine(headerRow);
   
   console.log('📋 ING CSV Headers:', headers);
+  console.log('📋 Header row index:', headerRowIndex);
+  console.log('📋 Total lines:', lines.length);
   
   const dateColumn = headers.findIndex(h => h.toLowerCase().includes('f. valor') || h.toLowerCase().includes('fecha'));
   const categoryColumn = headers.findIndex(h => h.toLowerCase().includes('categoría'));
@@ -652,23 +666,44 @@ function parseINGSpanishCSV(lines) {
   
   // Parse transactions
   let skippedCount = 0;
+  let processedCount = 0;
+  let validCount = 0;
+  
+  console.log(`🔄 Starting to parse transactions from line ${headerRowIndex + 1} to ${lines.length - 1}`);
+  
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const rawLine = lines[i];
+    const line = rawLine.trim();
+    
+    processedCount++;
+    
+    // Skip truly empty lines
+    if (!line) {
+      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
+        console.log(`Row ${i}: Empty line, skipping`);
+      }
+      continue;
+    }
     
     const fields = parseCSVLine(line);
     
-    // Debug: log first few rows and last few rows
-    if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
-      console.log(`Row ${i}: ${fields.length} fields`, fields.slice(0, 5));
+    // Debug: log first 10 rows and last 5 rows in detail
+    if (i <= headerRowIndex + 10 || i >= lines.length - 5) {
+      console.log(`Row ${i}: ${fields.length} fields`, {
+        raw: line.substring(0, 80),
+        fields: fields.slice(0, 8),
+        dateCol: dateColumn,
+        descCol: descriptionColumn,
+        amountCol: amountColumn
+      });
     }
     
     // Skip if not enough columns
     const maxColumn = Math.max(dateColumn, descriptionColumn, amountColumn);
     if (fields.length <= maxColumn) {
       skippedCount++;
-      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
-        console.log(`  Skipped: not enough columns (have ${fields.length}, need ${maxColumn + 1})`);
+      if (i <= headerRowIndex + 10 || i >= lines.length - 5) {
+        console.log(`  ❌ Skipped row ${i}: not enough columns (have ${fields.length}, need ${maxColumn + 1})`);
       }
       continue;
     }
@@ -682,8 +717,13 @@ function parseINGSpanishCSV(lines) {
     // Skip if missing required fields (date and amount are required, description can be empty)
     if (!dateStr || !amountStr) {
       skippedCount++;
-      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
-        console.log(`  Skipped: missing date or amount`, { dateStr, amountStr, description: description.substring(0, 30) });
+      if (i <= headerRowIndex + 10 || i >= lines.length - 5) {
+        console.log(`  ❌ Skipped row ${i}: missing date or amount`, { 
+          dateStr, 
+          amountStr, 
+          description: description.substring(0, 30),
+          fieldsLength: fields.length
+        });
       }
       continue;
     }
@@ -695,10 +735,10 @@ function parseINGSpanishCSV(lines) {
     const parsedDate = parseDate(dateStr);
     
     // Validate parsed date format before proceeding
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) {
+    if (!parsedDate || !/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) {
       skippedCount++;
-      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
-        console.warn(`⚠️ Skipped invalid date format: ${dateStr} -> ${parsedDate}`);
+      if (i <= headerRowIndex + 10 || i >= lines.length - 5) {
+        console.warn(`  ❌ Skipped row ${i}: invalid date format: "${dateStr}" -> "${parsedDate}"`);
       }
       continue;
     }
@@ -707,11 +747,13 @@ function parseINGSpanishCSV(lines) {
     const parsedAmount = parseAmount(amountStr);
     if (isNaN(parsedAmount) || parsedAmount === 0) {
       skippedCount++;
-      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
-        console.log(`  Skipped: invalid amount`, { amountStr, parsedAmount });
+      if (i <= headerRowIndex + 10 || i >= lines.length - 5) {
+        console.log(`  ❌ Skipped row ${i}: invalid amount`, { amountStr, parsedAmount });
       }
       continue;
     }
+    
+    validCount++;
     
     // Determine type from amount sign
     const type = parsedAmount > 0 ? 'income' : 'expense';
@@ -762,7 +804,9 @@ function parseINGSpanishCSV(lines) {
     });
   }
   
-  console.log(`✅ ING CSV parsed: ${transactions.length} transactions, ${skippedCount} skipped, ${processedCount} rows processed`);
+  console.log(`✅ ING CSV parsed: ${transactions.length} transactions`);
+  console.log(`📊 Summary: ${validCount} valid, ${skippedCount} skipped, ${processedCount} rows processed`);
+  console.log(`📊 Header at row ${headerRowIndex}, parsing from row ${headerRowIndex + 1} to ${lines.length - 1}`);
   
   if (transactions.length === 0) {
     console.error('❌ No transactions parsed from ING CSV!');
@@ -773,13 +817,28 @@ function parseINGSpanishCSV(lines) {
       amountColumn,
       balanceColumn
     });
+    console.error('First 15 lines:', lines.slice(0, 15));
   } else if (transactions.length === 1) {
     console.error('⚠️ WARNING: Only parsed 1 transaction from ING CSV! Expected many more.');
-    console.error(`Processed ${processedCount} rows, skipped ${skippedCount}`);
+    console.error(`Processed ${processedCount} rows, skipped ${skippedCount}, valid ${validCount}`);
     console.error('CSV lines:', lines.length);
     console.error('Header row index:', headerRowIndex);
-    console.error('First 10 lines:', lines.slice(0, 10));
+    console.error('First 15 lines:', lines.slice(0, 15));
     console.error('Sample parsed transaction:', transactions[0]);
+    
+    // Show what columns we're extracting
+    console.error('Column extraction test - row 5 (first transaction):');
+    if (lines.length > headerRowIndex + 1) {
+      const testLine = lines[headerRowIndex + 1];
+      const testFields = parseCSVLine(testLine);
+      console.error('Test line:', testLine.substring(0, 100));
+      console.error('Test fields:', testFields);
+      console.error('Extracted:', {
+        date: testFields[dateColumn],
+        description: testFields[descriptionColumn],
+        amount: testFields[amountColumn]
+      });
+    }
   }
   
   return {
