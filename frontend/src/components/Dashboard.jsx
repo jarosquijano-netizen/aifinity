@@ -373,11 +373,11 @@ function Dashboard() {
           </div>
           <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
             <p className={`${cardSize.valueSize} font-bold text-gray-900 dark:text-gray-100`}>
-              €{(data.actualExpenses || data.totalExpenses).toFixed(2)}
+              €{(data.actualExpenses !== undefined ? data.actualExpenses : 0).toFixed(2)}
             </p>
-            {isLarge && data.actualIncome > 0 && (
+            {isLarge && data.actualIncome > 0 && data.actualExpenses !== undefined && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            {Math.round(((data.actualExpenses || data.totalExpenses) / data.actualIncome) * 100)}% of income
+            {Math.round((data.actualExpenses / data.actualIncome) * 100)}% of income
           </p>
             )}
             {/* Small mode: Show top expense category */}
@@ -396,9 +396,9 @@ function Dashboard() {
       'kpi-balance': (() => {
         const incomeRatio = expectedIncome > 0 ? (data.actualIncome / expectedIncome) * 100 : 0;
         const hasExpectedIncome = expectedIncome > 0;
-        // Use backend calculated balance if available, otherwise recalculate: Income - Expenses
+        // Use backend calculated values - ensure expenses are from current month only
         const actualIncome = data.actualIncome || 0;
-        const actualExpenses = data.actualExpenses !== undefined ? data.actualExpenses : (data.totalExpenses || 0);
+        const actualExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0; // Only use current month expenses
         const actualBalance = data.actualNetBalance !== undefined 
           ? data.actualNetBalance 
           : (actualIncome - actualExpenses);

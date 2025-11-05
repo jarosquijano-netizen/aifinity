@@ -51,12 +51,13 @@ router.get('/', optionalAuth, async (req, res) => {
     // Explicitly ignore applicable_month for expenses - expenses should always use actual transaction date
     const currentMonthDate = currentMonth + '-01';
     const actualExpensesResult = await pool.query(
-      `SELECT SUM(amount) as actual_expenses
+      `SELECT COALESCE(SUM(amount), 0) as actual_expenses
        FROM transactions
        WHERE type = 'expense'
        AND computable = true
        AND (user_id IS NULL OR user_id = $1)
-       AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)`,
+       AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
+       AND amount > 0`,
       [userId, currentMonthDate]
     );
     const actualExpenses = parseFloat(actualExpensesResult.rows[0]?.actual_expenses || 0);
