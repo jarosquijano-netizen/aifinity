@@ -243,9 +243,6 @@ function parseINGStatement(text) {
   if (transactions.length < 5) {
     const warningMsg = `⚠️ WARNING: Only parsed ${transactions.length} transactions from PDF!\n\nExpected more.\n\nProcessed: ${processedCount} rows with dates\nSkipped: ${skippedCount}\n\nFirst 30 lines:\n${lines.slice(0, 30).join('\n')}`;
     console.error('⚠️ WARNING:', warningMsg);
-    alert(warningMsg);
-  } else {
-    alert(`✅ PDF Parsed Successfully!\n${transactions.length} transactions\n${skippedCount} skipped\n${processedCount} rows processed`);
   }
   
   return transactions;
@@ -588,18 +585,15 @@ function categorizeTransaction(description) {
  */
 export async function parsePDFTransactions(file) {
   console.error('🚀🚀🚀 parsePDFTransactions CALLED with file:', file.name);
-  alert(`🚀 PDF Parser Called: ${file.name}`);
   
   try {
     console.error('📄 Extracting text from PDF...');
     const text = await extractTextFromPDF(file);
     console.error('📄 PDF text extracted, length:', text.length);
     console.error('📄 First 500 chars:', text.substring(0, 500));
-    alert(`📄 PDF text extracted: ${text.length} chars\nPreview: ${text.substring(0, 100)}`);
     
     const bank = detectBank(text);
     console.error('🏦 Detected bank:', bank);
-    alert(`🏦 Detected bank: ${bank}`);
     
     let transactions = [];
     
@@ -615,7 +609,6 @@ export async function parsePDFTransactions(file) {
     }
     
     console.error(`✅ PDF parsing complete: ${transactions.length} transactions found`);
-    alert(`✅ PDF Parsed: ${transactions.length} transactions\nFirst 3:\n${transactions.slice(0, 3).map(t => `${t.date} - ${t.description.substring(0, 30)} - ${t.amount}`).join('\n')}`);
     
     return {
       bank,
@@ -624,7 +617,6 @@ export async function parsePDFTransactions(file) {
     };
   } catch (error) {
     console.error('❌ Error parsing PDF:', error);
-    alert(`❌ PDF Parse Error: ${error.message}`);
     throw error;
   }
 }
@@ -634,7 +626,6 @@ export async function parsePDFTransactions(file) {
  */
 export async function parseCSVTransactions(file) {
   console.error('🚀🚀🚀 parseCSVTransactions CALLED with file:', file.name, file.type);
-  alert(`🚀 CSV Parser Called: ${file.name}`);
   
   try {
     const text = await file.text();
@@ -646,7 +637,6 @@ export async function parseCSVTransactions(file) {
     
     console.error(`📄 CSV file: ${file.name}, ${lines.length} lines`);
     console.error(`📄 First 5 lines with indices:`, lines.slice(0, 5).map((l, i) => `[${i}] ${l.substring(0, 80)}`));
-    alert(`📄 CSV has ${lines.length} lines\nFirst line: ${lines[0]?.substring(0, 50)}`);
     
     // Check if it's a credit card statement
     const isCreditCard = detectSabadellCreditCardFormat(text);
@@ -676,11 +666,10 @@ export async function parseCSVTransactions(file) {
       const result = parseINGSpanishCSV(lines);
       console.error(`✅ ING parser returned ${result.transactions.length} transactions`);
       
-      // CRITICAL ALERT if only 1 transaction
+      // Log warning if only 1 transaction
       if (result.transactions.length <= 1) {
         const errorMsg = `⚠️ WARNING: Only parsed ${result.transactions.length} transaction from ING CSV!\n\nExpected many more.\n\nCSV lines: ${lines.length}\nFirst 10 lines:\n${lines.slice(0, 10).join('\n')}`;
         console.error('❌ CRITICAL:', errorMsg);
-        alert(errorMsg);
       }
       
       return result;
@@ -772,7 +761,6 @@ function detectINGSpanishFormat(text, lines) {
  */
 function parseINGSpanishCSV(lines) {
   console.error('🔵🔵🔵 parseINGSpanishCSV CALLED with', lines.length, 'lines');
-  alert(`🔵 ING Parser Called with ${lines.length} lines`);
   
   const transactions = [];
   let accountNumber = '';
@@ -799,7 +787,6 @@ function parseINGSpanishCSV(lines) {
         lineLower.includes('importe')) {
       headerRowIndex = i;
       console.error('✅ Found header row at index:', i, 'Content:', line.substring(0, 100));
-      alert(`✅ Header row found at line ${i + 1}: ${line.substring(0, 80)}`);
       break;
     }
   }
@@ -850,8 +837,6 @@ function parseINGSpanishCSV(lines) {
     balanceColumn
   });
   
-  alert(`📍 Column indices:\nDate: ${dateColumn}, Desc: ${descriptionColumn}, Amount: ${amountColumn}\nTotal lines: ${lines.length}`);
-  
   if (dateColumn === -1 || amountColumn === -1) {
     console.error('❌ Missing required columns:', { dateColumn, amountColumn });
     return {
@@ -892,11 +877,6 @@ function parseINGSpanishCSV(lines) {
         descCol: descriptionColumn,
         amountCol: amountColumn
       });
-    }
-    
-    // Alert on first few rows
-    if (i === headerRowIndex + 1) {
-      alert(`First transaction row:\nFields: ${fields.length}\nDate: ${fields[dateColumn]}\nAmount: ${fields[amountColumn]}\nDesc: ${fields[descriptionColumn]?.substring(0, 30)}`);
     }
     
     // Skip if not enough columns
@@ -1008,9 +988,7 @@ function parseINGSpanishCSV(lines) {
   console.error(`✅ ING CSV parsed: ${transactions.length} transactions`);
   console.error(`📊 Summary: ${validCount} valid, ${skippedCount} skipped, ${processedCount} rows processed`);
   console.error(`📊 Header at row ${headerRowIndex}, parsing from row ${headerRowIndex + 1} to ${lines.length - 1}`);
-  
-  // CRITICAL ALERT with summary
-  alert(`📊 ING Parse Summary:\n✅ Valid: ${validCount}\n⏭️ Skipped: ${skippedCount}\n📄 Processed: ${processedCount}\n💾 Saved: ${transactions.length}`);
+  console.error(`📊 ING Parse Summary: Valid: ${validCount}, Skipped: ${skippedCount}, Processed: ${processedCount}, Saved: ${transactions.length}`);
   
   if (transactions.length === 0) {
     console.error('❌ No transactions parsed from ING CSV!');

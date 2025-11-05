@@ -126,11 +126,11 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
   const handleBulkUpdate = async () => {
     if (selectedTransactionIds.length === 0) {
-      alert('Por favor selecciona al menos una transacción');
+      setError('Por favor selecciona al menos una transacción');
       return;
     }
     if (!bulkCategory) {
-      alert('Por favor selecciona una categoría');
+      setError('Por favor selecciona una categoría');
       return;
     }
 
@@ -170,7 +170,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
     } catch (err) {
       console.error('Error deleting transaction:', err);
-      alert('Error al eliminar la transacción');
+      setError('Error al eliminar la transacción');
     }
   };
 
