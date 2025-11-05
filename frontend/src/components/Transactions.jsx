@@ -137,7 +137,6 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     setIsBulkUpdating(true);
     try {
       const result = await bulkUpdateTransactionCategory(selectedTransactionIds, bulkCategory, bulkComputable);
-      alert(result.message || `${result.updated} transacciones actualizadas exitosamente`);
       setSelectedTransactionIds([]);
       setBulkCategory('');
       setShowBulkPanel(false);
@@ -146,7 +145,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
     } catch (error) {
       console.error('Error updating transactions:', error);
-      alert('Error al actualizar transacciones');
+      setError('Error al actualizar transacciones');
     } finally {
       setIsBulkUpdating(false);
     }
