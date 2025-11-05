@@ -172,7 +172,12 @@ router.post('/upload', optionalAuth, async (req, res) => {
     }
 
     // Update summaries
-    await updateSummaries(client, userId);
+    try {
+      await updateSummaries(client, userId);
+    } catch (summaryError) {
+      console.error('⚠️ Error updating summaries (non-critical):', summaryError);
+      // Don't fail the entire upload if summaries fail
+    }
 
     await client.query('COMMIT');
 
