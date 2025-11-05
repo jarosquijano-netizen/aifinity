@@ -465,9 +465,11 @@ export async function parsePDFTransactions(file) {
 export async function parseCSVTransactions(file) {
   try {
     const text = await file.text();
-    const lines = text.split('\n');
+    // Handle both Windows (\r\n) and Unix (\n) line endings
+    const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
     
     console.log(`📄 CSV file: ${file.name}, ${lines.length} lines`);
+    console.log(`📄 First 5 lines:`, lines.slice(0, 5));
     
     // Check if it's a credit card statement
     const isCreditCard = detectSabadellCreditCardFormat(text);

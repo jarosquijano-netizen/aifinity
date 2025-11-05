@@ -212,7 +212,7 @@ function Upload({ onUploadComplete }) {
       setTimeout(() => {
         setFiles([]);
         onUploadComplete();
-      }, 5000); // Increased from 2000 to 5000ms to allow console log review
+      }, 15000); // Increased to 15 seconds to allow console log review
 
     } catch (err) {
       console.error('❌ Processing error:', err);
@@ -230,6 +230,9 @@ function Upload({ onUploadComplete }) {
                           'Failed to process files';
       
       setError(errorMessage);
+      // Don't redirect on error - let user see the error
+      setProcessing(false);
+      return;
     } finally {
       setProcessing(false);
     }
