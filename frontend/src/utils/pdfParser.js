@@ -467,10 +467,13 @@ export async function parseCSVTransactions(file) {
     const text = await file.text();
     const lines = text.split('\n');
     
+    console.log(`📄 CSV file: ${file.name}, ${lines.length} lines`);
+    
     // Check if it's a credit card statement
     const isCreditCard = detectSabadellCreditCardFormat(text);
     
     if (isCreditCard) {
+      console.log('💳 Detected: Sabadell Credit Card format');
       return parseSabadellCreditCard(lines, text);
     }
     
@@ -478,26 +481,38 @@ export async function parseCSVTransactions(file) {
     const isSabadellFormat = detectSabadellFormat(text);
     
     if (isSabadellFormat) {
+      console.log('🏦 Detected: Sabadell Bank format');
       return parseSabadellCSV(lines);
     }
     
     // Detect ING Spanish format (Movimientos de la Cuenta with F. VALOR header)
     const isINGSpanishFormat = detectINGSpanishFormat(text, lines);
     if (isINGSpanishFormat) {
-      return parseINGSpanishCSV(lines);
+      console.log('🏦 Detected: ING Spanish format');
+      const result = parseINGSpanishCSV(lines);
+      console.log(`✅ ING parser returned ${result.transactions.length} transactions`);
+      return result;
     }
     
     // Try to detect other bank formats
     const detectedFormat = detectBankFormat(text, lines);
     if (detectedFormat) {
+      console.log(`🏦 Detected: ${detectedFormat.bank} format`);
       return parseDetectedFormat(lines, detectedFormat);
     }
     
     // Fall back to generic CSV parsing
+    console.log('📋 Using generic CSV parser');
     return parseGenericCSV(lines);
   } catch (error) {
-    console.error('Error parsing CSV:', error);
-    throw error;
+    console.error('❌ Error parsing CSV:', error);
+    console.error('Error stack:', error.stack);
+    // Return empty result instead of throwing
+    return {
+      bank: 'Unknown',
+      transactions: [],
+      error: error.message
+    };
   }
 }
 

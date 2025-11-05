@@ -105,10 +105,29 @@ function Upload({ onUploadComplete }) {
       for (const file of files) {
         let parseResult;
         
+        console.log(`📄 Processing file: ${file.name}, type: ${file.type}`);
+        
         if (file.type === 'application/pdf') {
           parseResult = await parsePDFTransactions(file);
         } else if (file.name.endsWith('.csv') || file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
           parseResult = await parseCSVTransactions(file);
+        }
+        
+        console.log(`📊 Parse result for ${file.name}:`, {
+          bank: parseResult?.bank,
+          transactionCount: parseResult?.transactions?.length || 0,
+          accountNumber: parseResult?.accountNumber,
+          lastBalance: parseResult?.lastBalance,
+          transactions: parseResult?.transactions?.slice(0, 3) // Show first 3
+        });
+        
+        if (!parseResult || !parseResult.transactions) {
+          console.error(`❌ No transactions found in ${file.name}`);
+          continue;
+        }
+        
+        if (parseResult.transactions.length === 0) {
+          console.warn(`⚠️ Parse result has 0 transactions for ${file.name}`);
         }
         
         allTransactions = [...allTransactions, ...parseResult.transactions];
@@ -126,8 +145,21 @@ function Upload({ onUploadComplete }) {
         }
       }
 
+      console.log(`📤 Uploading ${allTransactions.length} transactions to backend...`);
+      
+      if (allTransactions.length === 0) {
+        throw new Error('No transactions to upload. Please check the file format.');
+      }
+      
       // Upload to backend with selected account and balance
       const uploadResult = await uploadTransactions(allTransactions, selectedAccount || null, lastBalance);
+      
+      console.log(`✅ Upload result:`, {
+        count: uploadResult.count,
+        skipped: uploadResult.skipped,
+        total: allTransactions.length,
+        balanceUpdated: uploadResult.balanceUpdated
+      });
       
       // If it's a credit card, update the account with credit limit
       if (creditCardData && selectedAccount) {
