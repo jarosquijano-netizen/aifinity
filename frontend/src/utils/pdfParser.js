@@ -591,34 +591,70 @@ function parseINGSpanishCSV(lines) {
   const headerRow = lines[headerRowIndex];
   const headers = parseCSVLine(headerRow);
   
+  console.log('📋 ING CSV Headers:', headers);
+  
   const dateColumn = headers.findIndex(h => h.toLowerCase().includes('f. valor') || h.toLowerCase().includes('fecha'));
   const categoryColumn = headers.findIndex(h => h.toLowerCase().includes('categoría'));
   const descriptionColumn = headers.findIndex(h => h.toLowerCase().includes('descripción'));
   const amountColumn = headers.findIndex(h => h.toLowerCase().includes('importe'));
   const balanceColumn = headers.findIndex(h => h.toLowerCase().includes('saldo'));
   
+  console.log('📍 Column indices:', {
+    dateColumn,
+    categoryColumn,
+    descriptionColumn,
+    amountColumn,
+    balanceColumn
+  });
+  
+  if (dateColumn === -1 || amountColumn === -1) {
+    console.error('❌ Missing required columns:', { dateColumn, amountColumn });
+    return {
+      bank: 'ING',
+      transactions: []
+    };
+  }
+  
   // Parse transactions
+  let skippedCount = 0;
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     
     const fields = parseCSVLine(line);
     
+    // Debug: log first few rows
+    if (i <= headerRowIndex + 5) {
+      console.log(`Row ${i}: ${fields.length} fields`, fields);
+    }
+    
     // Skip if not enough columns
-    if (fields.length <= Math.max(dateColumn, descriptionColumn, amountColumn)) {
+    const maxColumn = Math.max(dateColumn, descriptionColumn, amountColumn);
+    if (fields.length <= maxColumn) {
+      skippedCount++;
+      if (i <= headerRowIndex + 5) {
+        console.log(`  Skipped: not enough columns (have ${fields.length}, need ${maxColumn + 1})`);
+      }
       continue;
     }
     
-    const dateStr = fields[dateColumn];
-    const category = fields[categoryColumn] || '';
-    const description = fields[descriptionColumn] || '';
-    const amountStr = fields[amountColumn];
-    const balanceStr = balanceColumn >= 0 ? fields[balanceColumn] : null;
+    const dateStr = fields[dateColumn]?.trim();
+    const category = fields[categoryColumn]?.trim() || '';
+    const description = fields[descriptionColumn]?.trim() || '';
+    const amountStr = fields[amountColumn]?.trim();
+    const balanceStr = balanceColumn >= 0 ? fields[balanceColumn]?.trim() : null;
     
-    // Skip if missing required fields
-    if (!dateStr || !amountStr || !description) {
+    // Skip if missing required fields (date and amount are required, description can be empty)
+    if (!dateStr || !amountStr) {
+      skippedCount++;
+      if (i <= headerRowIndex + 5) {
+        console.log(`  Skipped: missing date or amount`, { dateStr, amountStr, description });
+      }
       continue;
     }
+    
+    // Use description or generate one if empty
+    const finalDescription = description || `Transaction ${dateStr}`;
     
     // Parse date (DD/MM/YYYY format)
     const parsedDate = parseDate(dateStr);
@@ -626,6 +662,10 @@ function parseINGSpanishCSV(lines) {
     // Parse amount (can be negative)
     const parsedAmount = parseAmount(amountStr);
     if (isNaN(parsedAmount) || parsedAmount === 0) {
+      skippedCount++;
+      if (i <= headerRowIndex + 5) {
+        console.log(`  Skipped: invalid amount`, amountStr);
+      }
       continue;
     }
     
@@ -662,21 +702,23 @@ function parseINGSpanishCSV(lines) {
         mappedCategory = 'Transferencias';
       } else {
         // Use smart categorization
-        mappedCategory = categorizeTransaction(description);
+        mappedCategory = categorizeTransaction(finalDescription);
       }
     } else {
-      mappedCategory = categorizeTransaction(description);
+      mappedCategory = categorizeTransaction(finalDescription);
     }
     
     transactions.push({
       bank: 'ING',
       date: parsedDate,
       category: mappedCategory,
-      description: description.trim(),
+      description: finalDescription,
       amount: Math.abs(parsedAmount),
       type: type
     });
   }
+  
+  console.log(`✅ ING CSV parsed: ${transactions.length} transactions, ${skippedCount} skipped`);
   
   return {
     bank: 'ING',
