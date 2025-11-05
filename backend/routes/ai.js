@@ -169,6 +169,14 @@ router.post('/chat', async (req, res) => {
 
     // Fetch user's comprehensive financial data for context
     const financialData = await getUserFinancialContext(userId, timePeriod);
+    
+    // Validate financial data
+    if (!financialData) {
+      console.error('Failed to fetch financial data for user:', userId);
+      return res.status(500).json({ 
+        error: 'Failed to load financial data. Please try again.' 
+      });
+    }
 
     // Call appropriate AI API based on provider
     let aiResponse;
@@ -196,8 +204,26 @@ router.post('/chat', async (req, res) => {
       });
     } catch (aiError) {
       console.error('AI API Error:', aiError);
+      const errorMessage = aiError.message || 'Unknown error';
+      console.error('Error details:', errorMessage);
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        return res.status(500).json({ 
+          error: 'Invalid API key. Please check your API key in Settings.' 
+        });
+      } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+        return res.status(500).json({ 
+          error: 'API rate limit exceeded. Please try again in a moment.' 
+        });
+      } else if (errorMessage.includes('insufficient_quota')) {
+        return res.status(500).json({ 
+          error: 'API quota exceeded. Please check your API account credits.' 
+        });
+      }
+      
       return res.status(500).json({ 
-        error: 'Failed to get AI response. Please check your API key is valid.' 
+        error: `Failed to get AI response: ${errorMessage}. Please check your API key and try again.` 
       });
     }
   } catch (error) {
@@ -327,14 +353,14 @@ async function getUserFinancialContext(userId, timePeriod = null) {
       [userId]
     );
 
-    // Get recent transactions (last 20)
+    // Get recent transactions (last 10 to reduce token usage)
     const recentTransactionsResult = await pool.query(
       `SELECT id, date, description, category, type, amount, bank, computable
        FROM transactions
        WHERE (user_id IS NULL OR user_id = $1)
        ${dateFilter}
        ORDER BY date DESC, id DESC
-       LIMIT 20`,
+       LIMIT 10`,
       dateParams.length > 0 ? [userId, ...dateParams] : [userId]
     );
 
@@ -406,8 +432,8 @@ async function getUserFinancialContext(userId, timePeriod = null) {
         remaining: parseFloat(b.amount) - parseFloat(b.spent),
         usagePercent: parseFloat(b.amount) > 0 ? (parseFloat(b.spent) / parseFloat(b.amount)) * 100 : 0
       })),
-      categories: categories.map(c => ({
-        category: c.category,
+      categories: categories.slice(0, 20).map(c => ({
+        category: c.category || 'Uncategorized',
         type: c.type,
         total: parseFloat(c.total),
         count: parseInt(c.count)
@@ -420,14 +446,14 @@ async function getUserFinancialContext(userId, timePeriod = null) {
         creditLimit: parseFloat(a.credit_limit || 0),
         excludeFromStats: a.exclude_from_stats
       })),
-      recentTransactions: recentTransactions.map(t => ({
+      recentTransactions: recentTransactions.slice(0, 10).map(t => ({
         id: t.id,
-        date: t.date,
-        description: t.description,
-        category: t.category,
+        date: t.date ? new Date(t.date).toISOString().split('T')[0] : null,
+        description: t.description ? t.description.substring(0, 100) : '', // Limit description length
+        category: t.category || 'Uncategorized',
         type: t.type,
         amount: parseFloat(t.amount),
-        bank: t.bank,
+        bank: t.bank || 'Unknown',
         computable: t.computable
       })),
       trends: trends.map(t => ({
@@ -439,7 +465,23 @@ async function getUserFinancialContext(userId, timePeriod = null) {
     };
   } catch (error) {
     console.error('Error fetching financial context:', error);
-    return null;
+    console.error('Error stack:', error.stack);
+    
+    // Return minimal valid data structure instead of null
+    return {
+      timePeriod: timePeriod || 'all',
+      summary: {
+        allTime: { totalIncome: 0, totalExpenses: 0, netBalance: 0, transactionCount: 0 },
+        filtered: { totalIncome: 0, totalExpenses: 0, netBalance: 0, transactionCount: 0 },
+        currentMonth: { income: 0, expenses: 0, netBalance: 0, expectedIncome: 0 }
+      },
+      budgets: [],
+      categories: [],
+      accounts: [],
+      recentTransactions: [],
+      trends: [],
+      error: 'Failed to load some financial data'
+    };
   }
 }
 
@@ -460,30 +502,23 @@ async function callOpenAI(apiKey, userMessage, financialData, language = 'en') {
       messages: [
         {
           role: 'system',
-          content: `You are an expert financial advisor assistant with access to comprehensive financial data. Analyze the following data carefully:
+          content: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
 
-${JSON.stringify(financialData, null, 2)}
+Financial Data Summary:
+- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}
+- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}
+- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}
+- ${financialData.categories.length} spending categories
+- ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
+- ${financialData.recentTransactions.length} recent transactions
+- ${financialData.trends.length} months of trend data
 
-Key capabilities:
-- Analyze data by time period (day, week, month, year, or all-time)
-- Compare current period vs historical trends
-- Identify spending patterns and anomalies
-- Provide budget recommendations
-- Analyze account balances and credit utilization
-- Suggest actionable improvements
+Top Categories: ${financialData.categories.slice(0, 5).map(c => `${c.category}: €${c.total.toFixed(2)}`).join(', ')}
 
-The data includes:
-- Summary: All-time totals, filtered totals (by time period), and current month data
-- Budgets: Budget vs actual spending by category
-- Categories: Spending breakdown by category and type
-- Accounts: All bank accounts, credit cards, and their balances
-- Recent Transactions: Latest 20 transactions
-- Trends: Monthly income/expense trends for last 6 months
-
-Always:
+Guidelines:
 - Use Euro (€) for currency
 - Be specific with numbers and percentages
-- Reference the time period being analyzed
+- Reference the time period being analyzed (${financialData.timePeriod})
 - Provide actionable recommendations
 - Compare current performance to historical trends when relevant
 
@@ -495,15 +530,23 @@ ${languageInstruction}`
         }
       ],
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 1000
     })
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('OpenAI API error response:', errorText);
+    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    console.error('Invalid OpenAI API response structure:', data);
+    throw new Error('Invalid response format from OpenAI API');
+  }
+  
   return data.choices[0].message.content;
 }
 
@@ -519,52 +562,53 @@ async function callClaude(apiKey, userMessage, financialData, language = 'en') {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01'
     },
-    body: JSON.stringify({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: `You are an expert financial advisor assistant with access to comprehensive financial data. Analyze the following data carefully:
+      body: JSON.stringify({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
 
-${JSON.stringify(financialData, null, 2)}
+Financial Data Summary:
+- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}
+- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}
+- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}
+- ${financialData.categories.length} spending categories
+- ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
+- ${financialData.recentTransactions.length} recent transactions
+- ${financialData.trends.length} months of trend data
 
-Key capabilities:
-- Analyze data by time period (day, week, month, year, or all-time)
-- Compare current period vs historical trends
-- Identify spending patterns and anomalies
-- Provide budget recommendations
-- Analyze account balances and credit utilization
-- Suggest actionable improvements
-
-The data includes:
-- Summary: All-time totals, filtered totals (by time period), and current month data
-- Budgets: Budget vs actual spending by category
-- Categories: Spending breakdown by category and type
-- Accounts: All bank accounts, credit cards, and their balances
-- Recent Transactions: Latest 20 transactions
-- Trends: Monthly income/expense trends for last 6 months
+Top Categories: ${financialData.categories.slice(0, 5).map(c => `${c.category}: €${c.total.toFixed(2)}`).join(', ')}
 
 User question: ${userMessage}
 
-Always:
+Guidelines:
 - Use Euro (€) for currency
 - Be specific with numbers and percentages
-- Reference the time period being analyzed
+- Reference the time period being analyzed (${financialData.timePeriod})
 - Provide actionable recommendations
 - Compare current performance to historical trends when relevant
 
 ${languageInstruction}`
-        }
-      ]
-    })
+          }
+        ]
+      })
   });
 
   if (!response.ok) {
-    throw new Error(`Claude API error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('Claude API error response:', errorText);
+    throw new Error(`Claude API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  
+  if (!data.content || !data.content[0] || !data.content[0].text) {
+    console.error('Invalid Claude API response structure:', data);
+    throw new Error('Invalid response format from Claude API');
+  }
+  
   return data.content[0].text;
 }
 
@@ -581,32 +625,25 @@ async function callGemini(apiKey, userMessage, financialData, language = 'en') {
     body: JSON.stringify({
       contents: [{
         parts: [{
-          text: `You are an expert financial advisor assistant with access to comprehensive financial data. Analyze the following data carefully:
+          text: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
 
-${JSON.stringify(financialData, null, 2)}
+Financial Data Summary:
+- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}
+- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}
+- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}
+- ${financialData.categories.length} spending categories
+- ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
+- ${financialData.recentTransactions.length} recent transactions
+- ${financialData.trends.length} months of trend data
 
-Key capabilities:
-- Analyze data by time period (day, week, month, year, or all-time)
-- Compare current period vs historical trends
-- Identify spending patterns and anomalies
-- Provide budget recommendations
-- Analyze account balances and credit utilization
-- Suggest actionable improvements
-
-The data includes:
-- Summary: All-time totals, filtered totals (by time period), and current month data
-- Budgets: Budget vs actual spending by category
-- Categories: Spending breakdown by category and type
-- Accounts: All bank accounts, credit cards, and their balances
-- Recent Transactions: Latest 20 transactions
-- Trends: Monthly income/expense trends for last 6 months
+Top Categories: ${financialData.categories.slice(0, 5).map(c => `${c.category}: €${c.total.toFixed(2)}`).join(', ')}
 
 User question: ${userMessage}
 
-Always:
+Guidelines:
 - Use Euro (€) for currency
 - Be specific with numbers and percentages
-- Reference the time period being analyzed
+- Reference the time period being analyzed (${financialData.timePeriod})
 - Provide actionable recommendations
 - Compare current performance to historical trends when relevant
 
@@ -617,10 +654,18 @@ ${languageInstruction}`
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('Gemini API error response:', errorText);
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  
+  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+    console.error('Invalid Gemini API response structure:', data);
+    throw new Error('Invalid response format from Gemini API');
+  }
+  
   return data.candidates[0].content.parts[0].text;
 }
 
