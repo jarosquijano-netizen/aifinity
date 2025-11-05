@@ -1,0 +1,292 @@
+/**
+ * Enhanced Financial AI System for AiFinity.app
+ * Optimized for Claude API with financial expertise
+ */
+
+// ============================================================================
+// SYSTEM PROMPT - Core Financial Knowledge
+// ============================================================================
+
+export const FINANCIAL_SYSTEM_PROMPT = `You are a professional financial advisor AI assistant integrated into AiFinity.app, a personal finance management platform. Your role is to provide clear, actionable, and personalized financial advice based on the user's transaction data.
+
+## Your Expertise:
+- Personal budgeting and expense management
+- Savings strategies and financial planning
+- Debt management and reduction strategies
+- Investment basics and wealth building
+- Tax optimization (general guidance)
+- Financial goal setting and tracking
+- Credit score improvement
+- Emergency fund planning
+- Cash flow management
+
+## Your Approach:
+- **Data-Driven**: Base recommendations on actual transaction patterns
+- **Practical**: Provide actionable steps, not just theory
+- **Personalized**: Tailor advice to the user's specific financial situation
+- **Educational**: Explain the "why" behind recommendations
+- **Non-Judgmental**: Be supportive and constructive
+- **Realistic**: Consider the user's income and lifestyle constraints
+
+## Communication Style:
+- Use clear, simple language (avoid excessive financial jargon)
+- Be concise but thorough
+- Use bullet points for actionable recommendations
+- Include specific numbers and percentages when relevant
+- Be encouraging and positive while being honest about challenges
+
+## Important Constraints:
+- Do NOT provide specific investment product recommendations
+- Do NOT give tax advice requiring a licensed professional
+- Do NOT make assumptions about the user's complete financial picture
+- Always remind users to consult professionals for major financial decisions
+- Focus on the data provided, acknowledge what you don't know`;
+
+// ============================================================================
+// CATEGORY SPENDING BENCHMARKS (% of after-tax income)
+// ============================================================================
+
+export const CATEGORY_BENCHMARKS = {
+  'Housing': { min: 25, max: 35, description: 'Rent/mortgage, utilities, insurance' },
+  'Transportation': { min: 10, max: 15, description: 'Car payment, gas, insurance, public transit' },
+  'Food & Dining': { min: 10, max: 15, description: 'Groceries and restaurants combined' },
+  'Groceries': { min: 6, max: 10, description: 'Home cooking and essentials' },
+  'Restaurants': { min: 5, max: 8, description: 'Dining out and takeout' },
+  'Supermercado': { min: 6, max: 10, description: 'Groceries (Spanish)' },
+  'Restaurantes': { min: 5, max: 8, description: 'Restaurants (Spanish)' },
+  'Healthcare': { min: 5, max: 10, description: 'Insurance, copays, prescriptions' },
+  'Insurance': { min: 10, max: 15, description: 'All insurance types' },
+  'Utilities': { min: 5, max: 10, description: 'Electric, gas, water, internet, phone' },
+  'Entertainment': { min: 2, max: 5, description: 'Hobbies, movies, events' },
+  'Personal Care': { min: 2, max: 4, description: 'Haircuts, cosmetics, gym' },
+  'Clothing': { min: 2, max: 5, description: 'Apparel and accessories' },
+  'Subscriptions': { min: 1, max: 3, description: 'Streaming, software, memberships' },
+  'Savings': { min: 20, max: 30, description: 'Emergency fund, retirement, investments' },
+  'Debt Payment': { min: 0, max: 15, description: 'Beyond minimum payments' }
+};
+
+// ============================================================================
+// FINANCIAL DATA FORMATTER
+// ============================================================================
+
+export function formatFinancialContext(data, timeRange) {
+  let context = '';
+  
+  // Time period header
+  context += `\n## Time Period: ${timeRange || 'all'}\n\n`;
+  
+  // Summary Overview
+  context += `📊 **Financial Overview:**\n`;
+  context += `- All-time Income: €${data.summary.allTime.totalIncome.toFixed(2)}\n`;
+  context += `- All-time Expenses: €${data.summary.allTime.totalExpenses.toFixed(2)}\n`;
+  context += `- All-time Net Balance: €${data.summary.allTime.netBalance.toFixed(2)}\n`;
+  context += `- Total Transactions: ${data.summary.allTime.transactionCount}\n\n`;
+  
+  // Filtered Period Summary
+  if (timeRange && timeRange !== 'all') {
+    context += `📅 **Period Analysis (${timeRange}):**\n`;
+    context += `- Income: €${data.summary.filtered.totalIncome.toFixed(2)}\n`;
+    context += `- Expenses: €${data.summary.filtered.totalExpenses.toFixed(2)}\n`;
+    context += `- Net Balance: €${data.summary.filtered.netBalance.toFixed(2)}\n`;
+    context += `- Transactions: ${data.summary.filtered.transactionCount}\n\n`;
+  }
+  
+  // Current Month Summary
+  context += `💰 **Current Month:**\n`;
+  context += `- Income: €${data.summary.currentMonth.income.toFixed(2)}\n`;
+  if (data.summary.currentMonth.expectedIncome > 0) {
+    const incomeRatio = data.summary.currentMonth.expectedIncome > 0
+      ? (data.summary.currentMonth.income / data.summary.currentMonth.expectedIncome * 100).toFixed(1)
+      : 0;
+    context += `- Expected Income: €${data.summary.currentMonth.expectedIncome.toFixed(2)} (${incomeRatio}% received)\n`;
+  }
+  context += `- Expenses: €${data.summary.currentMonth.expenses.toFixed(2)}\n`;
+  context += `- Net Balance: €${data.summary.currentMonth.netBalance.toFixed(2)}\n`;
+  
+  // Calculate savings rate
+  const savingsRate = data.summary.currentMonth.income > 0
+    ? ((data.summary.currentMonth.netBalance / data.summary.currentMonth.income) * 100).toFixed(1)
+    : 0;
+  context += `- Savings Rate: ${savingsRate}%\n`;
+  context += `- Status: ${parseFloat(savingsRate) >= 20 ? '✅ Healthy' : parseFloat(savingsRate) >= 10 ? '⚠️ Fair' : '⚠️ Needs Improvement'}\n\n`;
+  
+  // Top Spending Categories
+  if (data.categories && data.categories.length > 0) {
+    context += `📈 **Top Spending Categories:**\n`;
+    data.categories.slice(0, 10).forEach((cat, i) => {
+      const percentage = data.summary.currentMonth.expenses > 0
+        ? ((cat.total / data.summary.currentMonth.expenses) * 100).toFixed(1)
+        : 0;
+      const benchmark = CATEGORY_BENCHMARKS[cat.category] || null;
+      let status = '';
+      if (benchmark && data.summary.currentMonth.income > 0) {
+        const incomePct = ((cat.total / data.summary.currentMonth.income) * 100);
+        if (incomePct > benchmark.max) {
+          status = ' ⚠️ Above benchmark';
+        } else if (incomePct < benchmark.min) {
+          status = ' ✅ Below benchmark';
+        } else {
+          status = ' ✓ Normal';
+        }
+      }
+      context += `${i + 1}. ${cat.category}: €${cat.total.toFixed(2)} (${percentage}% of expenses, ${((cat.total / data.summary.currentMonth.income) * 100).toFixed(1)}% of income)${status}\n`;
+    });
+    context += '\n';
+  }
+  
+  // Budget Status
+  if (data.budgets && data.budgets.length > 0) {
+    context += `🎯 **Budget Tracking:**\n`;
+    data.budgets.forEach(budget => {
+      const status = budget.usagePercent >= 100 ? '⚠️ Over' : budget.usagePercent >= 80 ? '⚡ Near Limit' : '✅ On Track';
+      context += `- ${budget.category}: €${budget.spent.toFixed(2)}/€${budget.budget.toFixed(2)} (${budget.usagePercent.toFixed(1)}%) ${status}\n`;
+    });
+    context += '\n';
+  }
+  
+  // Monthly Trends
+  if (data.trends && data.trends.length > 0) {
+    context += `📊 **Monthly Trends (last ${data.trends.length} months):**\n`;
+    data.trends.slice(0, 6).forEach(trend => {
+      context += `- ${trend.month}: Income €${trend.income.toFixed(2)}, Expenses €${trend.expenses.toFixed(2)}, Net €${trend.netBalance.toFixed(2)}\n`;
+    });
+    context += '\n';
+  }
+  
+  // Account Balances
+  if (data.accounts && data.accounts.length > 0) {
+    context += `🏦 **Account Balances:**\n`;
+    data.accounts.forEach(acc => {
+      if (acc.type === 'credit') {
+        const utilization = acc.creditLimit > 0
+          ? ((Math.abs(acc.balance) / acc.creditLimit) * 100).toFixed(1)
+          : 0;
+        context += `- ${acc.name} (${acc.type}): €${Math.abs(acc.balance).toFixed(2)} debt / €${acc.creditLimit.toFixed(2)} limit (${utilization}% utilization)\n`;
+      } else {
+        context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
+      }
+    });
+    context += '\n';
+  }
+  
+  // Recent Transactions
+  if (data.recentTransactions && data.recentTransactions.length > 0) {
+    context += `📝 **Recent Transactions (last ${data.recentTransactions.length}):**\n`;
+    data.recentTransactions.slice(0, 5).forEach(t => {
+      context += `- ${t.date}: ${t.description.substring(0, 60)} - €${t.amount.toFixed(2)} (${t.category || 'Uncategorized'})\n`;
+    });
+    context += '\n';
+  }
+  
+  return context;
+}
+
+// ============================================================================
+// LANGUAGE-SPECIFIC PROMPTS
+// ============================================================================
+
+const ENGLISH_PROMPTS = {
+  tone: 'Use a friendly, professional tone in English',
+  currency: 'EUR',
+  dateFormat: 'DD/MM/YYYY'
+};
+
+const SPANISH_PROMPTS = {
+  tone: 'Use a friendly, professional tone in Spanish',
+  currency: 'EUR',
+  dateFormat: 'DD/MM/YYYY'
+};
+
+// ============================================================================
+// DYNAMIC PROMPT BUILDER
+// ============================================================================
+
+export function buildFinancialPrompt(userMessage, financialData, timeRange, language = 'en') {
+  const lang = language === 'es' ? SPANISH_PROMPTS : ENGLISH_PROMPTS;
+  
+  // Format financial data summary
+  const dataContext = formatFinancialContext(financialData, timeRange);
+  
+  // Build complete prompt
+  const prompt = `${FINANCIAL_SYSTEM_PROMPT}
+
+## User's Financial Data:
+${dataContext}
+
+## User's Question:
+"${userMessage}"
+
+## Instructions:
+- Analyze the financial data provided above
+- Give personalized, specific advice based on actual numbers from the user's data
+- Use the user's real spending patterns and amounts
+- Compare spending to benchmarks when relevant
+- Be actionable: provide 3-5 concrete steps they can take
+- Be encouraging but honest about challenges
+- Use ${language === 'es' ? 'Spanish' : 'English'} language
+- Format with clear sections and bullet points for readability
+- Include specific euro amounts in recommendations
+- End with 1-2 immediate action items
+- If values are €0.00, this means no transactions were recorded for that period, not that data is missing
+
+Please provide a comprehensive financial analysis and advice:`;
+
+  return prompt;
+}
+
+// ============================================================================
+// RESPONSE ENHANCEMENT HELPERS
+// ============================================================================
+
+export function generateFollowUpSuggestions(userMessage, financialData) {
+  const suggestions = [];
+  const msgLower = userMessage.toLowerCase();
+
+  // Context-aware suggestions
+  if (msgLower.includes('save') || msgLower.includes('saving') || msgLower.includes('ahorro')) {
+    suggestions.push("What's the best savings strategy for my situation?");
+    suggestions.push("How much should I have in my emergency fund?");
+    suggestions.push("How can I increase my savings rate?");
+  } else if (msgLower.includes('budget') || msgLower.includes('presupuesto')) {
+    suggestions.push("How can I stick to my budget better?");
+    suggestions.push("Which categories should I focus on reducing?");
+    suggestions.push("How can I optimize my spending?");
+  } else if (msgLower.includes('debt') || msgLower.includes('deuda')) {
+    suggestions.push("Should I use the avalanche or snowball method?");
+    suggestions.push("How can I find extra money for debt payments?");
+    suggestions.push("What's my debt payoff timeline?");
+  } else if (msgLower.includes('expense') || msgLower.includes('spend') || msgLower.includes('gasto')) {
+    suggestions.push("How can I reduce my expenses?");
+    suggestions.push("What are my biggest spending categories?");
+    suggestions.push("Where can I cut costs?");
+  } else {
+    // Generic suggestions based on data
+    const savingsRate = financialData.summary?.currentMonth?.income > 0
+      ? ((financialData.summary.currentMonth.netBalance / financialData.summary.currentMonth.income) * 100)
+      : 0;
+    
+    if (savingsRate < 15) {
+      suggestions.push("How can I increase my savings rate?");
+    }
+    if (financialData.categories && financialData.categories[0]) {
+      suggestions.push(`How can I reduce my ${financialData.categories[0].category} expenses?`);
+    }
+    suggestions.push("What are my biggest financial opportunities?");
+    suggestions.push("How does my spending compare to averages?");
+  }
+
+  return suggestions.slice(0, 3); // Return top 3
+}
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+export default {
+  FINANCIAL_SYSTEM_PROMPT,
+  CATEGORY_BENCHMARKS,
+  buildFinancialPrompt,
+  formatFinancialContext,
+  generateFollowUpSuggestions
+};
+

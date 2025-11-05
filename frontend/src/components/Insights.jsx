@@ -97,6 +97,7 @@ function Insights() {
         role: 'assistant', 
         content: response.response, 
         provider: response.provider,
+        suggestions: response.suggestions || [],
         timestamp: new Date().toISOString()
       }]);
     } catch (err) {
@@ -781,6 +782,29 @@ function Insights() {
                           }`}
                         >
                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          
+                          {/* Show follow-up suggestions for assistant messages */}
+                          {message.role === 'assistant' && message.suggestions && message.suggestions.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
+                              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                                {language === 'es' ? 'Preguntas sugeridas:' : 'Suggested questions:'}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {message.suggestions.map((suggestion, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => {
+                                      setChatInput(suggestion);
+                                      chatInputRef.current?.focus();
+                                    }}
+                                    className="text-xs px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors border border-purple-200 dark:border-purple-700"
+                                  >
+                                    {suggestion}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {message.role === 'user' && (

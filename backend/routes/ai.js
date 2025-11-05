@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { handleAIChatRequest } from '../src/enhanced-ai-service.js';
 
 const router = express.Router();
 
@@ -149,7 +150,7 @@ router.post('/chat', async (req, res) => {
     const { message, timePeriod, language = 'en' } = req.body; // language: 'en' or 'es'
     const userId = req.user.id || req.user.userId;
 
-    if (!message) {
+    if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
@@ -167,6 +168,14 @@ router.post('/chat', async (req, res) => {
 
     const { provider, api_key } = configResult.rows[0];
 
+    // Use enhanced service for Claude
+    if (provider === 'claude') {
+      // Attach database connection for enhanced service
+      req.db = pool;
+      return await handleAIChatRequest(req, res, pool);
+    }
+
+    // Fallback to existing implementations for OpenAI and Gemini
     // Fetch user's comprehensive financial data for context
     const financialData = await getUserFinancialContext(userId, timePeriod);
     
@@ -183,8 +192,6 @@ router.post('/chat', async (req, res) => {
     try {
       if (provider === 'openai') {
         aiResponse = await callOpenAI(api_key, message, financialData, language);
-      } else if (provider === 'claude') {
-        aiResponse = await callClaude(api_key, message, financialData, language);
       } else if (provider === 'gemini') {
         aiResponse = await callGemini(api_key, message, financialData, language);
       } else {
@@ -566,82 +573,11 @@ ${languageInstruction}`
   return data.choices[0].message.content;
 }
 
+// Claude API calls now handled by enhanced-ai-service.js
+// This function is kept for backward compatibility but won't be used for Claude
 async function callClaude(apiKey, userMessage, financialData, language = 'en') {
-  const languageInstruction = language === 'es' 
-    ? 'IMPORTANTE: Responde SOLO en Español. Usa español para todas tus respuestas, números y explicaciones.'
-    : 'IMPORTANT: Respond ONLY in English. Use English for all your responses, numbers, and explanations.';
-  
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
-
-Financial Data Summary:
-- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}, ${financialData.summary.allTime.transactionCount} transactions
-- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}, Net €${financialData.summary.currentMonth.netBalance.toFixed(2)}
-- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}, Net €${financialData.summary.filtered.netBalance.toFixed(2)}, ${financialData.summary.filtered.transactionCount} transactions
-- Expected Monthly Income: €${financialData.summary.currentMonth.expectedIncome.toFixed(2)}
-- ${financialData.categories.length} spending categories
-- ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
-- ${financialData.recentTransactions.length} recent transactions
-- ${financialData.trends.length} months of trend data
-- ${financialData.budgets.length} budget categories
-
-Top Spending Categories:
-${financialData.categories.slice(0, 5).map((c, i) => `${i + 1}. ${c.category}: €${c.total.toFixed(2)} (${c.count} transactions)`).join('\n')}
-
-Budget Status:
-${financialData.budgets.length > 0 ? financialData.budgets.map(b => `- ${b.category}: Budget €${b.budget.toFixed(2)}, Spent €${b.spent.toFixed(2)}, Remaining €${b.remaining.toFixed(2)}, Usage ${b.usagePercent.toFixed(1)}%`).join('\n') : 'No budgets configured'}
-
-Account Balances:
-${financialData.accounts.length > 0 ? financialData.accounts.map(a => `- ${a.name} (${a.type}): €${a.balance.toFixed(2)}${a.type === 'credit' ? `, Limit €${a.creditLimit.toFixed(2)}` : ''}`).join('\n') : 'No accounts configured'}
-
-Recent Transactions (last ${financialData.recentTransactions.length}):
-${financialData.recentTransactions.length > 0 ? financialData.recentTransactions.slice(0, 5).map(t => `- ${t.date}: ${t.description.substring(0, 50)} - €${t.amount.toFixed(2)} (${t.category})`).join('\n') : 'No recent transactions'}
-
-IMPORTANT: If values are €0.00, this means no transactions were recorded for that period, not that data is missing. Always provide analysis based on what IS available, even if some values are zero. Compare current month to expected income and provide actionable advice.
-
-User question: ${userMessage}
-
-Guidelines:
-- Use Euro (€) for currency
-- Be specific with numbers and percentages
-- Reference the time period being analyzed (${financialData.timePeriod})
-- Provide actionable recommendations
-- Compare current performance to historical trends when relevant
-- If user asks about budget, analyze budget vs actual spending
-- If user asks about spending, analyze categories and trends
-
-${languageInstruction}`
-          }
-        ]
-      })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Claude API error response:', errorText);
-    throw new Error(`Claude API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  
-  if (!data.content || !data.content[0] || !data.content[0].text) {
-    console.error('Invalid Claude API response structure:', data);
-    throw new Error('Invalid response format from Claude API');
-  }
-  
-  return data.content[0].text;
+  // This function is deprecated - Claude now uses enhanced-ai-service.js
+  throw new Error('Claude API calls should use enhanced-ai-service.js');
 }
 
 async function callGemini(apiKey, userMessage, financialData, language = 'en') {
