@@ -15,6 +15,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
   const [filterType, setFilterType] = useState('all'); // all, income, expense
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterBank, setFilterBank] = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all'); // all, YYYY-MM format
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [availableCategories, setAvailableCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -42,6 +43,9 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       if (initialFilters.bank) {
         setFilterBank(initialFilters.bank);
       }
+      if (initialFilters.month) {
+        setFilterMonth(initialFilters.month);
+      }
       setHasAppliedInitialFilters(true);
     }
   }, [initialFilters, hasAppliedInitialFilters]);
@@ -52,7 +56,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
   useEffect(() => {
     applyFilters();
-  }, [transactions, searchTerm, filterType, filterCategory, filterBank]);
+  }, [transactions, searchTerm, filterType, filterCategory, filterBank, filterMonth]);
 
   // Show bulk panel when selections are made
   useEffect(() => {
@@ -199,6 +203,15 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       filtered = filtered.filter(t => t.bank === filterBank);
     }
 
+    // Month filter
+    if (filterMonth !== 'all') {
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.date);
+        const transactionMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+        return transactionMonth === filterMonth;
+      });
+    }
+
     setFilteredTransactions(filtered);
   };
 
@@ -220,6 +233,22 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
   // Get unique values for filters
   const categories = ['all', ...new Set(transactions.map(t => t.category))];
   const banks = ['all', ...new Set(transactions.map(t => t.bank))];
+  
+  // Get unique months from transactions (format: YYYY-MM)
+  const availableMonths = ['all', ...new Set(
+    transactions.map(t => {
+      const date = new Date(t.date);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    })
+  )].sort().reverse(); // Sort descending (most recent first)
+  
+  // Format month for display (e.g., "2025-01" -> "Enero 2025")
+  const formatMonthDisplay = (monthString) => {
+    if (monthString === 'all') return t('allMonths') || 'Todos los meses';
+    const [year, month] = monthString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  };
 
   if (loading) {
     return (
@@ -259,7 +288,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
       {/* Filters */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -270,6 +299,22 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input-primary pl-10"
           />
+          </div>
+
+          {/* Month Filter */}
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="input-primary pl-10"
+            >
+              {availableMonths.map(month => (
+                <option key={month} value={month}>
+                  {formatMonthDisplay(month)}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Type Filter */}
@@ -330,6 +375,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
               setFilterCategory('all');
               setFilterType('all');
               setFilterBank('all');
+              setFilterMonth('all');
               setSearchTerm('');
               if (onFiltersCleared) onFiltersCleared();
             }}
