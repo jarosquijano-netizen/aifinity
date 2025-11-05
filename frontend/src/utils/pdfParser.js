@@ -638,16 +638,16 @@ function parseINGSpanishCSV(lines) {
     
     const fields = parseCSVLine(line);
     
-    // Debug: log first few rows
-    if (i <= headerRowIndex + 5) {
-      console.log(`Row ${i}: ${fields.length} fields`, fields);
+    // Debug: log first few rows and last few rows
+    if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
+      console.log(`Row ${i}: ${fields.length} fields`, fields.slice(0, 5));
     }
     
     // Skip if not enough columns
     const maxColumn = Math.max(dateColumn, descriptionColumn, amountColumn);
     if (fields.length <= maxColumn) {
       skippedCount++;
-      if (i <= headerRowIndex + 5) {
+      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
         console.log(`  Skipped: not enough columns (have ${fields.length}, need ${maxColumn + 1})`);
       }
       continue;
@@ -662,8 +662,8 @@ function parseINGSpanishCSV(lines) {
     // Skip if missing required fields (date and amount are required, description can be empty)
     if (!dateStr || !amountStr) {
       skippedCount++;
-      if (i <= headerRowIndex + 5) {
-        console.log(`  Skipped: missing date or amount`, { dateStr, amountStr, description });
+      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
+        console.log(`  Skipped: missing date or amount`, { dateStr, amountStr, description: description.substring(0, 30) });
       }
       continue;
     }
@@ -674,12 +674,21 @@ function parseINGSpanishCSV(lines) {
     // Parse date (DD/MM/YYYY format)
     const parsedDate = parseDate(dateStr);
     
+    // Validate parsed date format before proceeding
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) {
+      skippedCount++;
+      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
+        console.warn(`⚠️ Skipped invalid date format: ${dateStr} -> ${parsedDate}`);
+      }
+      continue;
+    }
+    
     // Parse amount (can be negative)
     const parsedAmount = parseAmount(amountStr);
     if (isNaN(parsedAmount) || parsedAmount === 0) {
       skippedCount++;
-      if (i <= headerRowIndex + 5) {
-        console.log(`  Skipped: invalid amount`, amountStr);
+      if (i <= headerRowIndex + 5 || i >= lines.length - 3) {
+        console.log(`  Skipped: invalid amount`, { amountStr, parsedAmount });
       }
       continue;
     }
@@ -751,6 +760,9 @@ function parseINGSpanishCSV(lines) {
       amountColumn,
       balanceColumn
     });
+  } else if (transactions.length === 1) {
+    console.warn('⚠️ Only 1 transaction parsed - this seems wrong!');
+    console.warn('Expected many more transactions. Check skipped count:', skippedCount);
   }
   
   return {
