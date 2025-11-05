@@ -272,9 +272,10 @@ function Dashboard() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
 
+  // Income vs Expenses comparison - use current month values only
   const incomeVsExpense = [
     { name: 'Income', value: data.actualIncome || 0, color: '#22c55e' },
-    { name: 'Expenses', value: data.actualExpenses || 0, color: '#ef4444' }
+    { name: 'Expenses', value: data.actualExpenses !== undefined ? data.actualExpenses : 0, color: '#ef4444' }
   ];
 
   // Helper: Get last 2 income transactions
@@ -291,14 +292,15 @@ function Dashboard() {
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const daysPassed = Math.max(1, currentDate.getDate()); // Days passed in current month
+    const currentMonthExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0;
     
-    return (data.actualExpenses || 0) / daysPassed;
+    return currentMonthExpenses / daysPassed;
   };
 
   // Helper: Get balance advice using current month data
   const getBalanceAdvice = () => {
     const currentIncome = data.actualIncome || 0;
-    const currentExpenses = data.actualExpenses !== undefined ? data.actualExpenses : (data.totalExpenses || 0);
+    const currentExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0; // Only use current month expenses
     // Use backend calculated balance if available, otherwise recalculate
     const currentBalance = data.actualNetBalance !== undefined 
       ? data.actualNetBalance 
