@@ -495,6 +495,136 @@ function Insights() {
 
       {/* Main Content - Better Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start">
+      
+      {/* PROYECCIONES & METAS - Split into separate blocks */}
+      {(() => {
+        const balanceDisponible = totalAccountsBalance;
+        const ingresoEsperadoPendiente = expectedIncome > 0 ? Math.max(0, expectedIncome - actualIncome) : 0;
+        const diasRestantesMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate();
+        const capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
+        const gastoDiarioSeguro = capacidadSegura / Math.max(1, diasRestantesMes);
+        
+        return (
+          <>
+            {/* Capacidad de Gasto */}
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl shadow-lg border-2 border-indigo-200 dark:border-indigo-700">
+              <div className="px-5 py-4">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                  <DollarSign className="w-6 h-6 text-indigo-600" />
+                  ¿Cuánto puedes gastar este mes?
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-600">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Balance Total en Cuentas</p>
+                    <p className="text-2xl font-bold text-blue-600">€{balanceDisponible.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border-2 border-purple-200 dark:border-purple-600">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Ingreso Esperado Pendiente</p>
+                    <p className="text-2xl font-bold text-purple-600">€{ingresoEsperadoPendiente.toFixed(2)}</p>
+                  </div>
+                  <div className={`bg-white dark:bg-slate-800 rounded-xl p-4 border-2 ${capacidadSegura > 1000 ? 'border-green-200 dark:border-green-600' : capacidadSegura > 500 ? 'border-amber-200 dark:border-amber-600' : 'border-red-200 dark:border-red-600'}`}>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Capacidad de Gasto Segura</p>
+                    <p className={`text-2xl font-bold ${capacidadSegura > 1000 ? 'text-green-600' : capacidadSegura > 500 ? 'text-amber-600' : 'text-red-600'}`}>
+                      €{capacidadSegura.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 p-4 rounded-lg">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    💡 Recomendación:
+                  </p>
+                  <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300">
+                    Puedes gastar hasta €{gastoDiarioSeguro.toFixed(2)}/día de forma segura
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                    (Basado en {diasRestantesMes} días restantes del mes, manteniendo un colchón del 20%)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Análisis de Situación */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <div className="px-5 py-4">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  📊 Análisis de tu Situación
+                </h3>
+                
+                <div className="space-y-3">
+                  {/* Income Status */}
+                  {expectedIncome > 0 && (
+                    <div className={`p-3 rounded-lg border-l-4 ${incomeRatio >= 100 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : incomeRatio >= 75 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {incomeRatio >= 100 ? '✅ Ingresos al día' : incomeRatio >= 75 ? '⚠️ Ingresos por debajo de lo esperado' : '🔴 Ingresos muy bajos'}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Has recibido €{actualIncome.toFixed(2)} de €{expectedIncome.toFixed(2)} esperados ({incomeRatio.toFixed(1)}%)
+                        {incomeRatio < 100 && ' - Considera reducir gastos hasta recibir el resto'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Budget Status */}
+                  {budgetTotal > 0 && (
+                    <div className={`p-3 rounded-lg border-l-4 ${budgetUsage < 80 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : budgetUsage < 100 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {budgetUsage < 80 ? '✅ Presupuesto bajo control' : budgetUsage < 100 ? '⚠️ Acercándote al límite del presupuesto' : '🔴 Presupuesto superado'}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Has gastado €{budgetSpent.toFixed(2)} de €{budgetTotal.toFixed(2)} ({budgetUsage.toFixed(1)}%)
+                        {budgetUsage > 80 && budgetUsage < 100 && ` - Quedan €${(budgetTotal - budgetSpent).toFixed(2)} disponibles`}
+                        {budgetUsage >= 100 && ` - Sobrepasado por €${(budgetSpent - budgetTotal).toFixed(2)}`}
+                      </p>
+                      {daysRemaining > 0 && (
+                        <div className={`mt-2 pt-2 border-t ${budgetUsage < 80 ? 'border-green-200 dark:border-green-700' : budgetUsage < 100 ? 'border-amber-200 dark:border-amber-700' : 'border-red-200 dark:border-red-700'}`}>
+                          <p className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+                            📊 Predicción fin de mes:
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            Al ritmo actual (€{dailySpendRate.toFixed(2)}/día), terminarás gastando €{projectedMonthEndSpend.toFixed(2)} ({projectedBudgetUsage.toFixed(1)}%)
+                            {projectedBudgetUsage > 100 && (
+                              <span className="text-red-600 dark:text-red-400 font-semibold">
+                                {' '}⚠️ Te sobrepasarás por €{(projectedMonthEndSpend - budgetTotal).toFixed(2)}
+                              </span>
+                            )}
+                            {projectedBudgetUsage <= 100 && projectedBudgetUsage > 90 && (
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                {' '}⚠️ Estarás muy cerca del límite
+                              </span>
+                            )}
+                            {projectedBudgetUsage <= 90 && (
+                              <span className="text-green-600 dark:text-green-400 font-semibold">
+                                {' '}✅ Dentro del presupuesto
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {daysRemaining} días restantes del mes
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Savings Status */}
+                  <div className={`p-3 rounded-lg border-l-4 ${totalSavings > 1000 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : totalSavings > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {totalSavings > 1000 ? '✅ Buen colchón de ahorro' : totalSavings > 0 ? '⚠️ Ahorro bajo' : '🔴 Sin ahorro acumulado'}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Tienes €{totalSavings.toFixed(2)} en cuentas de ahorro
+                      {totalSavings < 1000 && ' - Intenta ahorrar al menos €50/mes'}
+                      {totalSavings >= 1000 && ' - Continúa así, vas por buen camino'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* 1. ESTADO FINANCIERO */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
@@ -519,61 +649,61 @@ function Insights() {
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                <th className="text-left py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Concepto</th>
-                <th className="text-right py-2 px-3 text-xs font-bold text-gray-700 dark:text-gray-300">Monto (€)</th>
+                <th className="text-left py-2 px-3 text-sm font-bold text-gray-700 dark:text-gray-300">Concepto</th>
+                <th className="text-right py-2 px-3 text-sm font-bold text-gray-700 dark:text-gray-300">Monto (€)</th>
               </tr>
             </thead>
             <tbody>
               {expectedIncome > 0 && (
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/10">
-                  <td className="py-2 px-3 text-xs text-gray-700 dark:text-gray-300">
+                  <td className="py-2 px-3 text-sm text-gray-700 dark:text-gray-300">
                     Ingreso esperado mensual
-                    <span className="ml-1 text-[10px] text-gray-500">(configurado)</span>
+                    <span className="ml-1 text-xs text-gray-500">(configurado)</span>
                   </td>
-                  <td className="py-2 px-3 text-xs text-right font-semibold text-blue-600">€{expectedIncome.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-sm text-right font-semibold text-blue-600">€{expectedIncome.toFixed(2)}</td>
                 </tr>
               )}
               <tr className="border-b border-gray-100 dark:border-gray-700">
-                <td className="py-2 px-3 text-xs text-gray-900 dark:text-gray-100">
+                <td className="py-2 px-3 text-sm text-gray-900 dark:text-gray-100">
                   Ingresos reales (mes actual)
                   {expectedIncome > 0 && (
-                    <span className={`ml-1 text-[10px] font-semibold ${incomeRatio >= 100 ? 'text-green-600' : incomeRatio >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <span className={`ml-1 text-xs font-semibold ${incomeRatio >= 100 ? 'text-green-600' : incomeRatio >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
                       ({incomeRatio.toFixed(1)}% del esperado)
                     </span>
                   )}
-                  <span className="ml-1 text-[10px] text-gray-500">({data.summary.currentMonth})</span>
+                  <span className="ml-1 text-xs text-gray-500">({data.summary.currentMonth})</span>
                 </td>
-                <td className="py-2 px-3 text-xs text-right font-bold text-green-600">€{actualIncome.toFixed(2)}</td>
+                <td className="py-2 px-3 text-sm text-right font-bold text-green-600">€{actualIncome.toFixed(2)}</td>
               </tr>
               <tr className="border-b border-gray-100 dark:border-gray-700">
-                <td className="py-2 px-3 text-xs text-gray-900 dark:text-gray-100">
+                <td className="py-2 px-3 text-sm text-gray-900 dark:text-gray-100">
                   Gastos totales
-                  <span className="ml-1 text-[10px] text-gray-500">(€{dailyAvgExpense.toFixed(2)}/día)</span>
+                  <span className="ml-1 text-xs text-gray-500">(€{dailyAvgExpense.toFixed(2)}/día)</span>
                 </td>
-                <td className="py-2 px-3 text-xs text-right font-bold text-red-600">€{monthlyExpenses.toFixed(2)}</td>
+                <td className="py-2 px-3 text-sm text-right font-bold text-red-600">€{monthlyExpenses.toFixed(2)}</td>
               </tr>
               <tr className="bg-blue-50 dark:bg-blue-900/20 border-b-2 border-blue-200 dark:border-blue-700">
-                <td className="py-2 px-3 text-xs font-bold text-gray-900 dark:text-gray-100">Balance neto (transacciones)</td>
-                <td className={`py-2 px-3 text-xs text-right font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <td className="py-2 px-3 text-sm font-bold text-gray-900 dark:text-gray-100">Balance neto (transacciones)</td>
+                <td className={`py-2 px-3 text-sm text-right font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   €{netBalance.toFixed(2)} ({savingsRate.toFixed(1)}%)
                 </td>
               </tr>
               <tr className="bg-green-50 dark:bg-green-900/20 border-b-2 border-green-200 dark:border-green-700">
-                <td className="py-2 px-3 text-xs font-bold text-gray-900 dark:text-gray-100">
+                <td className="py-2 px-3 text-sm font-bold text-gray-900 dark:text-gray-100">
                   Balance real en cuentas
-                  <span className="ml-1 text-[10px] text-gray-500">({data.accounts.length} cuentas)</span>
+                  <span className="ml-1 text-xs text-gray-500">({data.accounts.length} cuentas)</span>
                 </td>
-                <td className="py-2 px-3 text-xs text-right font-bold text-green-600">
+                <td className="py-2 px-3 text-sm text-right font-bold text-green-600">
                   €{totalAccountsBalance.toFixed(2)}
                 </td>
               </tr>
               {totalSavings > 0 && (
                 <tr className="bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-700">
-                  <td className="py-2 px-3 text-xs font-semibold text-gray-900 dark:text-gray-100">
+                  <td className="py-2 px-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
                     💰 Ahorro en cuentas
-                    <span className="ml-1 text-[10px] text-gray-500">({savingsAccountsCount} cuentas de ahorro)</span>
+                    <span className="ml-1 text-xs text-gray-500">({savingsAccountsCount} cuentas de ahorro)</span>
                   </td>
-                  <td className="py-2 px-3 text-xs text-right font-bold text-emerald-600">
+                  <td className="py-2 px-3 text-sm text-right font-bold text-emerald-600">
                     €{totalSavings.toFixed(2)}
                   </td>
                 </tr>
@@ -582,8 +712,8 @@ function Insights() {
           </table>
         </div>
 
-        <div className={`mt-3 p-3 rounded-lg ${savingsRate >= 20 ? 'bg-green-50 dark:bg-green-900/20' : savingsRate >= 10 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
-          <p className="text-xs mb-1">
+        <div className={`mt-3 p-4 rounded-lg ${savingsRate >= 20 ? 'bg-green-50 dark:bg-green-900/20' : savingsRate >= 10 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
+          <p className="text-sm mb-2">
             <span className="font-bold">💡 Evaluación:</span> {healthStatus.text} - {
               savingsRate >= 20 ? 'Posición sólida con margen de ahorro estable.' :
               savingsRate >= 10 ? 'Situación aceptable, pero hay margen de mejora.' :
@@ -592,13 +722,13 @@ function Insights() {
             }
           </p>
           {expectedIncome > 0 && incomeRatio < 100 && (
-            <p className="text-[10px] mt-1.5 pt-1.5 border-t border-gray-300 dark:border-gray-600">
+            <p className="text-xs mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
               <span className="font-bold">⚠️ Nota:</span> Tus ingresos reales ({incomeRatio.toFixed(1)}%) están por debajo del esperado. 
               {incomeRatio < 50 && ' Verifica que hayas importado todas las transacciones de ingreso.'}
             </p>
           )}
           {totalAccountsBalance > 0 && netBalance < 0 && (
-            <p className="text-[10px] mt-1.5 pt-1.5 border-t border-gray-300 dark:border-gray-600">
+            <p className="text-xs mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
               <span className="font-bold">💚 Nota positiva:</span> Aunque el balance de transacciones es negativo, tu balance real en cuentas es positivo (€{totalAccountsBalance.toFixed(2)}). Esto indica que tus cuentas están bien capitalizadas.
             </p>
           )}
@@ -847,322 +977,8 @@ function Insights() {
         )}
       </div>
 
-      {/* 4. PROYECCIONES & RECOMENDACIONES */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl shadow-lg border-2 border-indigo-200 dark:border-indigo-700">
-        <button
-          onClick={() => toggleSection('global')}
-          className="w-full p-3 flex items-center justify-between hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors rounded-t-2xl"
-        >
-          <div className="flex items-center space-x-2">
-            <Target className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">🎯 Proyecciones & Metas</h3>
-          </div>
-          {expandedSections.global ? (
-            <ChevronUp className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          )}
-        </button>
-        
-        {expandedSections.global && (
-          <div className="px-4 pb-4">
-
-        {/* Capacidad de Gasto Actual */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3 border-2 border-indigo-300 dark:border-indigo-600">
-          <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-100 mb-2 flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
-            ¿Cuánto puedes gastar este mes?
-          </h4>
-          
-          {(() => {
-            // Calcular capacidad de gasto
-            const balanceDisponible = totalAccountsBalance;
-            const gastoAcumulado = monthlyExpenses;
-            const ingresoEsperadoPendiente = expectedIncome > 0 ? Math.max(0, expectedIncome - actualIncome) : 0;
-            const presupuestoRestante = budgetTotal > 0 ? Math.max(0, budgetTotal - budgetSpent) : 0;
-            const diasRestantesMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate();
-            
-            // Capacidad segura: balance - 20% cushion + ingreso pendiente
-            const capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
-            const gastoDiarioSeguro = capacidadSegura / Math.max(1, diasRestantesMes);
-            
-            return (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
-                  <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Balance Total en Cuentas</p>
-                    <p className="text-xl font-bold text-blue-600">€{balanceDisponible.toFixed(2)}</p>
-                  </div>
-                  <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg">
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Ingreso Esperado Pendiente</p>
-                    <p className="text-xl font-bold text-purple-600">€{ingresoEsperadoPendiente.toFixed(2)}</p>
-                  </div>
-                  <div className={`p-3 rounded-lg ${capacidadSegura > 1000 ? 'bg-green-50 dark:bg-green-900/30' : capacidadSegura > 500 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Capacidad de Gasto Segura</p>
-                    <p className={`text-xl font-bold ${capacidadSegura > 1000 ? 'text-green-600' : capacidadSegura > 500 ? 'text-amber-600' : 'text-red-600'}`}>
-                      €{capacidadSegura.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 p-3 rounded-lg">
-                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    💡 Recomendación:
-                  </p>
-                  <p className="text-base font-bold text-indigo-700 dark:text-indigo-300">
-                    Puedes gastar hasta €{gastoDiarioSeguro.toFixed(2)}/día de forma segura
-                  </p>
-                  <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1">
-                    (Basado en {diasRestantesMes} días restantes del mes, manteniendo un colchón del 20%)
-                  </p>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-
-        {/* Análisis de Situación */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3 border-2 border-purple-300 dark:border-purple-600">
-          <h4 className="text-sm font-bold text-purple-900 dark:text-purple-100 mb-2">
-            📊 Análisis de tu Situación
-          </h4>
-          
-          <div className="space-y-2">
-            {/* Income Status */}
-            {expectedIncome > 0 && (
-              <div className={`p-2 rounded-lg border-l-4 ${incomeRatio >= 100 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : incomeRatio >= 75 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  {incomeRatio >= 100 ? '✅ Ingresos al día' : incomeRatio >= 75 ? '⚠️ Ingresos por debajo de lo esperado' : '🔴 Ingresos muy bajos'}
-                </p>
-                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
-                  Has recibido €{actualIncome.toFixed(2)} de €{expectedIncome.toFixed(2)} esperados ({incomeRatio.toFixed(1)}%)
-                  {incomeRatio < 100 && ' - Considera reducir gastos hasta recibir el resto'}
-                </p>
-              </div>
-            )}
-
-            {/* Budget Status */}
-            {budgetTotal > 0 && (
-              <div className={`p-2 rounded-lg border-l-4 ${budgetUsage < 80 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : budgetUsage < 100 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  {budgetUsage < 80 ? '✅ Presupuesto bajo control' : budgetUsage < 100 ? '⚠️ Acercándote al límite del presupuesto' : '🔴 Presupuesto superado'}
-                </p>
-                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
-                  Has gastado €{budgetSpent.toFixed(2)} de €{budgetTotal.toFixed(2)} ({budgetUsage.toFixed(1)}%)
-                  {budgetUsage > 80 && budgetUsage < 100 && ` - Quedan €${(budgetTotal - budgetSpent).toFixed(2)} disponibles`}
-                  {budgetUsage >= 100 && ` - Sobrepasado por €${(budgetSpent - budgetTotal).toFixed(2)}`}
-                </p>
-                {daysRemaining > 0 && (
-                  <div className={`mt-1.5 pt-1.5 border-t ${budgetUsage < 80 ? 'border-green-200 dark:border-green-700' : budgetUsage < 100 ? 'border-amber-200 dark:border-amber-700' : 'border-red-200 dark:border-red-700'}`}>
-                    <p className="text-[10px] text-gray-700 dark:text-gray-300 font-medium">
-                      📊 Predicción fin de mes:
-                    </p>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
-                      Al ritmo actual (€{dailySpendRate.toFixed(2)}/día), terminarás gastando €{projectedMonthEndSpend.toFixed(2)} ({projectedBudgetUsage.toFixed(1)}%)
-                      {projectedBudgetUsage > 100 && (
-                        <span className="text-red-600 dark:text-red-400 font-semibold">
-                          {' '}⚠️ Te sobrepasarás por €{(projectedMonthEndSpend - budgetTotal).toFixed(2)}
-                        </span>
-                      )}
-                      {projectedBudgetUsage <= 100 && projectedBudgetUsage > 90 && (
-                        <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                          {' '}⚠️ Estarás muy cerca del límite
-                        </span>
-                      )}
-                      {projectedBudgetUsage <= 90 && (
-                        <span className="text-green-600 dark:text-green-400 font-semibold">
-                          {' '}✅ Dentro del presupuesto
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[9px] text-gray-500 dark:text-gray-500 mt-0.5">
-                      {daysRemaining} días restantes del mes
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Savings Status */}
-            <div className={`p-2 rounded-lg border-l-4 ${totalSavings > 1000 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : totalSavings > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
-              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                {totalSavings > 1000 ? '✅ Buen colchón de ahorro' : totalSavings > 0 ? '⚠️ Ahorro bajo' : '🔴 Sin ahorro acumulado'}
-              </p>
-              <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Tienes €{totalSavings.toFixed(2)} en cuentas de ahorro
-                {totalSavings < 1000 && ' - Intenta ahorrar al menos €50/mes'}
-                {totalSavings >= 1000 && ' - Continúa así, vas por buen camino'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Estado por Cuenta Bancaria */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 mb-3 border-2 border-blue-300 dark:border-blue-600">
-          <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-            <Building2 className="w-4 h-4" />
-            🏦 Estado por Cuenta Bancaria
-          </h4>
-          
-          <div className="space-y-2">
-            {accountsWithActivity.map((account, idx) => (
-              <div 
-                key={idx}
-                className={`p-2 rounded-lg border-l-4 ${
-                  account.balanceStatus === 'good' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : 
-                  account.balanceStatus === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' : 
-                  'bg-red-50 dark:bg-red-900/20 border-red-500'
-                } ${account.excludedFromStats ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                    {account.balanceStatus === 'good' ? '✅' : account.balanceStatus === 'medium' ? '⚠️' : '🔴'}
-                    {account.name}
-                    {account.excludedFromStats && (
-                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
-                        excluida
-                      </span>
-                    )}
-                  </p>
-                  <p className={`text-xs font-bold ${
-                    account.balanceStatus === 'good' ? 'text-green-600 dark:text-green-400' : 
-                    account.balanceStatus === 'medium' ? 'text-amber-600 dark:text-amber-400' : 
-                    'text-red-600 dark:text-red-400'
-                  }`}>
-                    €{account.balance.toFixed(2)}
-                  </p>
-                </div>
-                <p className="text-[10px] text-gray-600 dark:text-gray-400">
-                  {account.accountType === 'savings' && '💰 Cuenta de ahorro'}
-                  {account.accountType === 'investment' && '📈 Cuenta de inversión'}
-                  {account.accountType === 'checking' && '🏦 Cuenta corriente'}
-                  {account.accountType === 'credit' && '💳 Tarjeta de crédito'}
-                  {!account.accountType && '🏦 Cuenta bancaria'}
-                  {' • '}
-                  {account.balanceStatus === 'good' && 'Balance saludable'}
-                  {account.balanceStatus === 'medium' && 'Balance bajo, considera transferir fondos'}
-                  {account.balanceStatus === 'low' && 'Balance crítico, necesitas ingresar dinero'}
-                </p>
-              </div>
-            ))}
-            
-            {accountsWithActivity.length === 0 && (
-              <div className="p-3 bg-gray-50 dark:bg-gray-900/20 rounded-lg text-center">
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  No hay cuentas bancarias registradas
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Acciones Recomendadas */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-green-300 dark:border-green-600">
-          <h4 className="text-sm font-bold text-green-900 dark:text-green-100 mb-2">
-            ✅ Acciones Recomendadas
-          </h4>
-          
-          <ul className="space-y-1.5">
-            {(() => {
-              const actions = [];
-              
-              // Si gastos > expected income
-              if (monthlyExpenses > monthlyIncomeForProjection) {
-                actions.push({
-                  priority: 'high',
-                  text: `Reduce gastos urgentemente. Estás gastando €${(monthlyExpenses - monthlyIncomeForProjection).toFixed(2)} más de lo que ganas.`,
-                  categories: topCategories.slice(0, 2).map(c => c.name).join(' y ')
-                });
-              }
-              
-              // Si budget está sobrepasado
-              if (budgetUsage >= 100) {
-                actions.push({
-                  priority: 'high',
-                  text: `Presupuesto sobrepasado por €${(budgetSpent - budgetTotal).toFixed(2)}. Evita gastos no esenciales.`
-                });
-              }
-              
-              // Si budget está al límite
-              if (budgetUsage > 90 && budgetUsage < 100) {
-                actions.push({
-                  priority: 'medium',
-                  text: `Frena gastos ya. Solo quedan €${(budgetTotal - budgetSpent).toFixed(2)} de presupuesto este mes.`
-                });
-              }
-              
-              // Si la predicción muestra que se sobrepasará
-              if (budgetUsage < 100 && projectedBudgetUsage > 100 && daysRemaining > 0) {
-                actions.push({
-                  priority: 'medium',
-                  text: `Al ritmo actual (€${dailySpendRate.toFixed(2)}/día), te sobrepasarás €${(projectedMonthEndSpend - budgetTotal).toFixed(2)} del presupuesto. Reduce el gasto diario.`
-                });
-              }
-              
-              // Si income ratio bajo
-              if (expectedIncome > 0 && incomeRatio < 75) {
-                actions.push({
-                  priority: 'medium',
-                  text: `Espera a recibir más ingresos antes de gastos grandes (falta €${(expectedIncome - actualIncome).toFixed(2)}).`
-                });
-              }
-              
-              // Si balance bajo
-              if (totalAccountsBalance < 1000) {
-                actions.push({
-                  priority: 'high',
-                  text: `Tu balance en cuentas es bajo (€${totalAccountsBalance.toFixed(2)}). Evita gastos no esenciales.`
-                });
-              }
-              
-              // Si no hay ahorro
-              if (totalSavings < 500) {
-                actions.push({
-                  priority: 'low',
-                  text: `Intenta ahorrar al menos el 10% de tus ingresos (€${(monthlyIncomeForProjection * 0.1).toFixed(2)}/mes).`
-                });
-              }
-              
-              // Si puede ahorrar
-              if (monthlyIncomeForProjection > monthlyExpenses && totalAccountsBalance > 2000) {
-                actions.push({
-                  priority: 'low',
-                  text: `Tienes margen para ahorrar €${(monthlyIncomeForProjection - monthlyExpenses).toFixed(2)}/mes. ¡Aprovéchalo!`
-                });
-              }
-              
-              // Revisar top category
-              if (topCategories.length > 0 && topCategories[0].percentage > 30) {
-                actions.push({
-                  priority: 'medium',
-                  text: `Revisa "${topCategories[0].name}" (${topCategories[0].percentage.toFixed(1)}% de tus gastos). Busca formas de reducir.`
-                });
-              }
-              
-              return actions.map((action, idx) => (
-                <li key={idx} className={`flex items-start space-x-2 p-2 rounded ${
-                  action.priority === 'high' ? 'bg-red-50 dark:bg-red-900/20' : 
-                  action.priority === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20' : 
-                  'bg-green-50 dark:bg-green-900/20'
-                }`}>
-                  <span className={`mt-0.5 ${
-                    action.priority === 'high' ? 'text-red-600' : 
-                    action.priority === 'medium' ? 'text-amber-600' : 
-                    'text-green-600'
-                  }`}>
-                    {action.priority === 'high' ? '🔴' : action.priority === 'medium' ? '🟡' : '💚'}
-                  </span>
-                  <span className="text-xs text-gray-900 dark:text-gray-100 font-medium">
-                    {action.text}
-                  </span>
-                </li>
-              ));
-            })()}
-          </ul>
-        </div>
-        </div>
-        )}
       </div>
+
       </div>
     </>
   );
