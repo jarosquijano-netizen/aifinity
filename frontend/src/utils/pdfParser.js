@@ -732,13 +732,6 @@ function parseINGSpanishCSV(lines) {
       mappedCategory = categorizeTransaction(finalDescription);
     }
     
-    // Validate parsed date format before adding
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) {
-      skippedCount++;
-      console.warn(`⚠️ Skipped invalid date format: ${dateStr} -> ${parsedDate}`);
-      continue;
-    }
-    
     transactions.push({
       bank: 'ING',
       date: parsedDate,
