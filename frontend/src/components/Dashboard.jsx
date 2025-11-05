@@ -110,20 +110,6 @@ function Dashboard({ refreshTrigger }) {
     })
   );
 
-function Dashboard({ refreshTrigger }) {
-  const [data, setData] = useState(null);
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [budgetData, setBudgetData] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [expectedIncome, setExpectedIncome] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const chartTheme = useChartTheme();
-  
-  // Track last refresh trigger to detect changes
-  const [lastRefreshTrigger, setLastRefreshTrigger] = useState(0);
-
   // Save widget order to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('dashboardWidgetOrder', JSON.stringify(widgetOrder));
