@@ -103,14 +103,30 @@ function Upload({ onUploadComplete }) {
       let creditCardData = null;
       
       for (const file of files) {
-        let parseResult;
-        
         console.log(`📄 Processing file: ${file.name}, type: ${file.type}`);
         
-        if (file.type === 'application/pdf') {
+        let parseResult;
+        
+        // Determine file type - check both MIME type and extension
+        const fileName = file.name.toLowerCase();
+        const isPDF = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+        const isCSV = file.type === 'text/csv' || 
+                     file.type === 'application/vnd.ms-excel' ||
+                     fileName.endsWith('.csv') || 
+                     fileName.endsWith('.xls') || 
+                     fileName.endsWith('.xlsx');
+        
+        if (isPDF) {
+          console.log('📄 File detected as PDF');
           parseResult = await parsePDFTransactions(file);
-        } else if (file.name.endsWith('.csv') || file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
+        } else if (isCSV) {
+          console.log('📄 File detected as CSV/Excel');
           parseResult = await parseCSVTransactions(file);
+        } else {
+          console.error(`❌ Unknown file type: ${file.type}, file: ${file.name}`);
+          setError(`Unsupported file type: ${file.type || 'unknown'}. Please upload PDF or CSV files.`);
+          setProcessing(false);
+          return;
         }
         
         console.log(`📊 Parse result for ${file.name}:`, {
