@@ -151,7 +151,7 @@ function Insights() {
   const budgetUsage = budgetTotal > 0 ? (budgetSpent / budgetTotal * 100) : 0;
   
   // Calcular días del mes y predicción de gasto
-  // Ajuste: Excluir los primeros días del mes donde suelen estar los pagos grandes únicos
+  // IMPORTANTE: Ajustar para excluir pagos grandes del inicio del mes
   const today = new Date();
   const currentDay = today.getDate();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -164,28 +164,27 @@ function Insights() {
   // Calcular el promedio diario actual (incluye pagos grandes del inicio)
   const currentDailyAverage = daysElapsed > 0 ? (budgetSpent / daysElapsed) : 0;
   
-  // Determinar si el gasto actual es sospechosamente alto (probablemente incluye pagos grandes únicos)
-  // Si el gasto diario actual es más del 150% del promedio esperado, probablemente hay pagos grandes
-  const isHighSpendingPattern = currentDailyAverage > expectedDailyAverage * 1.5;
-  
+  // Aplicar lógica conservadora para evitar sobreestimar basándose en pagos grandes únicos
   let dailySpendRate;
-  if (daysElapsed <= 5) {
-    // Estamos en los primeros 5 días del mes: usar estimación conservadora
-    // Asumimos que el 70% del gasto hasta ahora son pagos grandes únicos (hipoteca, alquiler, etc.)
-    // Solo el 30% restante es gasto regular
-    const regularSpending = budgetSpent * 0.3;
-    dailySpendRate = daysElapsed > 0 ? (regularSpending / daysElapsed) : expectedDailyAverage * 0.7;
-  } else if (isHighSpendingPattern) {
-    // El gasto diario es muy alto: usar promedio esperado del presupuesto (más conservador)
-    // Esto evita sobreestimar el gasto futuro basándose en pagos grandes únicos
+  
+  // Si estamos en los primeros 7 días del mes O el gasto diario es muy alto (>150% del esperado)
+  // usar una estimación más conservadora basada en el promedio esperado del presupuesto
+  if (daysElapsed <= 7 || currentDailyAverage > expectedDailyAverage * 1.5) {
+    // Usar el promedio esperado del presupuesto como base (más conservador)
+    // Esto evita proyectar basándose en pagos grandes únicos como hipoteca/alquiler
     dailySpendRate = expectedDailyAverage;
+    
+    // Si el gasto actual es extremadamente alto (más del doble del esperado), 
+    // usar un factor aún más conservador (70% del promedio esperado)
+    if (currentDailyAverage > expectedDailyAverage * 2) {
+      dailySpendRate = expectedDailyAverage * 0.7;
+    }
   } else {
-    // Patrón de gasto normal: usar el promedio actual
+    // Patrón de gasto normal después del día 7: usar el promedio actual
     dailySpendRate = currentDailyAverage;
   }
   
-  // Asegurar que el gasto diario proyectado no sea menor que el 50% del promedio esperado
-  // ni mayor que el 120% del promedio esperado (límites razonables)
+  // Asegurar límites razonables: entre 50% y 120% del promedio esperado
   dailySpendRate = Math.max(expectedDailyAverage * 0.5, Math.min(dailySpendRate, expectedDailyAverage * 1.2));
   
   const projectedMonthEndSpend = budgetSpent + (dailySpendRate * daysRemaining);
