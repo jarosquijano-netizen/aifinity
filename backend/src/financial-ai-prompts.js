@@ -217,56 +217,7 @@ export function formatFinancialContext(data, timeRange) {
     context += '\n';
   }
   
-  // Account Balances - CRITICAL for "how much money" questions
-  if (data.accounts && data.accounts.length > 0) {
-    context += `🏦 **Account Balances (This is where the user's money is!):**\n`;
-    let totalBalance = 0;
-    let totalSavings = 0;
-    let totalChecking = 0;
-    let totalCreditDebt = 0;
-    
-    data.accounts.forEach(acc => {
-      if (acc.type === 'credit') {
-        const utilization = acc.creditLimit > 0
-          ? ((Math.abs(acc.balance) / acc.creditLimit) * 100).toFixed(1)
-          : 0;
-        const debt = Math.abs(acc.balance);
-        totalCreditDebt += debt;
-        context += `- ${acc.name} (${acc.type}): €${debt.toFixed(2)} debt / €${acc.creditLimit.toFixed(2)} limit (${utilization}% utilization)\n`;
-      } else if (acc.type === 'savings') {
-        totalSavings += acc.balance;
-        totalBalance += acc.balance;
-        context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
-      } else if (acc.type === 'checking') {
-        totalChecking += acc.balance;
-        totalBalance += acc.balance;
-        context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
-      } else {
-        totalBalance += acc.balance;
-        context += `- ${acc.name} (${acc.type}): €${acc.balance.toFixed(2)}\n`;
-      }
-    });
-    
-    context += `\n**Total Account Balances:**\n`;
-    context += `- Total Available Money: €${totalBalance.toFixed(2)}\n`;
-    if (totalChecking > 0) {
-      context += `- Checking Accounts: €${totalChecking.toFixed(2)}\n`;
-    }
-    if (totalSavings > 0) {
-      context += `- Savings Accounts: €${totalSavings.toFixed(2)}\n`;
-    }
-    if (totalCreditDebt > 0) {
-      context += `- Total Credit Card Debt: €${totalCreditDebt.toFixed(2)}\n`;
-    }
-    context += `- Net Worth (Accounts - Credit Debt): €${(totalBalance - totalCreditDebt).toFixed(2)}\n\n`;
-  } else if (data.summary && data.summary.allTime && data.summary.allTime.transactionCount > 0) {
-    // If no accounts configured but there are transactions, mention this
-    context += `🏦 **Account Balances:**\n`;
-    context += `⚠️ No accounts configured in the system. However, you have ${data.summary.allTime.transactionCount} transactions recorded.\n`;
-    context += `💡 To see your actual account balances, configure your accounts in the Accounts section.\n\n`;
-  }
-  
-  // Recent Transactions
+  // Recent Transactions (account balances already shown at top)
   if (data.recentTransactions && data.recentTransactions.length > 0) {
     context += `📝 **Recent Transactions (last ${data.recentTransactions.length}):**\n`;
     data.recentTransactions.slice(0, 5).forEach(t => {
