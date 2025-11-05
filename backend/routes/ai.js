@@ -146,7 +146,7 @@ router.post('/config/:id/activate', async (req, res) => {
 // Chat with AI - Financial Q&A
 router.post('/chat', async (req, res) => {
   try {
-    const { message, timePeriod } = req.body; // timePeriod: 'day', 'week', 'month', 'year', or null for all
+    const { message, timePeriod, language = 'en' } = req.body; // language: 'en' or 'es'
     const userId = req.user.id || req.user.userId;
 
     if (!message) {
@@ -174,11 +174,11 @@ router.post('/chat', async (req, res) => {
     let aiResponse;
     try {
       if (provider === 'openai') {
-        aiResponse = await callOpenAI(api_key, message, financialData);
+        aiResponse = await callOpenAI(api_key, message, financialData, language);
       } else if (provider === 'claude') {
-        aiResponse = await callClaude(api_key, message, financialData);
+        aiResponse = await callClaude(api_key, message, financialData, language);
       } else if (provider === 'gemini') {
-        aiResponse = await callGemini(api_key, message, financialData);
+        aiResponse = await callGemini(api_key, message, financialData, language);
       } else {
         return res.status(400).json({ error: 'Unsupported AI provider' });
       }
@@ -444,7 +444,11 @@ async function getUserFinancialContext(userId, timePeriod = null) {
 }
 
 // AI Provider API Calls
-async function callOpenAI(apiKey, userMessage, financialData) {
+async function callOpenAI(apiKey, userMessage, financialData, language = 'en') {
+  const languageInstruction = language === 'es' 
+    ? 'IMPORTANT: Respond ONLY in Spanish (Español). Use Spanish for all your responses, numbers, and explanations.'
+    : 'IMPORTANT: Respond ONLY in English. Use English for all your responses, numbers, and explanations.';
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -481,7 +485,9 @@ Always:
 - Be specific with numbers and percentages
 - Reference the time period being analyzed
 - Provide actionable recommendations
-- Compare current performance to historical trends when relevant`
+- Compare current performance to historical trends when relevant
+
+${languageInstruction}`
         },
         {
           role: 'user',
@@ -501,7 +507,11 @@ Always:
   return data.choices[0].message.content;
 }
 
-async function callClaude(apiKey, userMessage, financialData) {
+async function callClaude(apiKey, userMessage, financialData, language = 'en') {
+  const languageInstruction = language === 'es' 
+    ? 'IMPORTANTE: Responde SOLO en Español. Usa español para todas tus respuestas, números y explicaciones.'
+    : 'IMPORTANT: Respond ONLY in English. Use English for all your responses, numbers, and explanations.';
+  
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -542,7 +552,9 @@ Always:
 - Be specific with numbers and percentages
 - Reference the time period being analyzed
 - Provide actionable recommendations
-- Compare current performance to historical trends when relevant`
+- Compare current performance to historical trends when relevant
+
+${languageInstruction}`
         }
       ]
     })
@@ -556,7 +568,11 @@ Always:
   return data.content[0].text;
 }
 
-async function callGemini(apiKey, userMessage, financialData) {
+async function callGemini(apiKey, userMessage, financialData, language = 'en') {
+  const languageInstruction = language === 'es' 
+    ? 'IMPORTANTE: Responde SOLO en Español. Usa español para todas tus respuestas, números y explicaciones.'
+    : 'IMPORTANT: Respond ONLY in English. Use English for all your responses, numbers, and explanations.';
+  
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -592,7 +608,9 @@ Always:
 - Be specific with numbers and percentages
 - Reference the time period being analyzed
 - Provide actionable recommendations
-- Compare current performance to historical trends when relevant`
+- Compare current performance to historical trends when relevant
+
+${languageInstruction}`
         }]
       }]
     })

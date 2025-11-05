@@ -189,8 +189,8 @@ export const activateAIConfig = async (configId) => {
   return response.data;
 };
 
-export const sendAIChat = async (message, timePeriod = null) => {
-  const response = await api.post('/ai/chat', { message, timePeriod });
+export const sendAIChat = async (message, timePeriod = null, language = 'en') => {
+  const response = await api.post('/ai/chat', { message, timePeriod, language });
   return response.data;
 };
 

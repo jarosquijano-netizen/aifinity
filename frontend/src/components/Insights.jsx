@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarSign, PieChart, Target, Shield, Calendar, MessageCircle, Send, Bot, User, Sparkles, X, Building2, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, CreditCard } from 'lucide-react';
 import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory, getAccounts, getSettings } from '../utils/api';
 import api from '../utils/api';
+import { useLanguage } from '../context/LanguageContext';
 
 function Insights() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { t, language } = useLanguage();
 
   // Chatbot state
   const [chatMessages, setChatMessages] = useState([]);
@@ -89,7 +91,7 @@ function Insights() {
     setChatLoading(true);
 
     try {
-      const response = await sendAIChat(userMessage, chatTimePeriod === 'all' ? null : chatTimePeriod);
+      const response = await sendAIChat(userMessage, chatTimePeriod === 'all' ? null : chatTimePeriod, language);
       
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -108,10 +110,10 @@ function Insights() {
   };
 
   const suggestedQuestions = [
-    "¿Cómo puedo mejorar mi tasa de ahorro?",
-    "¿En qué categorías gasto más?",
-    "¿Qué consejo me das para mi situación financiera?",
-    "¿Cuánto debería ahorrar para un fondo de emergencia?"
+    language === 'es' ? '¿Cómo puedo mejorar mi tasa de ahorro?' : 'How can I improve my savings rate?',
+    language === 'es' ? '¿En qué categorías gasto más?' : 'What categories do I spend the most in?',
+    language === 'es' ? '¿Qué consejo me das para mi situación financiera?' : 'What advice do you have for my financial situation?',
+    language === 'es' ? '¿Cuánto debería ahorrar para un fondo de emergencia?' : 'How much should I save for an emergency fund?'
   ];
 
   if (loading) {
@@ -227,8 +229,8 @@ function Insights() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Financial Insights</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">AI-powered analysis of your financial data</p>
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('financialInsights')}</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">{t('financialInsightsDescription')}</p>
             </div>
             <button
               onClick={fetchAllData}
@@ -237,7 +239,7 @@ function Insights() {
             >
               <Sparkles className="h-4 w-4" />
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Update Insights
+              {t('updateInsights')}
             </button>
           </div>
         </div>
@@ -250,19 +252,19 @@ function Insights() {
             <div className="p-6">
               <div className="flex items-center gap-2 mb-6">
                 <DollarSign className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">¿Cuánto puedes gastar este mes?</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('spendingCapacity')}</h2>
               </div>
               <div className="grid gap-4 md:grid-cols-3 mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Balance Total en Cuentas</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('totalBalanceAccounts')}</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">€{balanceDisponible.toFixed(2)}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Ingreso Esperado Pendiente</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('pendingExpectedIncome')}</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">€{ingresoEsperadoPendiente.toFixed(2)}</p>
                 </div>
                 <div className="rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 p-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Capacidad de Gasto Segura</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('safeSpendingCapacity')}</p>
                   <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">€{capacidadSegura.toFixed(2)}</p>
                 </div>
               </div>
@@ -271,12 +273,12 @@ function Insights() {
                 <div className="flex items-start gap-3">
                   <Target className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Recomendación:</p>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t('recommendation')}</p>
                     <p className="text-gray-900 dark:text-gray-100">
-                      Puedes gastar hasta <span className="font-bold text-purple-600 dark:text-purple-400">€{gastoDiarioSeguro.toFixed(2)}/día</span> de forma segura
+                      {t('canSpendSafely')} <span className="font-bold text-purple-600 dark:text-purple-400">€{gastoDiarioSeguro.toFixed(2)}{t('perDay')}</span>
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      (Basado en {diasRestantesMes} días restantes del mes, manteniendo un colchón del 20%)
+                      {t('basedOnRemainingDays', { days: diasRestantesMes })}
                     </p>
                   </div>
                 </div>
@@ -294,20 +296,20 @@ function Insights() {
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-6">
                   <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Estado Financiero</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('financialStatus')}</h2>
                 </div>
                 <div className="space-y-4">
                   {expectedIncome > 0 && (
                     <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                       <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Ingreso esperado mensual <span className="text-xs">(configurado)</span>
+                        {t('expectedMonthlyIncome')} <span className="text-xs">{t('configured')}</span>
                       </span>
                       <span className="text-lg font-semibold text-purple-600 dark:text-purple-400">€{expectedIncome.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Ingresos reales (mes actual)</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{t('actualIncomeCurrentMonth')}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
                         incomeRatio >= 100 
                           ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700' 
@@ -315,20 +317,20 @@ function Insights() {
                           ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700'
                           : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-700'
                       }`}>
-                        {incomeRatio.toFixed(1)}% del esperado
+                        {incomeRatio.toFixed(1)}% {t('ofExpected')}
                       </span>
                     </div>
                     <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">€{actualIncome.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Gastos totales <span className="text-xs">(€{dailyAvgExpense.toFixed(2)}/día)</span>
+                      {t('totalExpenses')} <span className="text-xs">(€{dailyAvgExpense.toFixed(2)}{t('perDayLabel')})</span>
                     </span>
                     <span className="text-lg font-semibold text-red-600 dark:text-red-400">€{monthlyExpenses.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Balance neto (transacciones)</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('netBalanceTransactions')}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
                         netBalance >= 0
                           ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700'
@@ -343,14 +345,14 @@ function Insights() {
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Balance real en cuentas <span className="text-xs">({data.accounts.length} cuentas)</span>
+                      {t('realBalanceAccounts')} <span className="text-xs">({data.accounts.length} {t('accounts')})</span>
                     </span>
                     <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">€{totalAccountsBalance.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Ahorro en cuentas</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-500">({savingsAccounts.length} cuentas de ahorro)</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{t('savingsInAccounts')}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-500">({savingsAccounts.length} {t('savingsAccounts')})</span>
                     </div>
                     <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">€{totalSavings.toFixed(2)}</span>
                   </div>
@@ -365,7 +367,7 @@ function Insights() {
                           savingsRate >= 0 ? 'text-amber-900 dark:text-amber-100' :
                           'text-red-900 dark:text-red-100'
                         }`}>
-                          Evaluación: {savingsRate >= 20 ? 'Excelente' : savingsRate >= 10 ? 'Bien' : savingsRate >= 0 ? 'Mejorable' : 'Cuidado'}
+                          {t('evaluation')}: {savingsRate >= 20 ? t('excellent') : savingsRate >= 10 ? t('good') : savingsRate >= 0 ? t('improvable') : t('caution')}
                         </p>
                         <p className={`text-sm mt-1 ${
                           savingsRate >= 20 ? 'text-emerald-800 dark:text-emerald-200' :
@@ -373,10 +375,10 @@ function Insights() {
                           savingsRate >= 0 ? 'text-amber-800 dark:text-amber-200' :
                           'text-red-800 dark:text-red-200'
                         }`}>
-                          {savingsRate >= 20 ? 'Posición sólida con margen de ahorro estable.' :
-                           savingsRate >= 10 ? 'Situación aceptable, pero hay margen de mejora.' :
-                           savingsRate >= 0 ? 'Deberías revisar y reducir gastos no esenciales.' :
-                           'Alerta: Gastas más de lo que ganas. Acción inmediata requerida.'}
+                          {savingsRate >= 20 ? t('solidPosition') :
+                           savingsRate >= 10 ? t('acceptableSituation') :
+                           savingsRate >= 0 ? t('reviewExpenses') :
+                           t('alertSpending')}
                         </p>
                       </div>
                     </div>
@@ -390,7 +392,7 @@ function Insights() {
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-6">
                   <PieChart className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Gastos por Categoría</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('expensesByCategory')}</h2>
                 </div>
                 <div className="space-y-4">
                   {topCategories.map((item) => {
@@ -409,7 +411,7 @@ function Insights() {
                                 ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800'
                                 : 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
                             }`}>
-                              {statusColor === 'success' ? 'Bien' : statusColor === 'warning' ? 'Revisar' : 'Alto'}
+                              {statusColor === 'success' ? t('well') : statusColor === 'warning' ? t('review') : t('high')}
                             </span>
                           </div>
                         </div>
@@ -427,7 +429,7 @@ function Insights() {
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-6">
                     <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Análisis por Tarjeta</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('analysisByCard')}</h2>
                   </div>
                   <div className="space-y-3">
                     {creditCards.map((card) => {
@@ -446,20 +448,20 @@ function Insights() {
                                 ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800'
                                 : 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
                             }`}>
-                              {statusColor === 'success' ? 'Bien' : statusColor === 'warning' ? 'Revisar' : 'Alto'}
+                              {statusColor === 'success' ? t('well') : statusColor === 'warning' ? t('review') : t('high')}
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-xs">
                             <div>
-                              <p className="text-gray-600 dark:text-gray-400">Deuda</p>
+                              <p className="text-gray-600 dark:text-gray-400">{t('debt')}</p>
                               <p className="font-semibold text-red-600 dark:text-red-400">€{debt.toFixed(2)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600 dark:text-gray-400">Límite</p>
+                              <p className="text-gray-600 dark:text-gray-400">{t('limit')}</p>
                               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">€{limit.toFixed(0)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600 dark:text-gray-400">Uso</p>
+                              <p className="text-gray-600 dark:text-gray-400">{t('usage')}</p>
                               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{usage.toFixed(1)}%</p>
                             </div>
                           </div>
@@ -480,7 +482,7 @@ function Insights() {
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-6">
                   <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Análisis de tu Situación</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('situationAnalysis')}</h2>
                 </div>
                 <div className="space-y-4">
                   {expectedIncome > 0 && (
@@ -488,9 +490,9 @@ function Insights() {
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">Ingresos al día</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('incomeUpToDate')}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            Has recibido €{actualIncome.toFixed(2)} de €{expectedIncome.toFixed(2)} esperados ({incomeRatio.toFixed(1)}%)
+                            {language === 'es' ? `Has recibido €${actualIncome.toFixed(2)} de €${expectedIncome.toFixed(2)} esperados (${incomeRatio.toFixed(1)}%)` : `You have received €${actualIncome.toFixed(2)} of €${expectedIncome.toFixed(2)} expected (${incomeRatio.toFixed(1)}%)`}
                           </p>
                         </div>
                       </div>
@@ -502,8 +504,8 @@ function Insights() {
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">Presupuesto bajo control</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Has gastado €{budgetSpent.toFixed(2)} de €{budgetTotal.toFixed(2)} ({budgetUsage.toFixed(1)}%)</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('budgetUnderControl')}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{language === 'es' ? `Has gastado €${budgetSpent.toFixed(2)} de €${budgetTotal.toFixed(2)} (${budgetUsage.toFixed(1)}%)` : `You have spent €${budgetSpent.toFixed(2)} of €${budgetTotal.toFixed(2)} (${budgetUsage.toFixed(1)}%)`}</p>
                         </div>
                       </div>
                     </div>
@@ -514,16 +516,18 @@ function Insights() {
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">Predicción fin de mes:</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('monthEndPrediction')}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            Al ritmo actual (€{dailySpendRate.toFixed(2)}/día), terminarás gastando €{projectedMonthEndSpend.toFixed(2)} ({projectedBudgetUsage.toFixed(1)}%)
+                            {language === 'es' 
+                              ? `${t('atCurrentRate')} (€${dailySpendRate.toFixed(2)}/día), ${t('youWillSpend')} €${projectedMonthEndSpend.toFixed(2)} (${projectedBudgetUsage.toFixed(1)}%)`
+                              : `${t('atCurrentRate')} (€${dailySpendRate.toFixed(2)}/day), ${t('youWillSpend')} €${projectedMonthEndSpend.toFixed(2)} (${projectedBudgetUsage.toFixed(1)}%)`}
                           </p>
                           {projectedBudgetUsage > 100 && (
                             <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mt-2">
-                              ⚠️ Te sobrepasarás por €{(projectedMonthEndSpend - budgetTotal).toFixed(2)}
+                              {t('warningOverspending')} €{(projectedMonthEndSpend - budgetTotal).toFixed(2)}
                             </p>
                           )}
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{daysRemaining} días restantes del mes</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{daysRemaining} {t('remainingDays')}</p>
                         </div>
                       </div>
                     </div>
@@ -533,9 +537,9 @@ function Insights() {
                     <div className="flex items-start gap-3">
                       <TrendingDown className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">Ahorro bajo</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{t('lowSavings')}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          Tienes €{totalSavings.toFixed(2)} en cuentas de ahorro - Intenta ahorrar al menos €50/mes
+                          {t('youHaveSavings', { amount: totalSavings.toFixed(2) })}
                         </p>
                       </div>
                     </div>
@@ -550,21 +554,21 @@ function Insights() {
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-6">
                     <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Resumen de Crédito</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('creditSummary')}</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="rounded-lg border border-red-200 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10 p-4">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Deuda Total</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('totalDebt')}</p>
                       <p className="text-2xl font-bold text-red-600 dark:text-red-400">€{totalDebt.toFixed(2)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{creditCards.length} tarjetas</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{creditCards.length} {t('creditCards')}</p>
                     </div>
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Límite Total</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('totalLimit')}</p>
                       <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">€{totalCreditLimit.toFixed(2)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Disponible: €{totalAvailableCredit.toFixed(2)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{t('available')} €{totalAvailableCredit.toFixed(2)}</p>
                     </div>
                     <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Utilización</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('utilization')}</p>
                       <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{overallUtilization.toFixed(1)}%</p>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium border mt-1 inline-block ${
                         overallUtilization < 30
@@ -573,13 +577,13 @@ function Insights() {
                           ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800'
                           : 'bg-red-50 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
                       }`}>
-                        {overallUtilization < 30 ? 'Excelente' : overallUtilization < 70 ? 'Revisar' : 'Alto'}
+                        {overallUtilization < 30 ? t('excellent') : overallUtilization < 70 ? t('review') : t('high')}
                       </span>
                     </div>
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Pago Mínimo</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('minimumPayment')}</p>
                       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">€{minimumPayments.toFixed(2)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">/mes</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{t('perMonth')}</p>
                     </div>
                   </div>
                 </div>
@@ -592,18 +596,16 @@ function Insights() {
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-6">
                     <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recomendaciones AI</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('aiRecommendations')}</h2>
                   </div>
                   <div className="space-y-4">
                     <div className="rounded-lg bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border border-purple-200 dark:border-purple-700 p-4">
                       <div className="flex items-start gap-3">
                         <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Costo de Intereses Estimado</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('estimatedInterestCost')}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Con una tasa promedio del 20% APR, pagas aproximadamente{" "}
-                            <span className="font-bold text-purple-600 dark:text-purple-400">€{monthlyInterestCost.toFixed(2)}/mes</span> en intereses (€{annualInterestCost.toFixed(2)}/año). Pagar
-                            solo el mínimo perpetúa la deuda.
+                            {t('withAverageRate')} <span className="font-bold text-purple-600 dark:text-purple-400">€{monthlyInterestCost.toFixed(2)}{t('perMonthInterest')}</span> ({language === 'es' ? `€${annualInterestCost.toFixed(2)}/año` : `€${annualInterestCost.toFixed(2)}/year`}). {t('payingMinimum')}
                           </p>
                         </div>
                       </div>
@@ -613,29 +615,27 @@ function Insights() {
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Recomendaciones</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('recommendations')}</p>
                           <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                             <li className="flex items-start gap-2">
                               <span className="text-purple-600 dark:text-purple-400 mt-0.5">•</span>
-                              <span>Reducir la utilización a menos del 30% para mejorar tu score crediticio</span>
+                              <span>{t('reduceUtilization')}</span>
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-purple-600 dark:text-purple-400 mt-0.5">•</span>
-                              <span>Paga más del mínimo (€{minimumPayments.toFixed(2)}) para reducir intereses</span>
+                              <span>{t('payMoreThanMinimum', { amount: minimumPayments.toFixed(2) })}</span>
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-purple-600 dark:text-purple-400 mt-0.5">•</span>
-                              <span>Considera pagar €{(minimumPayments * 2).toFixed(2)}/mes para salir de deuda más rápido</span>
+                              <span>{t('considerPaying', { amount: (minimumPayments * 2).toFixed(2) })}</span>
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-purple-600 dark:text-purple-400 mt-0.5">•</span>
-                              <span>
-                                Usa la estrategia "avalancha" o "bola de nieve" para pagar las tarjetas estratégicamente
-                              </span>
+                              <span>{t('useStrategy')}</span>
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-purple-600 dark:text-purple-400 mt-0.5">•</span>
-                              <span>Evita nuevos cargos mientras reduces el saldo</span>
+                              <span>{t('avoidNewCharges')}</span>
                             </li>
                           </ul>
                         </div>
@@ -652,12 +652,12 @@ function Insights() {
                           <div className="flex items-start gap-3">
                             <Calendar className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                             <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Proyección de Pago</p>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('paymentProjection')}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Si pagas <span className="font-bold text-emerald-700 dark:text-emerald-400">€{doubleMinimum.toFixed(2)}/mes</span>{" "}
-                                (el doble del mínimo), podrías estar libre de deuda en aproximadamente{" "}
-                                <span className="font-bold text-emerald-700 dark:text-emerald-400">{monthsToPayoff} meses</span>, pagando{" "}
-                                <span className="font-bold">€{totalInterestPaid.toFixed(2)}</span> en intereses.
+                                {t('ifYouPay')} <span className="font-bold text-emerald-700 dark:text-emerald-400">€{doubleMinimum.toFixed(2)}{t('perMonth')}</span>{" "}
+                                ({t('doubleMinimum')}), {language === 'es' ? 'podrías estar libre de deuda en aproximadamente' : 'you could be debt-free in approximately'} {" "}
+                                <span className="font-bold text-emerald-700 dark:text-emerald-400">{monthsToPayoff} {t('months')}</span>, {t('payingInterest')} {" "}
+                                <span className="font-bold">€{totalInterestPaid.toFixed(2)}</span> {t('inInterest')}.
                               </p>
                             </div>
                           </div>
@@ -679,7 +679,7 @@ function Insights() {
           className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
         >
           <Sparkles className="h-5 w-5" />
-          <span className="font-semibold hidden sm:inline">Asistente AI</span>
+          <span className="font-semibold hidden sm:inline">{t('aiAssistantButton')}</span>
           <Bot className="h-5 w-5" />
         </button>
       </div>
@@ -699,11 +699,11 @@ function Insights() {
                     <Bot className="w-8 h-8" />
                     <div>
                       <h2 className="text-2xl font-bold flex items-center gap-2">
-                        Asistente Financiero AI
+                        {t('aiAssistantTitle')}
                         <Sparkles className="w-6 h-6" />
                       </h2>
                       <p className="text-purple-100 text-sm">
-                        Pregúntame sobre tus finanzas
+                        {t('aiAssistantDescription')}
                       </p>
                     </div>
                   </div>
@@ -717,7 +717,7 @@ function Insights() {
                 {/* Time Period Selector */}
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-purple-100 mb-2">
-                    Período de análisis:
+                    {t('aiPeriodLabel')}
                   </label>
                   <select
                     value={chatTimePeriod}
@@ -725,11 +725,11 @@ function Insights() {
                     className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50"
                     style={{ color: 'white' }}
                   >
-                    <option value="all" style={{ color: '#1f2937' }}>Todos los períodos</option>
-                    <option value="day" style={{ color: '#1f2937' }}>Hoy</option>
-                    <option value="week" style={{ color: '#1f2937' }}>Esta semana</option>
-                    <option value="month" style={{ color: '#1f2937' }}>Este mes</option>
-                    <option value="year" style={{ color: '#1f2937' }}>Este año</option>
+                    <option value="all" style={{ color: '#1f2937' }}>{t('aiPeriodAll')}</option>
+                    <option value="day" style={{ color: '#1f2937' }}>{t('aiPeriodToday')}</option>
+                    <option value="week" style={{ color: '#1f2937' }}>{t('aiPeriodWeek')}</option>
+                    <option value="month" style={{ color: '#1f2937' }}>{t('aiPeriodMonth')}</option>
+                    <option value="year" style={{ color: '#1f2937' }}>{t('aiPeriodYear')}</option>
                   </select>
                 </div>
               </div>
@@ -743,7 +743,7 @@ function Insights() {
 
                 {chatMessages.length === 0 && !chatLoading && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Preguntas sugeridas:</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{t('aiSuggestedQuestions')}</p>
                     <div className="grid grid-cols-1 gap-2">
                       {suggestedQuestions.map((question, idx) => (
                         <button
@@ -819,7 +819,7 @@ function Insights() {
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Escribe tu pregunta financiera..."
+                      placeholder={t('aiPlaceholder')}
                       className="flex-1 px-4 py-3 border-2 border-purple-200 dark:border-purple-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-slate-700 dark:text-gray-100"
                       disabled={chatLoading}
                     />
@@ -832,7 +832,7 @@ function Insights() {
                     </button>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                    El asistente AI analiza tus datos financieros reales
+                    {t('aiAnalyzing')}
                   </div>
                 </form>
               </div>
