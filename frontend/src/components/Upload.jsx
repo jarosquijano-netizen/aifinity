@@ -454,7 +454,7 @@ function Upload({ onUploadComplete }) {
                 </p>
               )}
               <p className="text-xs text-gray-600 mt-1">
-                Redirecting to dashboard...
+                ✅ Upload complete! You can continue uploading more files or navigate to other sections.
               </p>
             </div>
           </div>

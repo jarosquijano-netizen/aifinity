@@ -13,11 +13,11 @@ import { getStoredAuth, clearAuth } from './utils/auth';
 import { useLanguage } from './context/LanguageContext';
 
 function App() {
-  // Initialize activeTab from URL hash, fallback to 'dashboard'
+  // Initialize activeTab from URL hash, fallback to empty (no redirect)
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#/', '').replace('#', '');
     const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
-    return validTabs.includes(hash) ? hash : 'dashboard';
+    return validTabs.includes(hash) ? hash : '';
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -25,6 +25,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [transactionFilters, setTransactionFilters] = useState({});
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
   const { t } = useLanguage();
 
   // Update URL hash when activeTab changes
@@ -63,7 +64,7 @@ function App() {
 
   const handleUploadComplete = () => {
     setRefreshTrigger(prev => prev + 1);
-    setActiveTab('dashboard');
+    // Don't redirect - stay on upload page
   };
 
   const navigateToTransactionsWithFilter = (filters) => {
@@ -74,6 +75,9 @@ function App() {
   const handleLogin = (authData) => {
     setUser(authData.user);
     setShowAuth(false);
+    setJustLoggedIn(true);
+    // Redirect to dashboard only when coming from login
+    setActiveTab('dashboard');
   };
 
   const handleLogout = () => {
@@ -116,6 +120,7 @@ function App() {
         user={user} 
         onLogin={() => setShowAuth(true)} 
         onLogout={handleLogout}
+        onLogoClick={() => setActiveTab('dashboard')}
       />
       
       {/* Menu Section - Full Width */}

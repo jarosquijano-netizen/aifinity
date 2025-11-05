@@ -3,16 +3,25 @@ import { TrendingUp, User, LogOut, Globe, Moon, Sun } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-function Header({ user, onLogout, clerkUserButton }) {
+function Header({ user, onLogout, clerkUserButton, onLogoClick }) {
   const { language, toggleLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+
+  const handleLogoClick = () => {
+    if (onLogoClick && user) {
+      onLogoClick();
+    }
+  };
 
   return (
     <header className="bg-white dark:bg-gray-900 backdrop-blur-xl shadow-premium border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300">
       <div className="container mx-auto px-4 py-3 max-w-[95%] 2xl:max-w-[1800px]">
         <div className="flex items-center justify-between">
           {/* Logo & Brand */}
-          <div className="flex items-center space-x-4">
+          <div 
+            className={`flex items-center space-x-4 ${onLogoClick && user ? 'cursor-pointer' : ''}`}
+            onClick={handleLogoClick}
+          >
             <div className="w-20 h-20 overflow-hidden flex items-center justify-center flex-shrink-0">
               <img 
                 src={theme === 'dark' ? '/aifinity-logo-dark.png' : '/aifinity-logo.png'}
