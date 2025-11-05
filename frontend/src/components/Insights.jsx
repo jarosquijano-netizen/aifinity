@@ -1152,7 +1152,7 @@ function Insights() {
                   }`}>
                     {action.priority === 'high' ? '🔴' : action.priority === 'medium' ? '🟡' : '💚'}
                   </span>
-                  <span className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                  <span className="text-xs text-gray-900 dark:text-gray-100 font-medium">
                     {action.text}
                   </span>
                 </li>
