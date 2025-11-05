@@ -97,10 +97,6 @@ function Upload({ onUploadComplete }) {
     setError('');
     setResults(null);
 
-    // CRITICAL: Force visible logging
-    alert(`🚀 Starting upload process with ${files.length} file(s)`);
-    console.log('🚀🚀🚀 PROCESS AND UPLOAD CALLED 🚀🚀🚀');
-    console.log('Files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
 
     try {
       let allTransactions = [];
@@ -108,9 +104,6 @@ function Upload({ onUploadComplete }) {
       let creditCardData = null;
       
       for (const file of files) {
-        console.log(`📄 Processing file: ${file.name}, type: ${file.type}`);
-        console.log(`📄 File size: ${(file.size / 1024).toFixed(2)} KB`);
-        
         let parseResult;
         
         // Determine file type - check both MIME type and extension
@@ -122,36 +115,15 @@ function Upload({ onUploadComplete }) {
                      fileName.endsWith('.xls') || 
                      fileName.endsWith('.xlsx');
         
-        console.log(`📄 File type check:`, { isPDF, isCSV, fileName, fileType: file.type });
-        
         if (isPDF) {
-          console.log('📄 File detected as PDF');
           parseResult = await parsePDFTransactions(file);
         } else if (isCSV) {
-          console.log('📄 File detected as CSV/Excel - calling parseCSVTransactions...');
-          alert(`📄 Parsing CSV file: ${file.name}`);
           parseResult = await parseCSVTransactions(file);
-          console.log('📄 parseCSVTransactions returned:', parseResult);
-          alert(`✅ Parsed ${parseResult?.transactions?.length || 0} transactions from CSV`);
         } else {
-          console.error(`❌ Unknown file type: ${file.type}, file: ${file.name}`);
-          alert(`❌ Unknown file type: ${file.type}`);
+          console.error(`Unknown file type: ${file.type}, file: ${file.name}`);
           setError(`Unsupported file type: ${file.type || 'unknown'}. Please upload PDF or CSV files.`);
           setProcessing(false);
           return;
-        }
-        
-        console.log(`📊 Parse result for ${file.name}:`, {
-          bank: parseResult?.bank,
-          transactionCount: parseResult?.transactions?.length || 0,
-          accountNumber: parseResult?.accountNumber,
-          lastBalance: parseResult?.lastBalance,
-          transactions: parseResult?.transactions?.slice(0, 3) // Show first 3
-        });
-        
-        // Show alert if only 1 transaction parsed (should be many more)
-        if (parseResult?.transactions?.length === 1) {
-          alert(`⚠️ WARNING: Only parsed 1 transaction from CSV!\n\nExpected many more. Check console for details.`);
         }
         
         if (!parseResult || !parseResult.transactions) {
@@ -169,7 +141,6 @@ function Upload({ onUploadComplete }) {
         if (parseResult.accountType === 'credit' && parseResult.creditCard) {
           creditCardData = parseResult.creditCard;
           lastBalance = parseResult.creditCard.balance; // Use credit card debt as balance
-          console.log('💳 Credit Card Statement Detected:', creditCardData);
         }
         
         // Store last balance from CSV if available
@@ -178,21 +149,12 @@ function Upload({ onUploadComplete }) {
         }
       }
 
-      console.log(`📤 Uploading ${allTransactions.length} transactions to backend...`);
-      
       if (allTransactions.length === 0) {
         throw new Error('No transactions to upload. Please check the file format.');
       }
       
       // Upload to backend with selected account and balance
       const uploadResult = await uploadTransactions(allTransactions, selectedAccount || null, lastBalance);
-      
-      console.log(`✅ Upload result:`, {
-        count: uploadResult.count,
-        skipped: uploadResult.skipped,
-        total: allTransactions.length,
-        balanceUpdated: uploadResult.balanceUpdated
-      });
       
       // If it's a credit card, update the account with credit limit
       if (creditCardData && selectedAccount) {
@@ -209,8 +171,6 @@ function Upload({ onUploadComplete }) {
             excludeFromStats: account.exclude_from_stats || false,
             creditLimit: creditCardData.creditLimit
           });
-          
-          console.log(`✅ Updated credit card account with limit: €${creditCardData.creditLimit}`);
         }
       }
       
@@ -225,20 +185,14 @@ function Upload({ onUploadComplete }) {
         creditCard: creditCardData
       });
 
-      // Clear files after successful upload (delay longer to see console logs)
+      // Clear files after successful upload
       setTimeout(() => {
         setFiles([]);
         onUploadComplete();
-      }, 15000); // Increased to 15 seconds to allow console log review
+      }, 2000);
 
     } catch (err) {
-      console.error('❌ Processing error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        statusText: err.response?.statusText
-      });
+      console.error('Processing error:', err);
       
       // Show more detailed error message
       const errorMessage = err.response?.data?.message || 
