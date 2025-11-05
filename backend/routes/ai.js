@@ -505,15 +505,29 @@ async function callOpenAI(apiKey, userMessage, financialData, language = 'en') {
           content: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
 
 Financial Data Summary:
-- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}
-- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}
-- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}
+- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}, ${financialData.summary.allTime.transactionCount} transactions
+- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}, Net €${financialData.summary.currentMonth.netBalance.toFixed(2)}
+- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}, Net €${financialData.summary.filtered.netBalance.toFixed(2)}, ${financialData.summary.filtered.transactionCount} transactions
+- Expected Monthly Income: €${financialData.summary.currentMonth.expectedIncome.toFixed(2)}
 - ${financialData.categories.length} spending categories
 - ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
 - ${financialData.recentTransactions.length} recent transactions
 - ${financialData.trends.length} months of trend data
+- ${financialData.budgets.length} budget categories
 
-Top Categories: ${financialData.categories.slice(0, 5).map(c => `${c.category}: €${c.total.toFixed(2)}`).join(', ')}
+Top Spending Categories:
+${financialData.categories.slice(0, 5).map((c, i) => `${i + 1}. ${c.category}: €${c.total.toFixed(2)} (${c.count} transactions)`).join('\n')}
+
+Budget Status:
+${financialData.budgets.length > 0 ? financialData.budgets.map(b => `- ${b.category}: Budget €${b.budget.toFixed(2)}, Spent €${b.spent.toFixed(2)}, Remaining €${b.remaining.toFixed(2)}, Usage ${b.usagePercent.toFixed(1)}%`).join('\n') : 'No budgets configured'}
+
+Account Balances:
+${financialData.accounts.length > 0 ? financialData.accounts.map(a => `- ${a.name} (${a.type}): €${a.balance.toFixed(2)}${a.type === 'credit' ? `, Limit €${a.creditLimit.toFixed(2)}` : ''}`).join('\n') : 'No accounts configured'}
+
+Recent Transactions (last ${financialData.recentTransactions.length}):
+${financialData.recentTransactions.length > 0 ? financialData.recentTransactions.slice(0, 5).map(t => `- ${t.date}: ${t.description.substring(0, 50)} - €${t.amount.toFixed(2)} (${t.category})`).join('\n') : 'No recent transactions'}
+
+IMPORTANT: If values are €0.00, this means no transactions were recorded for that period, not that data is missing. Always provide analysis based on what IS available, even if some values are zero. Compare current month to expected income and provide actionable advice.
 
 Guidelines:
 - Use Euro (€) for currency
@@ -521,6 +535,8 @@ Guidelines:
 - Reference the time period being analyzed (${financialData.timePeriod})
 - Provide actionable recommendations
 - Compare current performance to historical trends when relevant
+- If user asks about budget, analyze budget vs actual spending
+- If user asks about spending, analyze categories and trends
 
 ${languageInstruction}`
         },
@@ -571,15 +587,29 @@ async function callClaude(apiKey, userMessage, financialData, language = 'en') {
             content: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
 
 Financial Data Summary:
-- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}
-- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}
-- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}
+- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}, ${financialData.summary.allTime.transactionCount} transactions
+- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}, Net €${financialData.summary.currentMonth.netBalance.toFixed(2)}
+- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}, Net €${financialData.summary.filtered.netBalance.toFixed(2)}, ${financialData.summary.filtered.transactionCount} transactions
+- Expected Monthly Income: €${financialData.summary.currentMonth.expectedIncome.toFixed(2)}
 - ${financialData.categories.length} spending categories
 - ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
 - ${financialData.recentTransactions.length} recent transactions
 - ${financialData.trends.length} months of trend data
+- ${financialData.budgets.length} budget categories
 
-Top Categories: ${financialData.categories.slice(0, 5).map(c => `${c.category}: €${c.total.toFixed(2)}`).join(', ')}
+Top Spending Categories:
+${financialData.categories.slice(0, 5).map((c, i) => `${i + 1}. ${c.category}: €${c.total.toFixed(2)} (${c.count} transactions)`).join('\n')}
+
+Budget Status:
+${financialData.budgets.length > 0 ? financialData.budgets.map(b => `- ${b.category}: Budget €${b.budget.toFixed(2)}, Spent €${b.spent.toFixed(2)}, Remaining €${b.remaining.toFixed(2)}, Usage ${b.usagePercent.toFixed(1)}%`).join('\n') : 'No budgets configured'}
+
+Account Balances:
+${financialData.accounts.length > 0 ? financialData.accounts.map(a => `- ${a.name} (${a.type}): €${a.balance.toFixed(2)}${a.type === 'credit' ? `, Limit €${a.creditLimit.toFixed(2)}` : ''}`).join('\n') : 'No accounts configured'}
+
+Recent Transactions (last ${financialData.recentTransactions.length}):
+${financialData.recentTransactions.length > 0 ? financialData.recentTransactions.slice(0, 5).map(t => `- ${t.date}: ${t.description.substring(0, 50)} - €${t.amount.toFixed(2)} (${t.category})`).join('\n') : 'No recent transactions'}
+
+IMPORTANT: If values are €0.00, this means no transactions were recorded for that period, not that data is missing. Always provide analysis based on what IS available, even if some values are zero. Compare current month to expected income and provide actionable advice.
 
 User question: ${userMessage}
 
@@ -589,6 +619,8 @@ Guidelines:
 - Reference the time period being analyzed (${financialData.timePeriod})
 - Provide actionable recommendations
 - Compare current performance to historical trends when relevant
+- If user asks about budget, analyze budget vs actual spending
+- If user asks about spending, analyze categories and trends
 
 ${languageInstruction}`
           }
@@ -628,15 +660,29 @@ async function callGemini(apiKey, userMessage, financialData, language = 'en') {
           text: `You are an expert financial advisor assistant. Analyze the user's financial data and provide helpful advice.
 
 Financial Data Summary:
-- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}
-- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}
-- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}
+- All-time: Income €${financialData.summary.allTime.totalIncome.toFixed(2)}, Expenses €${financialData.summary.allTime.totalExpenses.toFixed(2)}, Net €${financialData.summary.allTime.netBalance.toFixed(2)}, ${financialData.summary.allTime.transactionCount} transactions
+- Current Month: Income €${financialData.summary.currentMonth.income.toFixed(2)}, Expenses €${financialData.summary.currentMonth.expenses.toFixed(2)}, Net €${financialData.summary.currentMonth.netBalance.toFixed(2)}
+- Filtered Period (${financialData.timePeriod}): Income €${financialData.summary.filtered.totalIncome.toFixed(2)}, Expenses €${financialData.summary.filtered.totalExpenses.toFixed(2)}, Net €${financialData.summary.filtered.netBalance.toFixed(2)}, ${financialData.summary.filtered.transactionCount} transactions
+- Expected Monthly Income: €${financialData.summary.currentMonth.expectedIncome.toFixed(2)}
 - ${financialData.categories.length} spending categories
 - ${financialData.accounts.length} accounts (${financialData.accounts.filter(a => a.type === 'credit').length} credit cards)
 - ${financialData.recentTransactions.length} recent transactions
 - ${financialData.trends.length} months of trend data
+- ${financialData.budgets.length} budget categories
 
-Top Categories: ${financialData.categories.slice(0, 5).map(c => `${c.category}: €${c.total.toFixed(2)}`).join(', ')}
+Top Spending Categories:
+${financialData.categories.slice(0, 5).map((c, i) => `${i + 1}. ${c.category}: €${c.total.toFixed(2)} (${c.count} transactions)`).join('\n')}
+
+Budget Status:
+${financialData.budgets.length > 0 ? financialData.budgets.map(b => `- ${b.category}: Budget €${b.budget.toFixed(2)}, Spent €${b.spent.toFixed(2)}, Remaining €${b.remaining.toFixed(2)}, Usage ${b.usagePercent.toFixed(1)}%`).join('\n') : 'No budgets configured'}
+
+Account Balances:
+${financialData.accounts.length > 0 ? financialData.accounts.map(a => `- ${a.name} (${a.type}): €${a.balance.toFixed(2)}${a.type === 'credit' ? `, Limit €${a.creditLimit.toFixed(2)}` : ''}`).join('\n') : 'No accounts configured'}
+
+Recent Transactions (last ${financialData.recentTransactions.length}):
+${financialData.recentTransactions.length > 0 ? financialData.recentTransactions.slice(0, 5).map(t => `- ${t.date}: ${t.description.substring(0, 50)} - €${t.amount.toFixed(2)} (${t.category})`).join('\n') : 'No recent transactions'}
+
+IMPORTANT: If values are €0.00, this means no transactions were recorded for that period, not that data is missing. Always provide analysis based on what IS available, even if some values are zero. Compare current month to expected income and provide actionable advice.
 
 User question: ${userMessage}
 
@@ -646,6 +692,8 @@ Guidelines:
 - Reference the time period being analyzed (${financialData.timePeriod})
 - Provide actionable recommendations
 - Compare current performance to historical trends when relevant
+- If user asks about budget, analyze budget vs actual spending
+- If user asks about spending, analyze categories and trends
 
 ${languageInstruction}`
         }]
