@@ -446,7 +446,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                   </div>
                 </th>
                 <th className="pl-4 pr-6 py-3 text-right min-w-[300px] text-sm">{t('amount')}</th>
-                <th className="px-1 py-3 w-16 text-center text-sm">Actions</th>
+                <th className="px-1 py-3 w-20 text-center text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -531,10 +531,11 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                     <td className="px-1 py-3 text-center">
                       <button
                         onClick={() => handleDeleteTransaction(transaction.id)}
-                        className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200"
+                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200 border border-red-200 dark:border-red-800"
                         title="Eliminar transacción"
+                        aria-label="Delete transaction"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
