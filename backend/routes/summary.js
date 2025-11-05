@@ -28,9 +28,10 @@ router.get('/', optionalAuth, async (req, res) => {
     // Get actual income AND expenses for current month (using applicable_month if available)
     const currentMonth = new Date().toISOString().slice(0, 7);
     
-    // Get only the most recent salary (1 salary) for current month
+    // Get actual income for current month - sum all income transactions, not just one
+    // Use applicable_month if available, otherwise use date
     const actualIncomeResult = await pool.query(
-      `SELECT amount as actual_income
+      `SELECT COALESCE(SUM(amount), 0) as actual_income
        FROM transactions
        WHERE type = 'income'
        AND computable = true
@@ -40,8 +41,7 @@ router.get('/', optionalAuth, async (req, res) => {
          OR
          (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
        )
-       ORDER BY date DESC, id DESC
-       LIMIT 1`,
+       AND amount > 0`,
       [userId, currentMonth]
     );
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);

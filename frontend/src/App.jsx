@@ -13,11 +13,15 @@ import { getStoredAuth, clearAuth } from './utils/auth';
 import { useLanguage } from './context/LanguageContext';
 
 function App() {
-  // Initialize activeTab from URL hash, fallback to empty (no redirect)
+  // Initialize activeTab from URL hash, fallback to 'dashboard' when logged in
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#/', '').replace('#', '');
     const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
-    return validTabs.includes(hash) ? hash : '';
+    if (validTabs.includes(hash)) {
+      return hash;
+    }
+    // Default to dashboard if no hash (for logged-in users)
+    return 'dashboard';
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -167,16 +171,6 @@ function App() {
             <Settings key={refreshTrigger} />
           )}
           
-          {!activeTab && (
-            <div className="text-center py-20">
-              <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">
-                {t('selectATab') || 'Please select a tab to begin'}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500">
-                Click on any tab above to navigate
-              </p>
-            </div>
-          )}
         </div>
       </main>
 
