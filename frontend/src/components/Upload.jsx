@@ -127,12 +127,12 @@ function Upload({ onUploadComplete }) {
         }
         
         if (!parseResult || !parseResult.transactions) {
-          console.error(`❌ No transactions found in ${file.name}`);
+          console.error(`No transactions found in ${file.name}`);
           continue;
         }
         
         if (parseResult.transactions.length === 0) {
-          console.warn(`⚠️ Parse result has 0 transactions for ${file.name}`);
+          console.warn(`Parse result has 0 transactions for ${file.name}`);
         }
         
         allTransactions = [...allTransactions, ...parseResult.transactions];
