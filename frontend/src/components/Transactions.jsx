@@ -418,8 +418,8 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
       {/* Transactions Table */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden p-0 border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto">
-          <table className="table-premium w-full">
+        <div className="overflow-x-auto" style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="table-premium w-full" style={{ minWidth: '100%', tableLayout: 'auto' }}>
             <thead>
               <tr>
                 <th className="px-1 py-3 w-10">
@@ -436,7 +436,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                 <th className="px-1 py-3 w-24 text-sm">{t('category')}</th>
                 <th className="px-1 py-3 w-32 text-sm">{t('bank')}</th>
                 <th className="px-2 py-3 text-right w-28 text-sm">{t('amount')}</th>
-                <th className="px-1 py-3 w-16 text-center text-sm font-semibold">Actions</th>
+                <th className="px-2 py-3 w-20 text-center text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -518,12 +518,13 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         {formatCurrency(parseFloat(transaction.amount))}
                       </span>
                     </td>
-                    <td className="px-1 py-3 text-center">
+                    <td className="px-2 py-3 text-center" style={{ width: '80px', minWidth: '80px' }}>
                       <button
                         onClick={() => handleDeleteTransaction(transaction.id)}
-                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200 border border-red-200 dark:border-red-800"
+                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200 border-2 border-red-400 dark:border-red-600 bg-red-50/50 dark:bg-red-900/10"
                         title="Eliminar transacción"
                         aria-label="Delete transaction"
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
