@@ -445,8 +445,8 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                     <span className="text-sm">{t('bank')}</span>
                   </div>
                 </th>
-                    <th className="pl-4 pr-6 py-3 text-right min-w-[300px] text-sm">{t('amount')}</th>
-                    <th className="px-1 py-3 w-16 text-center text-sm">{t('actions') || 'Actions'}</th>
+                <th className="pl-4 pr-6 py-3 text-right min-w-[300px] text-sm">{t('amount')}</th>
+                <th className="px-1 py-3 w-16 text-center text-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
