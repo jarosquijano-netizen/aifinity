@@ -363,6 +363,50 @@ router.get('/categories', optionalAuth, async (req, res) => {
   }
 });
 
+// Delete a single transaction
+router.delete('/:id', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const transactionId = parseInt(req.params.id);
+    
+    // Verify transaction belongs to user
+    const checkResult = await client.query(
+      'SELECT id FROM transactions WHERE id = $1 AND (user_id IS NULL OR user_id = $2)',
+      [transactionId, userId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+    
+    await client.query('BEGIN');
+    
+    // Delete the transaction
+    await client.query(
+      'DELETE FROM transactions WHERE id = $1 AND (user_id IS NULL OR user_id = $2)',
+      [transactionId, userId]
+    );
+    
+    // Update summaries
+    try {
+      await updateSummaries(client, userId);
+    } catch (summaryError) {
+      console.error('⚠️ Error updating summaries (non-critical):', summaryError);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete transaction error:', error);
+    res.status(500).json({ error: 'Failed to delete transaction' });
+  } finally {
+    client.release();
+  }
+});
+
 // Delete all transactions (for testing/reset)
 router.delete('/all', optionalAuth, async (req, res) => {
   try {

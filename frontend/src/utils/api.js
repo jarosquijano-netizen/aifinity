@@ -53,6 +53,11 @@ export const getTransactions = async () => {
   return response.data;
 };
 
+export const deleteTransaction = async (transactionId) => {
+  const response = await api.delete(`/transactions/${transactionId}`);
+  return response.data;
+};
+
 export const deleteAllTransactions = async () => {
   const response = await api.delete('/transactions/all');
   return response.data;

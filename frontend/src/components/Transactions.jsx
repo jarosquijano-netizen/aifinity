@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft } from 'lucide-react';
-import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories } from '../utils/api';
+import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2 } from 'lucide-react';
+import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon } from '../utils/categoryIcons';
@@ -156,6 +156,22 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     setSelectedTransactionIds([]);
     setBulkCategory('');
     setShowBulkPanel(false);
+  };
+
+  const handleDeleteTransaction = async (transactionId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta transacción? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      await deleteTransaction(transactionId);
+      fetchTransactions();
+      // Dispatch event to refresh dashboard
+      window.dispatchEvent(new CustomEvent('transactionUpdated'));
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      alert('Error al eliminar la transacción');
+    }
   };
 
   const applyFilters = () => {
@@ -429,13 +445,14 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                     <span className="text-sm">{t('bank')}</span>
                   </div>
                 </th>
-                <th className="pl-4 pr-6 py-3 text-right min-w-[300px] text-sm">{t('amount')}</th>
+                    <th className="pl-4 pr-6 py-3 text-right min-w-[300px] text-sm">{t('amount')}</th>
+                    <th className="px-1 py-3 w-16 text-center text-sm">{t('actions') || 'Actions'}</th>
               </tr>
             </thead>
             <tbody>
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
+                  <td colSpan="7" className="px-6 py-12 text-center">
                     <p className="text-gray-500">{t('noDataDescription')}</p>
                   </td>
                 </tr>
@@ -510,6 +527,15 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         {transaction.type === 'income' ? '+' : '-'}
                         {formatCurrency(parseFloat(transaction.amount))}
                       </span>
+                    </td>
+                    <td className="px-1 py-3 text-center">
+                      <button
+                        onClick={() => handleDeleteTransaction(transaction.id)}
+                        className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200"
+                        title="Eliminar transacción"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
