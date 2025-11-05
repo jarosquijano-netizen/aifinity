@@ -419,7 +419,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       {/* Transactions Table */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden p-0 border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto">
-          <table className="table-premium w-full min-w-[1400px]">
+          <table className="table-premium w-full min-w-[1500px]">
             <thead>
               <tr>
                 <th className="px-1 py-3 w-10">
