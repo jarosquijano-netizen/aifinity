@@ -208,11 +208,11 @@ function Upload({ onUploadComplete }) {
         creditCard: creditCardData
       });
 
-      // Clear files after successful upload
+      // Clear files after successful upload (delay longer to see console logs)
       setTimeout(() => {
         setFiles([]);
         onUploadComplete();
-      }, 2000);
+      }, 5000); // Increased from 2000 to 5000ms to allow console log review
 
     } catch (err) {
       console.error('❌ Processing error:', err);

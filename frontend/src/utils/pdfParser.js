@@ -723,6 +723,13 @@ function parseINGSpanishCSV(lines) {
       mappedCategory = categorizeTransaction(finalDescription);
     }
     
+    // Validate parsed date format before adding
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) {
+      skippedCount++;
+      console.warn(`⚠️ Skipped invalid date format: ${dateStr} -> ${parsedDate}`);
+      continue;
+    }
+    
     transactions.push({
       bank: 'ING',
       date: parsedDate,
@@ -734,6 +741,17 @@ function parseINGSpanishCSV(lines) {
   }
   
   console.log(`✅ ING CSV parsed: ${transactions.length} transactions, ${skippedCount} skipped`);
+  
+  if (transactions.length === 0) {
+    console.error('❌ No transactions parsed from ING CSV!');
+    console.error('Check column indices:', {
+      dateColumn,
+      categoryColumn,
+      descriptionColumn,
+      amountColumn,
+      balanceColumn
+    });
+  }
   
   return {
     bank: 'ING',
