@@ -242,7 +242,11 @@ router.get('/', optionalAuth, async (req, res) => {
         result = await pool.query(
           `SELECT 
             t.*,
-            COALESCE(ba.name, t.bank) as account_name
+            COALESCE(
+              ba.name,
+              (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' LIMIT 1),
+              t.bank
+            ) as account_name
            FROM transactions t
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id IS NULL OR t.user_id = $1 OR t.user_id::text = $2
@@ -253,7 +257,7 @@ router.get('/', optionalAuth, async (req, res) => {
         // userId is null but has auth header - filter by account_ids to get user's transactions
         // Get user's accounts first
         const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
+          `SELECT id, name FROM bank_accounts ORDER BY created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
         
@@ -261,7 +265,11 @@ router.get('/', optionalAuth, async (req, res) => {
           result = await pool.query(
             `SELECT 
               t.*,
-              COALESCE(ba.name, t.bank) as account_name
+              COALESCE(
+                ba.name,
+                (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' AND id = ANY($1::int[]) LIMIT 1),
+                t.bank
+              ) as account_name
              FROM transactions t
              LEFT JOIN bank_accounts ba ON t.account_id = ba.id
              WHERE t.account_id = ANY($1::int[]) OR t.user_id IS NULL
@@ -273,7 +281,11 @@ router.get('/', optionalAuth, async (req, res) => {
           result = await pool.query(
             `SELECT 
               t.*,
-              COALESCE(ba.name, t.bank) as account_name
+              COALESCE(
+                ba.name,
+                (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' LIMIT 1),
+                t.bank
+              ) as account_name
              FROM transactions t
              LEFT JOIN bank_accounts ba ON t.account_id = ba.id
              WHERE t.user_id IS NULL
@@ -287,7 +299,11 @@ router.get('/', optionalAuth, async (req, res) => {
       result = await pool.query(
         `SELECT 
           t.*,
-          COALESCE(ba.name, t.bank) as account_name
+          COALESCE(
+            ba.name,
+            (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' LIMIT 1),
+            t.bank
+          ) as account_name
          FROM transactions t
          LEFT JOIN bank_accounts ba ON t.account_id = ba.id
          WHERE t.user_id IS NULL
@@ -296,7 +312,14 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     console.log('📋 Found transactions:', result.rows.length);
-    console.log('📋 Sample transactions:', result.rows.slice(0, 3).map(t => ({ id: t.id, date: t.date, description: t.description?.substring(0, 30), user_id: t.user_id })));
+    console.log('📋 Sample transactions:', result.rows.slice(0, 5).map(t => ({ 
+      id: t.id, 
+      date: t.date, 
+      description: t.description?.substring(0, 30), 
+      bank: t.bank,
+      account_id: t.account_id,
+      account_name: t.account_name
+    })));
 
     res.json({ transactions: result.rows });
   } catch (error) {
