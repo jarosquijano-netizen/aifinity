@@ -602,7 +602,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         })()}
                         <span 
                           className="text-sm text-gray-800 dark:text-gray-200 truncate cursor-help" 
-                          title={`${transaction.description}${transaction.account_name ? ` | Account: ${transaction.account_name}` : ''}${transaction.bank ? ` | Bank: ${transaction.bank}` : ''}${transaction.date ? ` | Date: ${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}${transaction.amount ? ` | Amount: ${formatCurrency(parseFloat(transaction.amount))}` : ''}`}
+                          title={`Full Description: ${transaction.description}${transaction.account_name ? `\n\nAccount: ${transaction.account_name}` : ''}${transaction.bank ? `\nBank: ${transaction.bank}` : ''}${transaction.date ? `\nDate: ${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}${transaction.amount ? `\nAmount: ${formatCurrency(parseFloat(transaction.amount))}` : ''}${transaction.category ? `\nCategory: ${transaction.category}` : ''}`}
                         >
                           {transaction.description.substring(0, 100)}
                           {transaction.description.length > 100 && '...'}
