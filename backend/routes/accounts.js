@@ -284,6 +284,27 @@ router.post('/cleanup-duplicates', optionalAuth, async (req, res) => {
       });
     }
 
+    // Reassign transactions from duplicate accounts to kept accounts before deletion
+    console.log(`🔄 Reassigning transactions from ${toDelete.length} duplicate account(s)...`);
+    for (const duplicateId of toDelete) {
+      const duplicateAccount = allAccounts.rows.find(a => a.id === duplicateId);
+      if (!duplicateAccount) continue;
+      
+      const key = `${duplicateAccount.name.toLowerCase()}|${duplicateAccount.account_type}`;
+      const keepId = seen.get(key);
+      
+      if (keepId && keepId !== duplicateId) {
+        const updateResult = await pool.query(
+          `UPDATE transactions 
+           SET account_id = $1 
+           WHERE account_id = $2 
+           RETURNING id`,
+          [keepId, duplicateId]
+        );
+        console.log(`   ✅ Reassigned ${updateResult.rows.length} transactions from account ${duplicateId} to ${keepId}`);
+      }
+    }
+
     // Delete duplicate accounts
     const deleteResult = await pool.query(
       `DELETE FROM bank_accounts 
