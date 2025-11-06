@@ -239,7 +239,11 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
     // Bank filter
     if (filterBank !== 'all') {
-      filtered = filtered.filter(t => t.bank === filterBank);
+      filtered = filtered.filter(t => {
+        const accountName = t.account_name || t.bank || '';
+        return accountName.toLowerCase().includes(filterBank.toLowerCase()) || 
+               (t.bank && t.bank.toLowerCase() === filterBank.toLowerCase());
+      });
     }
 
     // Month filter
@@ -271,7 +275,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
   // Get unique values for filters
   const categories = ['all', ...new Set(transactions.map(t => t.category))];
-  const banks = ['all', ...new Set(transactions.map(t => t.bank))];
+  const banks = ['all', ...new Set(transactions.map(t => t.account_name || t.bank).filter(Boolean))];
   
   // Get unique months from transactions (format: YYYY-MM)
   const availableMonths = ['all', ...new Set(

@@ -250,16 +250,37 @@ router.get('/', optionalAuth, async (req, res) => {
           [userId, userId?.toString()]
         );
       } else {
-        // userId is null but has auth header - return ALL transactions
-        result = await pool.query(
-          `SELECT 
-            t.*,
-            COALESCE(ba.name, t.bank) as account_name
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           ORDER BY t.date DESC`
+        // userId is null but has auth header - filter by account_ids to get user's transactions
+        // Get user's accounts first
+        const userAccountsResult = await pool.query(
+          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
         );
-        console.log('⚠️ TEMPORARY: Returning ALL transactions (userId is null but auth header present)');
+        const accountIds = userAccountsResult.rows.map(a => a.id);
+        
+        if (accountIds.length > 0) {
+          result = await pool.query(
+            `SELECT 
+              t.*,
+              COALESCE(ba.name, t.bank) as account_name
+             FROM transactions t
+             LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+             WHERE t.account_id = ANY($1::int[]) OR t.user_id IS NULL
+             ORDER BY t.date DESC`,
+            [accountIds]
+          );
+        } else {
+          // No accounts found, return only shared transactions
+          result = await pool.query(
+            `SELECT 
+              t.*,
+              COALESCE(ba.name, t.bank) as account_name
+             FROM transactions t
+             LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+             WHERE t.user_id IS NULL
+             ORDER BY t.date DESC`
+          );
+        }
+        console.log('⚠️ TEMPORARY: Filtering by account_ids (userId is null but auth header present)');
       }
     } else {
       // If not logged in, get only shared transactions (user_id IS NULL)
