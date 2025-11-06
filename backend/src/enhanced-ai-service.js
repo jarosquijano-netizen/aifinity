@@ -17,7 +17,7 @@ import {
 const CLAUDE_CONFIG = {
   apiUrl: 'https://api.anthropic.com/v1/messages',
   model: 'claude-sonnet-4-20250514', // Latest Claude model
-  maxTokens: 4096,
+  maxTokens: 2048, // Reduced from 4096 - responses typically need 500-1000 tokens
   temperature: 0.7, // Balance between creativity and consistency
   apiVersion: '2023-06-01'
 };

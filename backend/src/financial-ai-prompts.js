@@ -174,10 +174,10 @@ export function formatFinancialContext(data, timeRange) {
   context += `- Savings Rate: ${savingsRate}%\n`;
   context += `- Status: ${parseFloat(savingsRate) >= 20 ? '✅ Healthy' : parseFloat(savingsRate) >= 10 ? '⚠️ Fair' : '⚠️ Needs Improvement'}\n\n`;
   
-  // Top Spending Categories
+  // Top Spending Categories (limit to top 5 to reduce tokens)
   if (data.categories && data.categories.length > 0) {
     context += `📈 **Top Spending Categories:**\n`;
-    data.categories.slice(0, 10).forEach((cat, i) => {
+    data.categories.slice(0, 5).forEach((cat, i) => {
       const percentage = data.summary.currentMonth.expenses > 0
         ? ((cat.total / data.summary.currentMonth.expenses) * 100).toFixed(1)
         : 0;
@@ -198,30 +198,34 @@ export function formatFinancialContext(data, timeRange) {
     context += '\n';
   }
   
-  // Budget Status
+  // Budget Status (limit to top 5 budgets by spent amount to reduce tokens)
   if (data.budgets && data.budgets.length > 0) {
-    context += `🎯 **Budget Tracking:**\n`;
-    data.budgets.forEach(budget => {
+    context += `🎯 **Budget Tracking (Top 5):**\n`;
+    // Sort by spent amount (descending) and take top 5
+    const topBudgets = [...data.budgets]
+      .sort((a, b) => b.spent - a.spent)
+      .slice(0, 5);
+    topBudgets.forEach(budget => {
       const status = budget.usagePercent >= 100 ? '⚠️ Over' : budget.usagePercent >= 80 ? '⚡ Near Limit' : '✅ On Track';
       context += `- ${budget.category}: €${budget.spent.toFixed(2)}/€${budget.budget.toFixed(2)} (${budget.usagePercent.toFixed(1)}%) ${status}\n`;
     });
     context += '\n';
   }
   
-  // Monthly Trends
+  // Monthly Trends (limit to 3 months to reduce tokens)
   if (data.trends && data.trends.length > 0) {
-    context += `📊 **Monthly Trends (last ${data.trends.length} months):**\n`;
-    data.trends.slice(0, 6).forEach(trend => {
+    context += `📊 **Monthly Trends (last 3 months):**\n`;
+    data.trends.slice(0, 3).forEach(trend => {
       context += `- ${trend.month}: Income €${trend.income.toFixed(2)}, Expenses €${trend.expenses.toFixed(2)}, Net €${trend.netBalance.toFixed(2)}\n`;
     });
     context += '\n';
   }
   
-  // Recent Transactions (account balances already shown at top)
+  // Recent Transactions (limit to 3 to reduce tokens - account balances already shown at top)
   if (data.recentTransactions && data.recentTransactions.length > 0) {
-    context += `📝 **Recent Transactions (last ${data.recentTransactions.length}):**\n`;
-    data.recentTransactions.slice(0, 5).forEach(t => {
-      context += `- ${t.date}: ${t.description.substring(0, 60)} - €${t.amount.toFixed(2)} (${t.category || 'Uncategorized'})\n`;
+    context += `📝 **Recent Transactions:**\n`;
+    data.recentTransactions.slice(0, 3).forEach(t => {
+      context += `- ${t.date}: ${t.description.substring(0, 50)} - €${t.amount.toFixed(2)} (${t.category || 'Uncategorized'})\n`;
     });
     context += '\n';
   }
