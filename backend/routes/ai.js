@@ -172,15 +172,14 @@ router.post('/config/:id/activate', async (req, res) => {
 router.post('/chat', async (req, res) => {
   try {
     const { message, timePeriod, language = 'en' } = req.body; // language: 'en' or 'es'
-    const userId = req.user.id || req.user.userId;
+    const userId = req.user?.id || req.user?.userId || null;
+    const hasAuthHeader = req.headers['authorization'];
 
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
     // Get active AI configuration
-    const userId = req.user?.id || req.user?.userId || null;
-    const hasAuthHeader = req.headers['authorization'];
     
     let configResult;
     if (userId || hasAuthHeader) {
