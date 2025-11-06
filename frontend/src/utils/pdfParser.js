@@ -646,7 +646,16 @@ export async function parseCSVTransactions(file) {
       return parseSabadellCreditCard(lines, text);
     }
     
-    // Detect if it's a Sabadell statement
+    // Check for Sabadell text format FIRST (copy-paste from website) - multi-line format
+    const isSabadellTextFormat = detectSabadellTextFormat(text, lines);
+    if (isSabadellTextFormat) {
+      console.error('🏦 Detected: Sabadell Text format (copy-paste) - CALLING parseSabadellTextFormat');
+      const result = parseSabadellTextFormat(lines);
+      console.error(`✅ Sabadell Text parser returned ${result.transactions.length} transactions`);
+      return result;
+    }
+    
+    // Detect if it's a Sabadell statement (CSV format)
     const isSabadellFormat = detectSabadellFormat(text);
     
     if (isSabadellFormat) {
@@ -655,9 +664,31 @@ export async function parseCSVTransactions(file) {
     }
     
     // Detect ING Spanish format (Movimientos de la Cuenta with F. VALOR header)
-    console.error('🔍 Checking for ING Spanish format...');
+    console.error('🔍 Checking for ING formats...');
     console.error('🔍 Text preview:', text.substring(0, 200));
     console.error('🔍 First 10 lines:', lines.slice(0, 10));
+    
+    // Check for ING text format FIRST (copy-paste from website) - most specific format
+    const isINGTextFormat = detectINGTextFormat(text, lines);
+    if (isINGTextFormat) {
+      console.error('🏦 Detected: ING Text format (copy-paste) - CALLING parseINGTextFormat');
+      const result = parseINGTextFormat(lines);
+      console.error(`✅ ING Text parser returned ${result.transactions.length} transactions`);
+      return result;
+    }
+    
+    // Check for tab-separated ING format (Fecha, Descripción, Importe, Saldo)
+    // Only check if function exists to avoid errors
+    if (typeof detectINGTabFormat === 'function') {
+      const isINGTabFormat = detectINGTabFormat(text, lines);
+      if (isINGTabFormat) {
+        console.error('🏦 Detected: ING Tab-separated format - CALLING parseINGTabFormat');
+        const result = parseINGTabFormat(lines);
+        console.error(`✅ ING Tab parser returned ${result.transactions.length} transactions`);
+        return result;
+      }
+    }
+    
     const isINGSpanishFormat = detectINGSpanishFormat(text, lines);
     console.error('🔍 ING format detection result:', isINGSpanishFormat);
     
@@ -714,14 +745,244 @@ function detectSabadellCreditCardFormat(text) {
 }
 
 /**
+ * Detect Sabadell text format (copy-paste from website)
+ * Format: Multi-line with header "Fecha	Descripción	Importe	Saldo" followed by alternating lines
+ * Example:
+ *   Fecha	Descripción	Importe	Saldo	
+ *   06/11/2025
+ *   SEGUROS SECURITAS DIRECT ESPANA S.A.U.
+ *   -39,89 €
+ *   Devolver
+ *   -7,85 €
+ */
+function detectSabadellTextFormat(text, lines) {
+  // Check for Sabadell header in first few lines
+  let hasHeader = false;
+  let headerIndex = -1;
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const line = lines[i];
+    if (line && line.includes('Fecha') && line.includes('Descripción') && line.includes('Importe') && line.includes('Saldo')) {
+      hasHeader = true;
+      headerIndex = i;
+      break;
+    }
+  }
+  
+  if (!hasHeader) {
+    return false;
+  }
+  
+  // Check for date pattern DD/MM/YYYY (Sabadell format) after header
+  const hasSabadellDatePattern = /\d{2}\/\d{2}\/\d{4}/.test(text);
+  
+  // Check if it's multi-line format (not single-line CSV)
+  // If header exists but next lines don't have tabs separating all fields, it's multi-line
+  // Look at lines after header - if they're single values (dates, descriptions, amounts), it's multi-line
+  let isMultiLine = false;
+  if (headerIndex >= 0 && headerIndex + 1 < lines.length) {
+    const nextLine = lines[headerIndex + 1].trim();
+    // If next line is just a date (DD/MM/YYYY), it's multi-line format
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(nextLine)) {
+      isMultiLine = true;
+    }
+  }
+  
+  const result = hasHeader && hasSabadellDatePattern && isMultiLine;
+  console.log('🔍 Sabadell Text format detection:', { hasHeader, hasSabadellDatePattern, isMultiLine, result });
+  
+  return result;
+}
+
+/**
+ * Parse Sabadell text format (copy-paste from website)
+ * Format: Multi-line where each transaction spans multiple lines:
+ *   Fecha	Descripción	Importe	Saldo	
+ *   06/11/2025
+ *   SEGUROS SECURITAS DIRECT ESPANA S.A.U.
+ *   -39,89 €
+ *   Devolver (category)
+ *   -7,85 € (balance)
+ */
+function parseSabadellTextFormat(lines) {
+  console.error('📝 parseSabadellTextFormat CALLED with', lines.length, 'lines');
+  
+  const transactions = [];
+  let lastBalance = null;
+  let headerIndex = -1;
+  
+  // Find header row
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i];
+    if (line && line.includes('Fecha') && line.includes('Descripción') && line.includes('Importe') && line.includes('Saldo')) {
+      headerIndex = i;
+      break;
+    }
+  }
+  
+  if (headerIndex === -1) {
+    console.error('❌ No Sabadell header found');
+    return {
+      bank: 'Sabadell',
+      accountNumber: null,
+      lastBalance: null,
+      transactions: []
+    };
+  }
+  
+  // Parse transactions starting after header
+  let i = headerIndex + 1;
+  
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) {
+      i++;
+      continue;
+    }
+    
+    // Check if this line is a date (DD/MM/YYYY format)
+    const dateMatch = line.match(/^(\d{2}\/\d{2}\/\d{4})$/);
+    
+    if (dateMatch) {
+      // Found a date line - start parsing transaction
+      const dateStr = dateMatch[1];
+      const parsedDate = parseSabadellDate(dateStr);
+      
+      if (!parsedDate) {
+        console.warn(`⚠️ Could not parse date: "${dateStr}"`);
+        i++;
+        continue;
+      }
+      
+      // Next line should be description
+      i++;
+      const description = i < lines.length ? lines[i].trim() : '';
+      
+      // Next line should be amount
+      i++;
+      const amountLine = i < lines.length ? lines[i].trim() : '';
+      
+      // Parse amount (can have negative sign)
+      let amountStr = amountLine.replace(/[€\s]/g, '').trim();
+      const isNegative = amountStr.startsWith('−') || amountStr.startsWith('-');
+      amountStr = amountStr.replace(/[−-]/, '');
+      const parsedAmount = parseAmount(amountStr);
+      
+      if (isNaN(parsedAmount) || parsedAmount === 0) {
+        console.warn(`⚠️ Could not parse amount: "${amountLine}"`);
+        i++;
+        continue;
+      }
+      
+      const finalAmount = isNegative ? -parsedAmount : parsedAmount;
+      
+      // Next line might be category (like "Devolver", "Ahorrar una parte") or balance
+      i++;
+      let category = '';
+      let balanceStr = '';
+      
+      if (i < lines.length) {
+        const nextLine = lines[i].trim();
+        
+        // Check if it's a balance (contains number with € or matches balance pattern)
+        // Handle formats like: "308,95 €", "1.250,93 €", "308.95 €"
+        const balanceMatch = nextLine.match(/([−-]?\d{1,3}(?:\.\d{3})*(?:,\d{2})?)\s*€/);
+        const isBalancePattern = /^[−-]?\d+[.,]\d+\s*€?$/.test(nextLine) || 
+                                  /^[−-]?\d{1,3}(\.\d{3})*,\d{2}\s*€?$/.test(nextLine); // Handles 1.250,93 € format
+        
+        if (balanceMatch || isBalancePattern) {
+          // It's balance, not category
+          balanceStr = nextLine;
+        } else {
+          // It's likely a category (like "Devolver", "Ahorrar una parte", "Fraccionar")
+          // Check if it's a known category or short text (not a number)
+          if (nextLine.length < 50 && !/^\d/.test(nextLine) && !nextLine.match(/^[−-]?\d/)) {
+            category = nextLine;
+            // Next line should be balance
+            i++;
+            balanceStr = i < lines.length ? lines[i].trim() : '';
+          } else {
+            // Might be balance without € symbol, check if it's a number
+            const numMatch = nextLine.match(/^([−-]?\d{1,3}(?:\.\d{3})*(?:,\d{2})?)$/);
+            if (numMatch) {
+              balanceStr = nextLine;
+            } else {
+              // Unknown format, skip this transaction
+              console.warn(`⚠️ Unexpected format after amount: "${nextLine}"`);
+              i++;
+              continue;
+            }
+          }
+        }
+      }
+      
+      // Parse balance
+      if (balanceStr) {
+        const isBalanceNegative = balanceStr.startsWith('−') || balanceStr.startsWith('-');
+        let cleanedBalance = balanceStr.replace(/[€\s]/g, '').trim();
+        cleanedBalance = cleanedBalance.replace(/[−-]/, '');
+        
+        // Handle thousand separators (1.250,93 -> 1250.93)
+        // Check if it has dots as thousand separators (European format)
+        if (cleanedBalance.includes('.') && cleanedBalance.includes(',')) {
+          // European format: 1.250,93
+          cleanedBalance = cleanedBalance.replace(/\./g, '').replace(',', '.');
+        }
+        
+        let parsedBalance = parseFloat(cleanedBalance);
+        
+        if (!isNaN(parsedBalance) && parsedBalance !== 0) {
+          lastBalance = isBalanceNegative ? -parsedBalance : parsedBalance;
+        }
+      }
+      
+      // Map category or use smart categorization
+      let mappedCategory = category || categorizeTransaction(description);
+      
+      transactions.push({
+        bank: 'Sabadell',
+        date: parsedDate,
+        category: mappedCategory,
+        description: description || 'Transaction',
+        amount: Math.abs(finalAmount),
+        type: finalAmount > 0 ? 'income' : 'expense'
+      });
+      
+      continue;
+    }
+    
+    i++;
+  }
+  
+  console.error(`✅ Sabadell Text format parsed: ${transactions.length} transactions`);
+  console.error(`📊 Last balance: ${lastBalance}`);
+  
+  return {
+    bank: 'Sabadell',
+    accountNumber: null,
+    lastBalance: lastBalance,
+    transactions
+  };
+}
+
+/**
  * Detect if CSV is Sabadell bank format
  */
 function detectSabadellFormat(text) {
-  // Check for Sabadell-specific headers
-  return text.includes('F. Operativa') && 
-         text.includes('Concepto') && 
-         text.includes('F. Valor') &&
-         text.includes('Importe');
+  // Check for Sabadell-specific headers (comma-separated format)
+  const hasCommaFormat = text.includes('F. Operativa') && 
+                         text.includes('Concepto') && 
+                         text.includes('F. Valor') &&
+                         text.includes('Importe');
+  
+  // Check for tab-separated format (Fecha, Descripción, Importe, Saldo)
+  const hasTabFormat = text.includes('Fecha') && 
+                       text.includes('Descripción') && 
+                       text.includes('Importe') &&
+                       text.includes('Saldo');
+  
+  return hasCommaFormat || hasTabFormat;
 }
 
 /**
@@ -1032,6 +1293,253 @@ function parseINGSpanishCSV(lines) {
 }
 
 /**
+ * Detect ING text format (copy-paste from website)
+ * Format: Date line, Description, Category, Amount, "Balance en cuenta tras este movimiento"
+ */
+function detectINGTextFormat(text, lines) {
+  const textLower = text.toLowerCase();
+  
+  // Check for key indicators
+  const hasBalanceLine = textLower.includes('balance en cuenta tras este movimiento');
+  const hasImporte = textLower.includes('importe:');
+  const hasSpanishMonths = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i.test(text);
+  
+  // Check if we have date patterns like "5 de noviembre de 2025"
+  const hasSpanishDatePattern = /\d+\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+\d{4}/i.test(text);
+  
+  const result = hasBalanceLine && hasImporte && (hasSpanishMonths || hasSpanishDatePattern);
+  console.log('🔍 ING Text format detection:', { hasBalanceLine, hasImporte, hasSpanishMonths, hasSpanishDatePattern, result });
+  
+  return result;
+}
+
+/**
+ * Parse Spanish date string like "5 de noviembre de 2025" or "miércoles, 5 de noviembre de 2025"
+ */
+function parseSpanishDate(dateStr) {
+  if (!dateStr) return null;
+  
+  const months = {
+    'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04',
+    'mayo': '05', 'junio': '06', 'julio': '07', 'agosto': '08',
+    'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+  };
+  
+  // Remove day names (lunes, martes, etc.) and "Ayer"
+  let cleaned = dateStr.trim();
+  cleaned = cleaned.replace(/^(ayer|hoy|mañana|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miércoles|jueves|viernes|sábado|domingo)[,\s]*/i, '');
+  
+  // Match pattern: "5 de noviembre de 2025" or "04 de noviembre de 2025"
+  const match = cleaned.match(/(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i);
+  
+  if (match) {
+    const day = match[1].padStart(2, '0');
+    const month = months[match[2].toLowerCase()];
+    const year = match[3];
+    
+    if (month && day && year) {
+      return `${year}-${month}-${day}`;
+    }
+  }
+  
+  // Try fallback parsing
+  return parseDate(dateStr);
+}
+
+/**
+ * Parse ING text format (copy-paste from website)
+ * Format example:
+ *   miércoles, 5 de noviembre de 2025
+ *   Transferencia recibida de JOE YAROLAV QUIJANO Y SAUMET
+ *   ING transfer
+ *   400,00 €
+ *   Importe: 400,00 €
+ *   76,69 €
+ *   Balance en cuenta tras este movimiento: 76,69 €
+ */
+function parseINGTextFormat(lines) {
+  console.error('📝 parseINGTextFormat CALLED with', lines.length, 'lines');
+  
+  const transactions = [];
+  let lastBalance = null;
+  let i = 0;
+  
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) {
+      i++;
+      continue;
+    }
+    
+    // Skip day names like "Ayer", "hoy", "mañana"
+    if (/^(ayer|hoy|mañana)$/i.test(line)) {
+      i++;
+      continue;
+    }
+    
+    // Skip date lines without year (like "martes, 04 de noviembre")
+    // We'll use the next line which has the full date with year
+    const dateWithoutYearMatch = line.match(/(lunes|martes|miércoles|jueves|viernes|sábado|domingo)[,\s]+\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)$/i);
+    if (dateWithoutYearMatch && !line.match(/\d{4}/)) {
+      i++;
+      continue;
+    }
+    
+    // Check if this line is a date (contains Spanish month WITH year)
+    const dateMatch = line.match(/(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i);
+    
+    if (dateMatch) {
+      // Found a date line - start parsing transaction
+      const dateStr = line;
+      const parsedDate = parseSpanishDate(dateStr);
+      
+      if (!parsedDate) {
+        console.warn(`⚠️ Could not parse date: "${dateStr}"`);
+        i++;
+        continue;
+      }
+      
+      // Next line should be description
+      i++;
+      const description = i < lines.length ? lines[i].trim() : '';
+      
+      // Next line should be category
+      i++;
+      const category = i < lines.length ? lines[i].trim() : '';
+      
+      // Next line should be amount
+      i++;
+      let amountLine = i < lines.length ? lines[i].trim() : '';
+      
+      // Skip if this line is "Importe:" - the actual amount should be on the previous structure
+      // But sometimes the format might have amount on a different line
+      // Check if current line starts with "Importe:" - if so, we might have missed the amount
+      if (amountLine.toLowerCase().startsWith('importe:')) {
+        // Try to extract amount from "Importe: X €" line
+        const importeMatch = amountLine.match(/importe:\s*([−-]?\d+[.,]\d+)/i);
+        if (importeMatch) {
+          amountLine = importeMatch[1];
+        } else {
+          // Skip this line and try next line
+          i++;
+          amountLine = i < lines.length ? lines[i].trim() : '';
+        }
+      }
+      
+      // Parse amount (can have negative sign or minus symbol)
+      let amountStr = amountLine.replace(/[€\s]/g, '').trim();
+      const isNegative = amountStr.startsWith('−') || amountStr.startsWith('-');
+      amountStr = amountStr.replace(/[−-]/, '');
+      const parsedAmount = parseAmount(amountStr);
+      
+      if (isNaN(parsedAmount) || parsedAmount === 0) {
+        console.warn(`⚠️ Could not parse amount: "${amountLine}"`);
+        i++;
+        continue;
+      }
+      
+      const finalAmount = isNegative ? -parsedAmount : parsedAmount;
+      
+      // Skip "Importe: X €" line if we haven't already
+      i++;
+      if (i < lines.length && lines[i].toLowerCase().includes('importe:')) {
+        i++;
+      }
+      
+      // Get balance - could be on separate line or in "Balance en cuenta" line
+      i++;
+      let balanceStr = i < lines.length ? lines[i].trim() : '';
+      let parsedBalance = null;
+      
+      // Check if this line contains "Balance en cuenta" - extract balance from it
+      if (balanceStr.toLowerCase().includes('balance en cuenta')) {
+        const balanceMatch = balanceStr.match(/([−-]?\d+[.,]\d+)/);
+        if (balanceMatch) {
+          balanceStr = balanceMatch[1];
+        }
+      }
+      
+      // Parse balance
+      const isBalanceNegative = balanceStr.startsWith('−') || balanceStr.startsWith('-');
+      balanceStr = balanceStr.replace(/[€\s−-]/g, '').trim();
+      parsedBalance = parseAmount(balanceStr);
+      
+      if (!isNaN(parsedBalance) && parsedBalance !== 0) {
+        lastBalance = isBalanceNegative ? -parsedBalance : parsedBalance;
+      }
+      
+      // Skip "Balance en cuenta tras este movimiento" line if we haven't already processed it
+      i++;
+      if (i < lines.length && lines[i].toLowerCase().includes('balance en cuenta tras este movimiento')) {
+        // Try to extract balance from this line if we didn't get it before
+        if (isNaN(parsedBalance) || parsedBalance === 0) {
+          const balanceLine = lines[i];
+          const balanceMatch = balanceLine.match(/([−-]?\d+[.,]\d+)/);
+          if (balanceMatch) {
+            let extractedBalance = balanceMatch[1];
+            const isNeg = extractedBalance.startsWith('−') || extractedBalance.startsWith('-');
+            extractedBalance = extractedBalance.replace(/[−-]/g, '');
+            const parsed = parseAmount(extractedBalance);
+            if (!isNaN(parsed) && parsed !== 0) {
+              lastBalance = isNeg ? -parsed : parsed;
+            }
+          }
+        }
+        i++;
+      }
+      
+      // Map category
+      let mappedCategory = category;
+      if (category) {
+        const categoryLower = category.toLowerCase();
+        if (categoryLower.includes('transferencia') || categoryLower.includes('transfer')) {
+          mappedCategory = 'Transferencias';
+        } else if (categoryLower.includes('suscripciones') || categoryLower.includes('subscription')) {
+          mappedCategory = 'Subscriptions';
+        } else if (categoryLower.includes('parking') || categoryLower.includes('garaje')) {
+          mappedCategory = 'Transportation';
+        } else if (categoryLower.includes('préstamo') || categoryLower.includes('prestamo')) {
+          mappedCategory = 'Loans';
+        } else if (categoryLower.includes('inversiones') || categoryLower.includes('fondos')) {
+          mappedCategory = 'Investments';
+        } else if (categoryLower.includes('comisión') || categoryLower.includes('comision')) {
+          mappedCategory = 'Fees';
+        } else {
+          mappedCategory = categorizeTransaction(description);
+        }
+      } else {
+        mappedCategory = categorizeTransaction(description);
+      }
+      
+      transactions.push({
+        bank: 'ING',
+        date: parsedDate,
+        category: mappedCategory,
+        description: description || 'Transaction',
+        amount: Math.abs(finalAmount),
+        type: finalAmount > 0 ? 'income' : 'expense'
+      });
+      
+      continue;
+    }
+    
+    i++;
+  }
+  
+  console.error(`✅ ING Text format parsed: ${transactions.length} transactions`);
+  console.error(`📊 Last balance: ${lastBalance}`);
+  
+  return {
+    bank: 'ING',
+    accountNumber: null,
+    lastBalance: lastBalance,
+    transactions
+  };
+}
+
+/**
  * Parse Sabadell bank CSV/Excel export
  */
 function parseSabadellCSV(lines) {
@@ -1053,8 +1561,12 @@ function parseSabadellCSV(lines) {
       }
     }
     
-    // Find header row (contains F. Operativa, Concepto, etc.)
+    // Find header row - check for both formats
     if (line.includes('F. Operativa') && line.includes('Concepto')) {
+      headerRowIndex = i;
+      break;
+    } else if (line.includes('Fecha') && line.includes('Descripción') && line.includes('Importe')) {
+      // Tab-separated format: Fecha, Descripción, Importe, Saldo
       headerRowIndex = i;
       break;
     }
@@ -1062,49 +1574,104 @@ function parseSabadellCSV(lines) {
   
   // Parse transactions starting after header
   if (headerRowIndex === -1) {
-    // If no header found, try generic parsing
-    return parseGenericCSV(lines);
+    console.error('❌ No Sabadell header row found');
+    return {
+      bank: 'Sabadell',
+      accountNumber: accountNumber,
+      lastBalance: null,
+      transactions: []
+    };
   }
+  
+  // Detect format by checking header row
+  const headerRow = lines[headerRowIndex];
+  const isTabFormat = headerRow.includes('Fecha') && headerRow.includes('Descripción');
   
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     
-    const fields = parseCSVLine(line);
+    const fields = parseCSVLine(line); // parseCSVLine handles both commas and tabs
     
-    // Sabadell format: F.Operativa, Concepto, F.Valor, Importe, Saldo, Ref1, Ref2
-    if (fields.length >= 4) {
-      const operationDate = fields[0]; // F. Operativa
-      const concept = fields[1];        // Concepto
-      const valueDate = fields[2];      // F. Valor
-      const amount = fields[3];         // Importe
-      const balance = fields[4];        // Saldo
-      
-      // Store FIRST balance only (most recent transaction, usually at top of CSV)
-      if (balance && !balanceFound) {
-        const parsedBalance = parseAmount(balance);
-        if (!isNaN(parsedBalance)) {
-          lastBalance = parsedBalance;
-          balanceFound = true; // Don't update balance again
+    if (isTabFormat) {
+      // Tab-separated format: Fecha, Descripción, Importe, Saldo
+      if (fields.length >= 3) {
+        const dateStr = fields[0]?.trim();
+        const description = fields[1]?.trim();
+        const amountStr = fields[2]?.trim();
+        const balanceStr = fields.length > 3 ? fields[3]?.trim() : null;
+        
+        // Skip rows that are just category tags (Devolver, Ahorrar una parte, etc.)
+        if (description && (description === 'Devolver' || description === 'Ahorrar una parte' || description.length < 3)) {
+          continue;
         }
-      }
-      
-      if (operationDate && amount && concept) {
-        const parsedAmount = parseAmount(amount);
+        
+        // Parse date (DD/MM/YYYY format)
+        const parsedDate = parseSabadellDate(dateStr);
+        
+        // Parse amount (e.g., "-39,89 €" or "290,00 €")
+        const parsedAmount = parseAmount(amountStr);
         
         // Skip if amount is 0 or invalid
-        if (parsedAmount === 0 || isNaN(parsedAmount)) continue;
+        if (parsedAmount === 0 || isNaN(parsedAmount) || !dateStr || !description) {
+          continue;
+        }
+        
+        // Store FIRST balance only (most recent transaction, usually at top)
+        if (balanceStr && !balanceFound) {
+          const parsedBalance = parseAmount(balanceStr);
+          if (!isNaN(parsedBalance)) {
+            lastBalance = parsedBalance;
+            balanceFound = true;
+          }
+        }
         
         const transaction = {
           bank: 'Sabadell',
-          date: parseSabadellDate(operationDate),
-          category: categorizeSabadellTransaction(concept),
-          description: cleanSabadellDescription(concept),
+          date: parsedDate,
+          category: categorizeSabadellTransaction(description),
+          description: description,
           amount: Math.abs(parsedAmount),
           type: parsedAmount > 0 ? 'income' : 'expense'
         };
         
         transactions.push(transaction);
+      }
+    } else {
+      // Comma-separated format: F.Operativa, Concepto, F.Valor, Importe, Saldo, Ref1, Ref2
+      if (fields.length >= 4) {
+        const operationDate = fields[0]; // F. Operativa
+        const concept = fields[1];        // Concepto
+        const valueDate = fields[2];      // F. Valor
+        const amount = fields[3];         // Importe
+        const balance = fields[4];        // Saldo
+        
+        // Store FIRST balance only (most recent transaction, usually at top of CSV)
+        if (balance && !balanceFound) {
+          const parsedBalance = parseAmount(balance);
+          if (!isNaN(parsedBalance)) {
+            lastBalance = parsedBalance;
+            balanceFound = true; // Don't update balance again
+          }
+        }
+        
+        if (operationDate && amount && concept) {
+          const parsedAmount = parseAmount(amount);
+          
+          // Skip if amount is 0 or invalid
+          if (parsedAmount === 0 || isNaN(parsedAmount)) continue;
+          
+          const transaction = {
+            bank: 'Sabadell',
+            date: parseSabadellDate(operationDate),
+            category: categorizeSabadellTransaction(concept),
+            description: cleanSabadellDescription(concept),
+            amount: Math.abs(parsedAmount),
+            type: parsedAmount > 0 ? 'income' : 'expense'
+          };
+          
+          transactions.push(transaction);
+        }
       }
     }
   }

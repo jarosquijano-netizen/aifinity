@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2 } from 'lucide-react';
+import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard } from 'lucide-react';
 import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
 import { uploadTransactions, getAccounts } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 
 function Upload({ onUploadComplete }) {
+  const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'paste'
   const [files, setFiles] = useState([]);
+  const [pastedText, setPastedText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [results, setResults] = useState(null);
@@ -13,12 +15,20 @@ function Upload({ onUploadComplete }) {
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState('');
   const [showAccountSelector, setShowAccountSelector] = useState(false);
+  const [parsedTransactionsData, setParsedTransactionsData] = useState(null); // Store parsed data before account selection
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
   const { t } = useLanguage();
 
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  // Debug: Log when showAccountSelector changes
+  useEffect(() => {
+    console.log('🔄 showAccountSelector changed to:', showAccountSelector);
+    console.log('🔄 parsedTransactionsData:', parsedTransactionsData ? 'exists' : 'null');
+  }, [showAccountSelector, parsedTransactionsData]);
 
   const fetchAccounts = async () => {
     try {
@@ -89,6 +99,182 @@ function Upload({ onUploadComplete }) {
 
     // Process without account if no accounts exist
     await processAndUpload();
+  };
+
+  const processPastedText = async () => {
+    if (!pastedText.trim()) {
+      setError('Please paste some text content');
+      return;
+    }
+
+    // First, parse the data (we'll fetch accounts AFTER parsing succeeds)
+    setProcessing(true);
+    setError('');
+    setResults(null);
+    // Don't hide account selector here - we'll show it after parsing
+    // setShowAccountSelector(false);
+
+    try {
+      // Create a virtual file from pasted text
+      const lines = pastedText.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        throw new Error('No content found in pasted text');
+      }
+
+      // Create a Blob with the pasted text
+      const blob = new Blob([pastedText], { type: 'text/plain' });
+      const virtualFile = new File([blob], 'pasted-content.txt', { type: 'text/plain' });
+
+      // Try to parse as CSV (most bank statements are CSV-like)
+      let parseResult;
+      try {
+        parseResult = await parseCSVTransactions(virtualFile);
+      } catch (parseError) {
+        console.error('CSV parse failed, trying as text:', parseError);
+        throw new Error('Failed to parse pasted content. Please ensure it\'s in CSV format (columns separated by commas or semicolons).');
+      }
+
+      if (!parseResult || !parseResult.transactions || parseResult.transactions.length === 0) {
+        throw new Error('No transactions found in pasted content. Please check the format.');
+      }
+
+      let allTransactions = parseResult.transactions;
+      let lastBalance = parseResult.lastBalance || null;
+      let creditCardData = null;
+
+      if (parseResult.accountType === 'credit' && parseResult.creditCard) {
+        creditCardData = parseResult.creditCard;
+        lastBalance = parseResult.creditCard.balance;
+      }
+
+      if (allTransactions.length === 0) {
+        throw new Error('No transactions to upload. Please check the content format.');
+      }
+
+      // Store parsed data
+      setParsedTransactionsData({
+        transactions: allTransactions,
+        lastBalance: lastBalance,
+        creditCardData: creditCardData
+      });
+
+      setProcessing(false);
+
+      // Fetch accounts AFTER parsing succeeds (like CSV upload does)
+      console.log('🔄 Fetching accounts after parsing...');
+      let fetchedAccounts = accounts;
+      try {
+        const data = await getAccounts();
+        console.log('📡 API Response:', data);
+        fetchedAccounts = data?.accounts || [];
+        setAccounts(fetchedAccounts);
+        if (fetchedAccounts.length > 0) {
+          setSelectedAccount(fetchedAccounts[0].id.toString());
+          console.log('✅ Set selected account to:', fetchedAccounts[0].id);
+        }
+      } catch (err) {
+        console.error('❌ Failed to fetch accounts:', err);
+      }
+
+      // Debug: Log accounts status
+      console.log('📊 Parsed transactions:', allTransactions.length);
+      console.log('📊 Accounts available:', fetchedAccounts.length);
+      console.log('📊 Accounts:', fetchedAccounts);
+
+      // Always show account selector UI (even if no accounts, to prompt user to create one)
+      console.log('🔵 Setting showAccountSelector to TRUE');
+      setShowAccountSelector(true);
+      console.log('🔵 showAccountSelector should now be true');
+      
+      if (fetchedAccounts.length > 0) {
+        console.log('✅ Showing account selector with accounts');
+      } else {
+        console.log('⚠️ No accounts found - showing prompt to create account');
+      }
+    } catch (err) {
+      console.error('Processing error:', err);
+      const errorMessage = err.response?.data?.message ||
+                          err.response?.data?.error ||
+                          err.message ||
+                          'Failed to process pasted content';
+      setError(errorMessage);
+      setProcessing(false);
+      setParsedTransactionsData(null);
+    }
+  };
+
+  const uploadParsedTransactions = async (accountId) => {
+    if (!parsedTransactionsData) {
+      setError('No parsed transactions data found. Please paste and process again.');
+      return;
+    }
+
+    setShowAccountSelector(false);
+    setProcessing(true);
+    setError('');
+    setResults(null);
+
+    try {
+      const { transactions, lastBalance, creditCardData } = parsedTransactionsData;
+      const accountToUse = accountId || selectedAccount || null;
+
+      // Upload to backend
+      const uploadResult = await uploadTransactions(transactions, accountToUse, lastBalance);
+
+      // Handle credit card data if applicable
+      if (creditCardData && accountToUse) {
+        const { updateAccount } = await import('../utils/api');
+        const account = accounts.find(a => a.id.toString() === accountToUse);
+
+        if (account) {
+          await updateAccount(account.id, {
+            name: account.name,
+            accountType: 'credit',
+            color: account.color,
+            balance: creditCardData.balance || account.balance,
+            currency: account.currency,
+            excludeFromStats: account.exclude_from_stats || false,
+            creditLimit: creditCardData.creditLimit
+          });
+        }
+      }
+
+      setResults({
+        count: uploadResult.count || transactions.length,
+        skipped: uploadResult.skipped || 0,
+        total: transactions.length,
+        transactions: transactions,
+        account: accounts.find(a => a.id.toString() === accountToUse)?.name || 'Default',
+        balanceUpdated: uploadResult.balanceUpdated,
+        isCreditCard: !!creditCardData,
+        creditCard: creditCardData
+      });
+
+      // Clear parsed data and pasted text after successful upload
+      setParsedTransactionsData(null);
+      setTimeout(() => {
+        setPastedText('');
+        onUploadComplete();
+      }, 2000);
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      const errorMessage = err.response?.data?.message ||
+                          err.response?.data?.error ||
+                          err.message ||
+                          'Failed to upload transactions';
+      setError(errorMessage);
+      setProcessing(false);
+      return;
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Legacy function name for compatibility - redirects to new flow
+  const processPastedContent = async () => {
+    await uploadParsedTransactions(selectedAccount);
   };
 
   const processAndUpload = async () => {
@@ -218,41 +404,116 @@ function Upload({ onUploadComplete }) {
           {t('uploadDescription')}
         </p>
 
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`
-            border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer
-            ${isDragging 
-              ? 'border-primary bg-blue-50' 
-              : 'border-gray-300 hover:border-primary hover:bg-gray-50'
-            }
-          `}
-          onClick={() => fileInputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          aria-label="Upload files"
-        >
-          <div className="gradient-primary p-4 rounded-full mx-auto mb-4 w-20 h-20 flex items-center justify-center">
-            <UploadIcon className="w-10 h-10 text-white" />
-          </div>
-          <p className="text-lg font-bold text-gray-700 mb-2">
-            {t('dropFilesHere')}
-          </p>
-          <p className="text-sm text-gray-500">
-            {t('supportsFiles')}
-          </p>
-          
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.csv,.xls,.xlsx"
-            onChange={handleFileInput}
-            className="hidden"
-          />
+        {/* Mode Selector */}
+        <div className="flex space-x-2 mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+          <button
+            onClick={() => setUploadMode('file')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+              uploadMode === 'file'
+                ? 'bg-white dark:bg-gray-600 text-primary shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <UploadIcon className="w-4 h-4 inline mr-2" />
+            Upload File
+          </button>
+          <button
+            onClick={() => setUploadMode('paste')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
+              uploadMode === 'paste'
+                ? 'bg-white dark:bg-gray-600 text-primary shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <Clipboard className="w-4 h-4 inline mr-2" />
+            Paste Text
+          </button>
         </div>
+
+        {/* File Upload Section */}
+        {uploadMode === 'file' && (
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`
+              border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer
+              ${isDragging 
+                ? 'border-primary bg-blue-50' 
+                : 'border-gray-300 hover:border-primary hover:bg-gray-50'
+              }
+            `}
+            onClick={() => fileInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            aria-label="Upload files"
+          >
+            <div className="gradient-primary p-4 rounded-full mx-auto mb-4 w-20 h-20 flex items-center justify-center">
+              <UploadIcon className="w-10 h-10 text-white" />
+            </div>
+            <p className="text-lg font-bold text-gray-700 mb-2">
+              {t('dropFilesHere')}
+            </p>
+            <p className="text-sm text-gray-500">
+              {t('supportsFiles')}
+            </p>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.csv,.xls,.xlsx"
+              onChange={handleFileInput}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {/* Paste Text Section */}
+        {uploadMode === 'paste' && (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <Clipboard className="w-6 h-6 text-primary" />
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  Paste Bank Statement Content
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Copy and paste content directly from your bank's website
+                </p>
+              </div>
+            </div>
+            
+            <textarea
+              ref={textareaRef}
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              onPaste={(e) => {
+                // Auto-focus and select all on paste for better UX
+                setTimeout(() => {
+                  textareaRef.current?.select();
+                }, 10);
+              }}
+              placeholder="Paste your bank statement content here...&#10;&#10;Example formats:&#10;- CSV: Date,Description,Amount&#10;- Table format from bank website&#10;- Plain text with transaction data"
+              className="w-full h-64 p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              style={{ fontFamily: 'monospace' }}
+            />
+            
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {pastedText.length > 0 ? `${pastedText.split('\n').length} lines` : 'Ready to paste'}
+              </p>
+              {pastedText.length > 0 && (
+                <button
+                  onClick={() => setPastedText('')}
+                  className="text-xs text-gray-500 hover:text-danger transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* File List */}
         {files.length > 0 && (
@@ -287,8 +548,8 @@ function Upload({ onUploadComplete }) {
           </div>
         )}
 
-        {/* Process Button */}
-        {files.length > 0 && !showAccountSelector && (
+        {/* Process Button - File Mode */}
+        {uploadMode === 'file' && files.length > 0 && !showAccountSelector && (
           <button
             onClick={processFiles}
             disabled={processing}
@@ -308,9 +569,30 @@ function Upload({ onUploadComplete }) {
           </button>
         )}
 
+        {/* Process Button - Paste Mode */}
+        {uploadMode === 'paste' && pastedText.trim() && !showAccountSelector && (
+          <button
+            onClick={processPastedText}
+            disabled={processing}
+            className="mt-6 w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
+            {processing ? (
+              <>
+                <Loader className="w-5 h-5 animate-spin" />
+                <span>{t('processing')}</span>
+              </>
+            ) : (
+              <>
+                <Clipboard className="w-5 h-5" />
+                <span>Process Pasted Content</span>
+              </>
+            )}
+          </button>
+        )}
+
         {/* Account Selector Modal */}
         {showAccountSelector && (
-          <div className="mt-6 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl border-2 border-purple-200">
+          <div className="mt-6 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl border-2 border-purple-200" style={{ zIndex: 1000 }}>
             <div className="flex items-center space-x-3 mb-4">
               <Building2 className="w-6 h-6 text-purple-600" />
               <h3 className="text-lg font-bold text-gray-900">
@@ -318,23 +600,55 @@ function Upload({ onUploadComplete }) {
               </h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Choose which account these transactions belong to:
+              {parsedTransactionsData ? (
+                <>
+                  ✅ Successfully parsed <strong>{parsedTransactionsData.transactions.length} transactions</strong>.
+                  <br />
+                  {accounts.length > 0 ? (
+                    'Choose which account these transactions belong to:'
+                  ) : (
+                    <>
+                      ⚠️ <strong>No accounts found.</strong> Please create an account first in Settings, then try again.
+                    </>
+                  )}
+                </>
+              ) : (
+                accounts.length > 0 ? (
+                  'Choose which account these transactions belong to:'
+                ) : (
+                  '⚠️ No accounts found. Please create an account first.'
+                )
+              )}
             </p>
-            <select
-              value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
-              className="input-primary mb-4"
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name} - {account.account_type}
-                </option>
-              ))}
-            </select>
+            {accounts.length > 0 ? (
+              <select
+                value={selectedAccount}
+                onChange={(e) => setSelectedAccount(e.target.value)}
+                className="input-primary mb-4"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} - {account.account_type}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  💡 <strong>Tip:</strong> Go to <strong>Settings</strong> → <strong>Accounts</strong> to create your first bank account, then come back here to upload transactions.
+                </p>
+              </div>
+            )}
             <div className="flex space-x-3">
               <button
-                onClick={processAndUpload}
-                disabled={processing}
+                onClick={() => {
+                  if (uploadMode === 'file') {
+                    processAndUpload();
+                  } else {
+                    uploadParsedTransactions(selectedAccount);
+                  }
+                }}
+                disabled={processing || (accounts.length > 0 && !selectedAccount) || accounts.length === 0}
                 className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               >
                 {processing ? (
@@ -342,15 +656,32 @@ function Upload({ onUploadComplete }) {
                     <Loader className="w-5 h-5 animate-spin" />
                     <span>{t('processing')}</span>
                   </>
+                ) : accounts.length === 0 ? (
+                  <>
+                    <Building2 className="w-5 h-5" />
+                    <span>Create Account First (Go to Settings)</span>
+                  </>
                 ) : (
                   <>
-                    <UploadIcon className="w-5 h-5" />
-                    <span>Upload to Selected Account</span>
+                    {uploadMode === 'file' ? (
+                      <>
+                        <UploadIcon className="w-5 h-5" />
+                        <span>Upload to Selected Account</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clipboard className="w-5 h-5" />
+                        <span>Upload to Selected Account</span>
+                      </>
+                    )}
                   </>
                 )}
               </button>
               <button
-                onClick={() => setShowAccountSelector(false)}
+                onClick={() => {
+                  setShowAccountSelector(false);
+                  setParsedTransactionsData(null);
+                }}
                 className="btn-secondary"
               >
                 Cancel

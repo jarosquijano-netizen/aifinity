@@ -27,6 +27,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkComputable, setBulkComputable] = useState(true);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [accounts, setAccounts] = useState([]);
   
   const { t } = useLanguage();
@@ -159,6 +160,44 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     setSelectedTransactionIds([]);
     setBulkCategory('');
     setShowBulkPanel(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTransactionIds.length === 0) {
+      setError('Por favor selecciona al menos una transacción');
+      return;
+    }
+
+    const count = selectedTransactionIds.length;
+    const confirmMessage = `¿Estás seguro de que quieres eliminar ${count} transacción${count > 1 ? 'es' : ''}? Esta acción no se puede deshacer.`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    setError('');
+    
+    try {
+      // Delete transactions one by one
+      const deletePromises = selectedTransactionIds.map(id => deleteTransaction(id));
+      await Promise.all(deletePromises);
+      
+      // Clear selections
+      setSelectedTransactionIds([]);
+      setShowBulkPanel(false);
+      
+      // Refresh transactions
+      fetchTransactions();
+      
+      // Dispatch event to refresh dashboard
+      window.dispatchEvent(new CustomEvent('transactionUpdated'));
+    } catch (err) {
+      console.error('Error deleting transactions:', err);
+      setError(`Error al eliminar transacciones. Algunas pueden haber sido eliminadas.`);
+    } finally {
+      setIsBulkDeleting(false);
+    }
   };
 
   const handleDeleteTransaction = async (transactionId) => {
@@ -386,6 +425,21 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
         </div>
       )}
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-red-600 dark:text-red-400 font-medium">{error}</span>
+          </div>
+          <button
+            onClick={() => setError('')}
+            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
       {/* Bulk Update Panel */}
       {showBulkPanel && (
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl p-4 mb-4 shadow-lg">
@@ -441,7 +495,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
             <div className="flex space-x-2">
               <button
                 onClick={handleBulkUpdate}
-                disabled={!bulkCategory || isBulkUpdating}
+                disabled={!bulkCategory || isBulkUpdating || isBulkDeleting}
                 className="flex-1 btn-premium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isBulkUpdating ? (
@@ -453,6 +507,23 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                   <>
                     <CheckSquare className="w-4 h-4 mr-2" />
                     Actualizar {selectedTransactionIds.length} transacciones
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={isBulkUpdating || isBulkDeleting}
+                className="btn-danger disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar {selectedTransactionIds.length} transacciones</span>
                   </>
                 )}
               </button>
