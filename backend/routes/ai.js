@@ -352,13 +352,35 @@ async function getUserFinancialContext(userId, timePeriod = null) {
     );
 
     // Get all accounts
-    const accountsResult = await pool.query(
-      `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
-       FROM accounts 
-       WHERE user_id = $1 OR user_id IS NULL
-       ORDER BY account_type, name`,
-      [userId]
-    );
+    let accountsResult;
+    try {
+      accountsResult = await pool.query(
+        `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
+         FROM bank_accounts 
+         WHERE user_id = $1 OR user_id IS NULL
+         ORDER BY account_type, name`,
+        [userId]
+      );
+    } catch (error) {
+      // If bank_accounts doesn't exist, try accounts table (fallback)
+      if (error.message.includes('does not exist')) {
+        console.log('⚠️ bank_accounts table not found, trying accounts table...');
+        try {
+          accountsResult = await pool.query(
+            `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
+             FROM accounts 
+             WHERE user_id = $1 OR user_id IS NULL
+             ORDER BY account_type, name`,
+            [userId]
+          );
+        } catch (error2) {
+          console.log('⚠️ accounts table also not found, returning empty accounts array');
+          accountsResult = { rows: [] };
+        }
+      } else {
+        throw error;
+      }
+    }
 
     // Get recent transactions (last 10 to reduce token usage)
     const recentTransactionsResult = await pool.query(
@@ -385,14 +407,25 @@ async function getUserFinancialContext(userId, timePeriod = null) {
       [userId]
     );
 
-    // Get settings (expected income)
-    const settingsResult = await pool.query(
-      `SELECT expected_monthly_income
-       FROM settings
-       WHERE user_id = $1 OR user_id IS NULL
-       LIMIT 1`,
-      [userId]
-    );
+    // Get settings (expected income) - make it optional in case table doesn't exist
+    let settingsResult;
+    try {
+      settingsResult = await pool.query(
+        `SELECT expected_monthly_income
+         FROM settings
+         WHERE user_id = $1 OR user_id IS NULL
+         LIMIT 1`,
+        [userId]
+      );
+    } catch (error) {
+      // If settings table doesn't exist, return empty result
+      if (error.message.includes('does not exist')) {
+        console.log('⚠️ settings table not found, using default expected income of 0');
+        settingsResult = { rows: [] };
+      } else {
+        throw error;
+      }
+    }
 
     const summaryAll = summaryAllResult.rows[0] || {};
     const summaryFiltered = summaryFilteredResult.rows[0] || {};
