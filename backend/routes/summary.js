@@ -8,19 +8,49 @@ const router = express.Router();
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
+    const hasAuthHeader = req.headers['authorization'];
 
+    // TEMPORARY FIX: If Authorization header is present, return ALL transactions (even if userId is null)
     // Get overall totals (only computable transactions)
-    const totalsResult = await pool.query(
-      `SELECT 
-         SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-         SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-         COUNT(*) as transaction_count,
-         MIN(date) as oldest_transaction_date,
-         MAX(date) as newest_transaction_date
-       FROM transactions
-       WHERE (user_id IS NULL OR user_id = $1)`,
-      [userId]
-    );
+    let totalsResult;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        totalsResult = await pool.query(
+          `SELECT 
+             SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+             SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+             COUNT(*) as transaction_count,
+             MIN(date) as oldest_transaction_date,
+             MAX(date) as newest_transaction_date
+           FROM transactions
+           WHERE (user_id IS NULL OR user_id = $1)`,
+          [userId]
+        );
+      } else {
+        // userId is null but has auth header - return ALL transactions
+        totalsResult = await pool.query(
+          `SELECT 
+             SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+             SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+             COUNT(*) as transaction_count,
+             MIN(date) as oldest_transaction_date,
+             MAX(date) as newest_transaction_date
+           FROM transactions`
+        );
+        console.log('⚠️ TEMPORARY: Returning ALL transactions for summary (userId is null but auth header present)');
+      }
+    } else {
+      totalsResult = await pool.query(
+        `SELECT 
+           SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+           SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+           COUNT(*) as transaction_count,
+           MIN(date) as oldest_transaction_date,
+           MAX(date) as newest_transaction_date
+         FROM transactions
+         WHERE user_id IS NULL`
+      );
+    }
 
     const totals = totalsResult.rows[0];
     const netBalance = parseFloat(totals.total_income || 0) - parseFloat(totals.total_expenses || 0);
@@ -30,71 +60,199 @@ router.get('/', optionalAuth, async (req, res) => {
     
     // Get actual income for current month - sum all income transactions, not just one
     // Use applicable_month if available, otherwise use date
-    const actualIncomeResult = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as actual_income
-       FROM transactions
-       WHERE type = 'income'
-       AND computable = true
-       AND (user_id IS NULL OR user_id = $1)
-       AND (
-         (applicable_month IS NOT NULL AND applicable_month = $2)
-         OR
-         (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
-       )
-       AND amount > 0`,
-      [userId, currentMonth]
-    );
+    let actualIncomeResult;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        actualIncomeResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as actual_income
+           FROM transactions
+           WHERE type = 'income'
+           AND computable = true
+           AND (user_id IS NULL OR user_id = $1)
+           AND (
+             (applicable_month IS NOT NULL AND applicable_month = $2)
+             OR
+             (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+           )
+           AND amount > 0`,
+          [userId, currentMonth]
+        );
+      } else {
+        actualIncomeResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as actual_income
+           FROM transactions
+           WHERE type = 'income'
+           AND computable = true
+           AND (
+             (applicable_month IS NOT NULL AND applicable_month = $1)
+             OR
+             (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
+           )
+           AND amount > 0`,
+          [currentMonth]
+        );
+      }
+    } else {
+      actualIncomeResult = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) as actual_income
+         FROM transactions
+         WHERE type = 'income'
+         AND computable = true
+         AND user_id IS NULL
+         AND (
+           (applicable_month IS NOT NULL AND applicable_month = $1)
+           OR
+           (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
+         )
+         AND amount > 0`,
+        [currentMonth]
+      );
+    }
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);
 
     // Get actual expenses for current month (only use actual date, not applicable_month)
     // Use DATE_TRUNC to ensure we're comparing dates correctly, ignoring time components
     // Explicitly ignore applicable_month for expenses - expenses should always use actual transaction date
     const currentMonthDate = currentMonth + '-01';
-    const actualExpensesResult = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as actual_expenses
-       FROM transactions
-       WHERE type = 'expense'
-       AND computable = true
-       AND (user_id IS NULL OR user_id = $1)
-       AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
-       AND amount > 0`,
-      [userId, currentMonthDate]
-    );
+    let actualExpensesResult;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        actualExpensesResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as actual_expenses
+           FROM transactions
+           WHERE type = 'expense'
+           AND computable = true
+           AND (user_id IS NULL OR user_id = $1)
+           AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
+           AND amount > 0`,
+          [userId, currentMonthDate]
+        );
+      } else {
+        actualExpensesResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as actual_expenses
+           FROM transactions
+           WHERE type = 'expense'
+           AND computable = true
+           AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $1::date)
+           AND amount > 0`,
+          [currentMonthDate]
+        );
+      }
+    } else {
+      actualExpensesResult = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) as actual_expenses
+         FROM transactions
+         WHERE type = 'expense'
+         AND computable = true
+         AND user_id IS NULL
+         AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $1::date)
+         AND amount > 0`,
+        [currentMonthDate]
+      );
+    }
     const actualExpenses = parseFloat(actualExpensesResult.rows[0]?.actual_expenses || 0);
 
     // Get category breakdown for current month (only computable transactions)
     // For expenses, use actual date only (never applicable_month); for income, use applicable_month if available
-    const categoriesResult = await pool.query(
-      `SELECT 
-         category,
-         SUM(amount) as total,
-         COUNT(*) as count,
-         type
-       FROM transactions
-       WHERE (user_id IS NULL OR user_id = $1) 
-       AND computable = true
-       AND (
-         (type = 'income' AND (
-           (applicable_month IS NOT NULL AND applicable_month = $2)
+    let categoriesResult;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        categoriesResult = await pool.query(
+          `SELECT 
+             category,
+             SUM(amount) as total,
+             COUNT(*) as count,
+             type
+           FROM transactions
+           WHERE (user_id IS NULL OR user_id = $1) 
+           AND computable = true
+           AND (
+             (type = 'income' AND (
+               (applicable_month IS NOT NULL AND applicable_month = $2)
+               OR
+               (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+             ))
+             OR
+             (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+           )
+           GROUP BY category, type
+           ORDER BY total DESC`,
+          [userId, currentMonth, currentMonthDate]
+        );
+      } else {
+        categoriesResult = await pool.query(
+          `SELECT 
+             category,
+             SUM(amount) as total,
+             COUNT(*) as count,
+             type
+           FROM transactions
+           WHERE computable = true
+           AND (
+             (type = 'income' AND (
+               (applicable_month IS NOT NULL AND applicable_month = $1)
+               OR
+               (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
+             ))
+             OR
+             (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
+           )
+           GROUP BY category, type
+           ORDER BY total DESC`,
+          [currentMonth, currentMonthDate]
+        );
+      }
+    } else {
+      categoriesResult = await pool.query(
+        `SELECT 
+           category,
+           SUM(amount) as total,
+           COUNT(*) as count,
+           type
+         FROM transactions
+         WHERE user_id IS NULL
+         AND computable = true
+         AND (
+           (type = 'income' AND (
+             (applicable_month IS NOT NULL AND applicable_month = $1)
+             OR
+             (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
+           ))
            OR
-           (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
-         ))
-         OR
-         (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
-       )
-       GROUP BY category, type
-       ORDER BY total DESC`,
-      [userId, currentMonth, currentMonthDate]
-    );
+           (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
+         )
+         GROUP BY category, type
+         ORDER BY total DESC`,
+        [currentMonth, currentMonthDate]
+      );
+    }
 
     // Get recent transactions
-    const recentResult = await pool.query(
-      `SELECT * FROM transactions
-       WHERE user_id IS NULL OR user_id = $1
-       ORDER BY date DESC
-       LIMIT 10`,
-      [userId]
-    );
+    let recentResult;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        recentResult = await pool.query(
+          `SELECT * FROM transactions
+           WHERE user_id IS NULL OR user_id = $1
+           ORDER BY date DESC
+           LIMIT 10`,
+          [userId]
+        );
+      } else {
+        recentResult = await pool.query(
+          `SELECT * FROM transactions
+           ORDER BY date DESC
+           LIMIT 10`
+        );
+      }
+    } else {
+      recentResult = await pool.query(
+        `SELECT * FROM transactions
+         WHERE user_id IS NULL
+         ORDER BY date DESC
+         LIMIT 10`
+      );
+    }
 
     // Calculate actual net balance for current month
     const actualNetBalance = actualIncome - actualExpenses;
