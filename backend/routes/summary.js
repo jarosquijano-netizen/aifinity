@@ -28,11 +28,20 @@ router.get('/', optionalAuth, async (req, res) => {
         );
       } else {
         // userId is null but has auth header - filter by account_ids to get user's transactions
-        // Get user's accounts first
+        // Get user's accounts first - only accounts with transactions
         const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
+          `SELECT DISTINCT ba.id 
+           FROM bank_accounts ba
+           WHERE EXISTS (
+             SELECT 1 FROM transactions t 
+             WHERE t.account_id = ba.id 
+             LIMIT 1
+           )
+           ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
+        
+        console.log('📋 Filtering totals by account_ids:', accountIds.length, 'accounts');
         
         if (accountIds.length > 0) {
           totalsResult = await pool.query(
@@ -43,7 +52,7 @@ router.get('/', optionalAuth, async (req, res) => {
                MIN(date) as oldest_transaction_date,
                MAX(date) as newest_transaction_date
              FROM transactions
-             WHERE account_id = ANY($1::int[]) OR user_id IS NULL`,
+             WHERE account_id = ANY($1::int[])`,
             [accountIds]
           );
         } else {
@@ -109,7 +118,6 @@ router.get('/', optionalAuth, async (req, res) => {
              WHERE t.account_id = ba.id 
              LIMIT 1
            )
-           OR ba.exclude_from_stats = false
            ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
@@ -193,7 +201,6 @@ router.get('/', optionalAuth, async (req, res) => {
              WHERE t.account_id = ba.id 
              LIMIT 1
            )
-           OR ba.exclude_from_stats = false
            ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
@@ -273,7 +280,6 @@ router.get('/', optionalAuth, async (req, res) => {
              WHERE t.account_id = ba.id 
              LIMIT 1
            )
-           OR ba.exclude_from_stats = false
            ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
@@ -372,7 +378,6 @@ router.get('/', optionalAuth, async (req, res) => {
              WHERE t.account_id = ba.id 
              LIMIT 1
            )
-           OR ba.exclude_from_stats = false
            ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
