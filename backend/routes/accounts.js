@@ -10,14 +10,34 @@ router.get('/', optionalAuth, async (req, res) => {
     const userId = req.user?.id || req.user?.userId || null;
     
     console.log('📋 Fetching accounts for userId:', userId);
+    console.log('📋 User object:', req.user);
     
-    // First, try to get user-specific accounts
-    const result = await pool.query(
-      `SELECT * FROM bank_accounts 
-       WHERE user_id IS NULL OR user_id = $1
-       ORDER BY created_at DESC`,
-      [userId]
+    // First, let's check what accounts exist in the database (for debugging)
+    const allAccountsCheck = await pool.query(
+      `SELECT id, name, user_id, account_type FROM bank_accounts ORDER BY created_at DESC LIMIT 20`
     );
+    console.log('📋 ALL accounts in database (first 20):', allAccountsCheck.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id, type: a.account_type })));
+    
+    // Query to get ALL accounts - both user-specific and shared (NULL user_id)
+    // This ensures we don't miss any accounts
+    let result;
+    if (userId) {
+      // If user is logged in, get their accounts + shared accounts
+      // Try both user_id formats to be safe
+      result = await pool.query(
+        `SELECT * FROM bank_accounts 
+         WHERE user_id IS NULL OR user_id = $1 OR user_id::text = $2
+         ORDER BY created_at DESC`,
+        [userId, userId?.toString()]
+      );
+    } else {
+      // If not logged in, get only shared accounts (user_id IS NULL)
+      result = await pool.query(
+        `SELECT * FROM bank_accounts 
+         WHERE user_id IS NULL
+         ORDER BY created_at DESC`
+      );
+    }
 
     console.log('📋 Found accounts:', result.rows.length);
     console.log('📋 Accounts:', result.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id })));
