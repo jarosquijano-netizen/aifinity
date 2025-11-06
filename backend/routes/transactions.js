@@ -244,12 +244,16 @@ router.get('/', optionalAuth, async (req, res) => {
             t.*,
             COALESCE(
               ba.name,
-              (SELECT name FROM bank_accounts 
-               WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' 
-               AND (user_id IS NULL OR user_id = $1)
-               ORDER BY 
-                 CASE WHEN account_id IS NOT NULL THEN 1 ELSE 2 END,
-                 created_at DESC
+              (SELECT name FROM bank_accounts ba2
+               WHERE LOWER(ba2.name) LIKE '%' || LOWER(t.bank) || '%' 
+               AND (ba2.user_id IS NULL OR ba2.user_id = $1)
+               AND EXISTS (
+                 SELECT 1 FROM transactions t2 
+                 WHERE t2.account_id = ba2.id 
+                 AND LOWER(t2.bank) = LOWER(t.bank)
+                 LIMIT 1
+               )
+               ORDER BY created_at DESC
                LIMIT 1),
               t.bank
             ) as account_name
@@ -273,12 +277,16 @@ router.get('/', optionalAuth, async (req, res) => {
               t.*,
               COALESCE(
                 ba.name,
-                (SELECT name FROM bank_accounts 
-                 WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' 
-                 AND id = ANY($1::int[])
-                 ORDER BY 
-                   CASE WHEN account_id IS NOT NULL THEN 1 ELSE 2 END,
-                   created_at DESC
+                (SELECT name FROM bank_accounts ba2
+                 WHERE LOWER(ba2.name) LIKE '%' || LOWER(t.bank) || '%' 
+                 AND ba2.id = ANY($1::int[])
+                 AND EXISTS (
+                   SELECT 1 FROM transactions t2 
+                   WHERE t2.account_id = ba2.id 
+                   AND LOWER(t2.bank) = LOWER(t.bank)
+                   LIMIT 1
+                 )
+                 ORDER BY created_at DESC
                  LIMIT 1),
                 t.bank
               ) as account_name
