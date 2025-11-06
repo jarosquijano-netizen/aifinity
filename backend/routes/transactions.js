@@ -354,8 +354,8 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
       : 'UPDATE transactions SET category = $1 WHERE id = $2';
     
     const updateParams = computable !== undefined
-      ? [category, computable, id]
-      : [category, id];
+      ? [category, computable, transactionId]
+      : [category, transactionId];
     
     await client.query(updateQuery, updateParams);
 
