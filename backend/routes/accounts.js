@@ -8,15 +8,32 @@ const router = express.Router();
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
+    const userEmail = req.user?.email || null;
     
     console.log('📋 Fetching accounts for userId:', userId);
+    console.log('📋 User email:', userEmail);
     console.log('📋 User object:', req.user);
     
     // First, let's check what accounts exist in the database (for debugging)
     const allAccountsCheck = await pool.query(
-      `SELECT id, name, user_id, account_type FROM bank_accounts ORDER BY created_at DESC LIMIT 20`
+      `SELECT id, name, user_id, account_type, created_at FROM bank_accounts ORDER BY created_at DESC LIMIT 50`
     );
-    console.log('📋 ALL accounts in database (first 20):', allAccountsCheck.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id, type: a.account_type })));
+    console.log('📋 ALL accounts in database (first 50):', allAccountsCheck.rows.map(a => ({ 
+      id: a.id, 
+      name: a.name, 
+      user_id: a.user_id, 
+      type: a.account_type,
+      created: a.created_at 
+    })));
+    
+    // Also check what users exist
+    if (userEmail) {
+      const userCheck = await pool.query(
+        `SELECT id, email FROM users WHERE email = $1`,
+        [userEmail]
+      );
+      console.log('📋 User lookup by email:', userCheck.rows);
+    }
     
     // Query to get ALL accounts - both user-specific and shared (NULL user_id)
     // This ensures we don't miss any accounts
@@ -40,7 +57,7 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     console.log('📋 Found accounts:', result.rows.length);
-    console.log('📋 Accounts:', result.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id })));
+    console.log('📋 Accounts returned:', result.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id })));
 
     res.json({ accounts: result.rows });
   } catch (error) {
