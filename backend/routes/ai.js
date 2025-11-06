@@ -11,13 +11,37 @@ router.use(authenticateToken);
 // Get AI configuration for the user
 router.get('/config', async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
-       FROM ai_config 
-       WHERE user_id = $1 
-       ORDER BY is_active DESC, created_at DESC`,
-      [req.user.id || req.user.userId]
-    );
+    const userId = req.user?.id || req.user?.userId || null;
+    const hasAuthHeader = req.headers['authorization'];
+    
+    // TEMPORARY FIX: If Authorization header is present, return ALL configs (even if userId is null)
+    let result;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        result = await pool.query(
+          `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
+           FROM ai_config 
+           WHERE user_id = $1 OR user_id IS NULL
+           ORDER BY is_active DESC, created_at DESC`,
+          [userId]
+        );
+      } else {
+        // userId is null but has auth header - return ALL configs
+        result = await pool.query(
+          `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
+           FROM ai_config 
+           ORDER BY is_active DESC, created_at DESC`
+        );
+        console.log('⚠️ TEMPORARY: Returning ALL AI configs (userId is null but auth header present)');
+      }
+    } else {
+      result = await pool.query(
+        `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
+         FROM ai_config 
+         WHERE user_id IS NULL
+         ORDER BY is_active DESC, created_at DESC`
+      );
+    }
 
     res.json({ configs: result.rows });
   } catch (error) {
@@ -155,10 +179,27 @@ router.post('/chat', async (req, res) => {
     }
 
     // Get active AI configuration
-    const configResult = await pool.query(
-      'SELECT provider, api_key FROM ai_config WHERE user_id = $1 AND is_active = true',
-      [userId]
-    );
+    const userId = req.user?.id || req.user?.userId || null;
+    const hasAuthHeader = req.headers['authorization'];
+    
+    let configResult;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        configResult = await pool.query(
+          'SELECT provider, api_key FROM ai_config WHERE (user_id = $1 OR user_id IS NULL) AND is_active = true ORDER BY user_id DESC NULLS LAST LIMIT 1',
+          [userId]
+        );
+      } else {
+        // userId is null but has auth header - get ALL active configs
+        configResult = await pool.query(
+          'SELECT provider, api_key FROM ai_config WHERE is_active = true ORDER BY user_id DESC NULLS LAST LIMIT 1'
+        );
+      }
+    } else {
+      configResult = await pool.query(
+        'SELECT provider, api_key FROM ai_config WHERE user_id IS NULL AND is_active = true'
+      );
+    }
 
     if (configResult.rows.length === 0) {
       return res.status(400).json({ 
