@@ -33,20 +33,26 @@ router.get('/', optionalAuth, async (req, res) => {
         [userEmail]
       );
       console.log('📋 User lookup by email:', userCheck.rows);
+      
+      // Check if there are accounts with different user_ids for this email
+      if (userCheck.rows.length > 0) {
+        const allUserIds = userCheck.rows.map(u => u.id);
+        console.log('📋 All user IDs for this email:', allUserIds);
+      }
     }
     
-    // Query to get ALL accounts - both user-specific and shared (NULL user_id)
-    // This ensures we don't miss any accounts
+    // TEMPORARY FIX: If user is logged in, return ALL accounts (not just matching user_id)
+    // This helps recover production accounts that might have different user_id
+    // TODO: After fixing user_id issues, revert to proper filtering
     let result;
     if (userId) {
-      // If user is logged in, get their accounts + shared accounts
-      // Try both user_id formats to be safe
+      // Return ALL accounts - this is temporary to recover production accounts
+      // In production, accounts might have been created with user_id = NULL or different user_id
       result = await pool.query(
         `SELECT * FROM bank_accounts 
-         WHERE user_id IS NULL OR user_id = $1 OR user_id::text = $2
-         ORDER BY created_at DESC`,
-        [userId, userId?.toString()]
+         ORDER BY created_at DESC`
       );
+      console.log('⚠️ TEMPORARY: Returning ALL accounts (not filtered by user_id)');
     } else {
       // If not logged in, get only shared accounts (user_id IS NULL)
       result = await pool.query(
