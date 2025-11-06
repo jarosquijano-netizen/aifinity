@@ -105,18 +105,41 @@ router.get('/overview', optionalAuth, async (req, res) => {
           [userId, targetMonth]
         );
       } else {
-        spendingResult = await pool.query(
-          `SELECT 
-             category,
-             SUM(amount) as total_spent,
-             COUNT(*) as transaction_count
-           FROM transactions
-           WHERE TO_CHAR(date, 'YYYY-MM') = $1
-           AND type = 'expense'
-           AND (computable = true OR computable IS NULL)
-           GROUP BY category`,
-          [targetMonth]
+        // Filter by account_ids when userId is null
+        const userAccountsResult = await pool.query(
+          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
         );
+        const accountIds = userAccountsResult.rows.map(a => a.id);
+        
+        if (accountIds.length > 0) {
+          spendingResult = await pool.query(
+            `SELECT 
+               category,
+               SUM(amount) as total_spent,
+               COUNT(*) as transaction_count
+             FROM transactions
+             WHERE (account_id = ANY($2::int[]) OR user_id IS NULL)
+             AND TO_CHAR(date, 'YYYY-MM') = $1
+             AND type = 'expense'
+             AND (computable = true OR computable IS NULL)
+             GROUP BY category`,
+            [targetMonth, accountIds]
+          );
+        } else {
+          spendingResult = await pool.query(
+            `SELECT 
+               category,
+               SUM(amount) as total_spent,
+               COUNT(*) as transaction_count
+             FROM transactions
+             WHERE user_id IS NULL
+             AND TO_CHAR(date, 'YYYY-MM') = $1
+             AND type = 'expense'
+             AND (computable = true OR computable IS NULL)
+             GROUP BY category`,
+            [targetMonth]
+          );
+        }
       }
     } else {
       spendingResult = await pool.query(
@@ -207,6 +230,28 @@ router.get('/overview', optionalAuth, async (req, res) => {
                 percentage > 90 ? 'warning' : 
                 'ok'
       };
+    }).sort((a, b) => {
+      // Sort by status priority: over > warning > ok > no_budget
+      const statusPriority = { 'over': 0, 'warning': 1, 'ok': 2, 'no_budget': 3, 'transfer': 4 };
+      const priorityA = statusPriority[a.status] ?? 5;
+      const priorityB = statusPriority[b.status] ?? 5;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // If same status and 'over', sort by how much over (most over first)
+      if (a.status === 'over' && b.status === 'over') {
+        return (b.spent - b.budget) - (a.spent - a.budget);
+      }
+      
+      // If same status and 'warning', sort by percentage (highest first)
+      if (a.status === 'warning' && b.status === 'warning') {
+        return b.percentage - a.percentage;
+      }
+      
+      // Otherwise, sort alphabetically by name
+      return a.name.localeCompare(b.name);
     });
     
     // Add transfers as a separate entry (not counted in totals)
