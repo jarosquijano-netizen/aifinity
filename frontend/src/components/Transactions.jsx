@@ -552,7 +552,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                   />
                 </th>
                 <th className="px-1 py-3 w-20 text-base font-semibold">{t('date')}</th>
-                <th className="px-1 py-3 w-[200px] text-base font-semibold">{t('description')}</th>
+                <th className="px-1 py-3 w-[300px] text-base font-semibold">{t('description')}</th>
                 <th className="px-1 py-3 w-24 text-base font-semibold">{t('category')}</th>
                 <th className="px-1 py-3 w-48 text-base font-semibold">{t('bank')}</th>
                 <th className="px-2 py-3 text-right w-28 text-base font-semibold">{t('amount')}</th>
@@ -600,9 +600,12 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                             <CreditCard className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" title="Transacción de tarjeta de crédito" />
                           );
                         })()}
-                        <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                          {transaction.description.substring(0, 35)}
-                          {transaction.description.length > 35 && '...'}
+                        <span 
+                          className="text-sm text-gray-800 dark:text-gray-200 truncate cursor-help" 
+                          title={`${transaction.description}${transaction.account_name ? ` | Account: ${transaction.account_name}` : ''}${transaction.bank ? ` | Bank: ${transaction.bank}` : ''}${transaction.date ? ` | Date: ${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}${transaction.amount ? ` | Amount: ${formatCurrency(parseFloat(transaction.amount))}` : ''}`}
+                        >
+                          {transaction.description.substring(0, 60)}
+                          {transaction.description.length > 60 && '...'}
                         </span>
                         {transaction.computable === false && (
                           <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded border border-gray-300 dark:border-gray-600" title="No se incluye en estadísticas">
