@@ -40,9 +40,25 @@ export class EnhancedAIService {
    */
   async getFinancialAdvice(userMessage, financialData, timeRange, language = 'en') {
     try {
+      // Validate financial data
+      if (!financialData || !financialData.summary) {
+        console.error('❌ Invalid financial data received:', financialData);
+        throw new Error('Invalid financial data structure');
+      }
+
+      // Log data summary before building prompt
+      console.log('📋 Building prompt with data:', {
+        transactionCount: financialData.summary.allTime?.transactionCount || 0,
+        categoriesCount: financialData.categories?.length || 0,
+        accountsCount: financialData.accounts?.length || 0
+      });
+
       // Build enhanced prompt with financial context
       const systemPrompt = FINANCIAL_SYSTEM_PROMPT;
       const userPrompt = buildFinancialPrompt(userMessage, financialData, timeRange || 'all', language);
+
+      // Log prompt preview (first 1000 chars)
+      console.log('📝 User Prompt Preview (first 1000 chars):', userPrompt.substring(0, 1000));
 
       // Call Claude API
       const response = await this.callClaudeAPI(systemPrompt, userPrompt);
@@ -58,6 +74,7 @@ export class EnhancedAIService {
 
     } catch (error) {
       console.error('AI Service Error:', error);
+      console.error('Error stack:', error.stack);
       return {
         success: false,
         error: error.message,
@@ -150,10 +167,25 @@ In the meantime, you can explore your dashboard to get insights about your finan
 export async function handleAIChatRequest(req, res, db) {
   try {
     const { message, timePeriod, language = 'en' } = req.body;
-    const userId = req.user.id || req.user.userId;
+    const userId = req.user?.id || req.user?.userId;
+
+    console.log('🤖 AI Chat Request:', {
+      userId,
+      message: message?.substring(0, 50),
+      timePeriod,
+      language,
+      userObject: req.user
+    });
 
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!userId) {
+      console.error('❌ No userId found in request:', { reqUser: req.user });
+      return res.status(400).json({
+        error: 'User authentication required. Please log in again.'
+      });
     }
 
     // Get user's API key from database
@@ -172,19 +204,25 @@ export async function handleAIChatRequest(req, res, db) {
     const apiKey = apiKeyResult.rows[0].api_key;
 
     // Fetch user's financial data
+    console.log('📊 Fetching financial data for userId:', userId);
     const financialData = await fetchUserFinancialData(db, userId, timePeriod);
 
     // Log financial data for debugging (especially account balances)
     console.log('🔍 Financial Data for AI:', {
       userId,
       transactionCount: financialData.summary?.allTime?.transactionCount || 0,
+      totalIncome: financialData.summary?.allTime?.totalIncome || 0,
+      totalExpenses: financialData.summary?.allTime?.totalExpenses || 0,
+      categoriesCount: financialData.categories?.length || 0,
+      topCategories: financialData.categories?.slice(0, 5).map(c => ({ name: c.category, total: c.total })) || [],
       accountCount: financialData.accounts?.length || 0,
       totalAccountsBalance: financialData.accounts?.reduce((sum, acc) => {
         if (acc.type === 'credit') return sum;
         return sum + (acc.balance || 0);
       }, 0) || 0,
       hasAccounts: financialData.accounts && financialData.accounts.length > 0,
-      accountNames: financialData.accounts?.map(a => a.name) || []
+      accountNames: financialData.accounts?.map(a => a.name) || [],
+      recentTransactionsCount: financialData.recentTransactions?.length || 0
     });
 
     // Initialize AI service
@@ -197,6 +235,14 @@ export async function handleAIChatRequest(req, res, db) {
       timePeriod || 'all',
       language
     );
+
+    // Log the formatted context that will be sent to AI (first 500 chars)
+    if (financialData && financialData.summary) {
+      const { formatFinancialContext } = await import('./financial-ai-prompts.js');
+      const formattedContext = formatFinancialContext(financialData, timePeriod || 'all');
+      console.log('📝 Formatted Context Preview (first 500 chars):', formattedContext.substring(0, 500));
+      console.log('📝 Formatted Context Length:', formattedContext.length);
+    }
 
     if (!response.success) {
       return res.status(500).json({
@@ -235,6 +281,8 @@ export async function handleAIChatRequest(req, res, db) {
  */
 async function fetchUserFinancialData(db, userId, timePeriod = null) {
   try {
+    console.log('📥 fetchUserFinancialData called:', { userId, timePeriod, userIdType: typeof userId });
+    
     // Build date filter based on time period
     let dateFilter = '';
     
@@ -260,6 +308,12 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
        WHERE (user_id IS NULL OR user_id = $1)`,
       [userId]
     );
+
+    console.log('📊 Summary All Result:', {
+      rowCount: summaryAllResult.rows.length,
+      data: summaryAllResult.rows[0],
+      transactionCount: summaryAllResult.rows[0]?.transaction_count
+    });
 
     // Get filtered summary data (based on time period)
     const summaryFilteredResult = await db.query(
@@ -319,6 +373,11 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
        ORDER BY total DESC`,
       [userId]
     );
+
+    console.log('📊 Categories Result:', {
+      rowCount: categoriesResult.rows.length,
+      top5: categoriesResult.rows.slice(0, 5).map(r => ({ category: r.category, type: r.type, total: r.total, count: r.count }))
+    });
 
     // Get all accounts
     const accountsResult = await db.query(
