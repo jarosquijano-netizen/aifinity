@@ -41,11 +41,13 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     }
     
-    // TEMPORARY FIX: If user is logged in, return ALL accounts (not just matching user_id)
-    // This helps recover production accounts that might have different user_id
+    // TEMPORARY FIX: If Authorization header is present (even if userId is null due to token issues),
+    // return ALL accounts to recover production accounts
     // TODO: After fixing user_id issues, revert to proper filtering
     let result;
-    if (userId) {
+    const hasAuthHeader = req.headers['authorization'];
+    
+    if (userId || hasAuthHeader) {
       // Return ALL accounts - this is temporary to recover production accounts
       // In production, accounts might have been created with user_id = NULL or different user_id
       result = await pool.query(
@@ -53,6 +55,7 @@ router.get('/', optionalAuth, async (req, res) => {
          ORDER BY created_at DESC`
       );
       console.log('⚠️ TEMPORARY: Returning ALL accounts (not filtered by user_id)');
+      console.log('   Reason: userId =', userId, 'hasAuthHeader =', !!hasAuthHeader);
     } else {
       // If not logged in, get only shared accounts (user_id IS NULL)
       result = await pool.query(
