@@ -68,7 +68,37 @@ router.get('/', optionalAuth, async (req, res) => {
     console.log('📋 Found accounts:', result.rows.length);
     console.log('📋 Accounts returned:', result.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id })));
 
-    res.json({ accounts: result.rows });
+    // Deduplicate accounts: if same name + account_type, keep the one with correct user_id (or oldest if same)
+    const deduplicatedAccounts = [];
+    const seen = new Map(); // key: "name|account_type"
+    
+    // Sort by user_id (prefer non-null), then by created_at (oldest first)
+    const sortedAccounts = result.rows.sort((a, b) => {
+      // First, prefer accounts with user_id matching the current user
+      if (userId) {
+        if (a.user_id === userId && b.user_id !== userId) return -1;
+        if (a.user_id !== userId && b.user_id === userId) return 1;
+      }
+      // Then prefer non-null user_id
+      if (a.user_id !== null && b.user_id === null) return -1;
+      if (a.user_id === null && b.user_id !== null) return 1;
+      // Finally, prefer older accounts
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    for (const account of sortedAccounts) {
+      const key = `${account.name.toLowerCase()}|${account.account_type}`;
+      if (!seen.has(key)) {
+        seen.set(key, true);
+        deduplicatedAccounts.push(account);
+      } else {
+        console.log(`⚠️ Skipping duplicate account: ${account.name} (${account.account_type}) - ID: ${account.id}, user_id: ${account.user_id}`);
+      }
+    }
+
+    console.log(`📋 Deduplicated: ${result.rows.length} → ${deduplicatedAccounts.length} accounts`);
+
+    res.json({ accounts: deduplicatedAccounts });
   } catch (error) {
     console.error('Get accounts error:', error);
     res.status(500).json({ error: 'Failed to fetch accounts' });
