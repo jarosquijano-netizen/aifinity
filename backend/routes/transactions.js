@@ -277,6 +277,12 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     const { category, updateSimilar, computable } = req.body;
     const userId = req.user?.id || req.user?.userId || null;
 
+    // Validate transaction ID
+    const transactionId = parseInt(id);
+    if (isNaN(transactionId) || transactionId <= 0) {
+      return res.status(400).json({ error: 'Invalid transaction ID' });
+    }
+
     if (!category) {
       return res.status(400).json({ error: 'Category is required' });
     }
@@ -286,7 +292,7 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     // Get the transaction to update
     const transactionResult = await client.query(
       'SELECT * FROM transactions WHERE id = $1 AND (user_id IS NULL OR user_id = $2)',
-      [id, userId]
+      [transactionId, userId]
     );
 
     if (transactionResult.rows.length === 0) {
@@ -309,7 +315,7 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
       const similarDescriptions = [];
       for (const t of allTransactions.rows) {
         const similarity = calculateSimilarity(transaction.description, t.description);
-        if (t.id !== parseInt(id) && similarity >= 0.90) {
+        if (t.id !== transactionId && similarity >= 0.90) {
           similarIds.push(t.id);
           similarDescriptions.push({
             id: t.id,
@@ -398,6 +404,11 @@ router.delete('/:id', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const transactionId = parseInt(req.params.id);
+    
+    // Validate transaction ID
+    if (isNaN(transactionId) || transactionId <= 0) {
+      return res.status(400).json({ error: 'Invalid transaction ID' });
+    }
     
     // Verify transaction belongs to user
     const checkResult = await client.query(
