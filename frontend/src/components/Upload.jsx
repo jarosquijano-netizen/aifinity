@@ -33,12 +33,18 @@ function Upload({ onUploadComplete }) {
   const fetchAccounts = async () => {
     try {
       const data = await getAccounts();
-      setAccounts(data.accounts);
-      if (data.accounts.length > 0) {
-        setSelectedAccount(data.accounts[0].id.toString());
+      console.log('📋 Fetched accounts response:', data);
+      const accountsList = data?.accounts || data || [];
+      console.log('📋 Accounts list:', accountsList);
+      console.log('📋 Number of accounts:', accountsList.length);
+      setAccounts(accountsList);
+      if (accountsList.length > 0) {
+        setSelectedAccount(accountsList[0].id.toString());
+        console.log('✅ Set default account to:', accountsList[0].id, accountsList[0].name);
       }
     } catch (err) {
-      console.error('Failed to fetch accounts:', err);
+      console.error('❌ Failed to fetch accounts:', err);
+      setAccounts([]);
     }
   };
 
@@ -621,17 +627,22 @@ function Upload({ onUploadComplete }) {
               )}
             </p>
             {accounts.length > 0 ? (
-              <select
-                value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
-                className="input-primary mb-4"
-              >
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} - {account.account_type}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={selectedAccount}
+                  onChange={(e) => setSelectedAccount(e.target.value)}
+                  className="input-primary mb-4 w-full"
+                >
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} ({account.account_type || 'General'})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Showing {accounts.length} account{accounts.length !== 1 ? 's' : ''} from Settings
+                </p>
+              </div>
             ) : (
               <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">

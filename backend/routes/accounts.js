@@ -9,12 +9,18 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
     
+    console.log('📋 Fetching accounts for userId:', userId);
+    
+    // First, try to get user-specific accounts
     const result = await pool.query(
       `SELECT * FROM bank_accounts 
        WHERE user_id IS NULL OR user_id = $1
        ORDER BY created_at DESC`,
       [userId]
     );
+
+    console.log('📋 Found accounts:', result.rows.length);
+    console.log('📋 Accounts:', result.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id })));
 
     res.json({ accounts: result.rows });
   } catch (error) {
