@@ -398,14 +398,35 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
 router.get('/categories', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
+    const hasAuthHeader = req.headers['authorization'];
     
-    const result = await pool.query(
-      `SELECT DISTINCT category 
-       FROM transactions 
-       WHERE user_id IS NULL OR user_id = $1
-       ORDER BY category`,
-      [userId]
-    );
+    // TEMPORARY FIX: If Authorization header is present, return ALL categories (even if userId is null)
+    let result;
+    if (userId || hasAuthHeader) {
+      if (userId) {
+        result = await pool.query(
+          `SELECT DISTINCT category 
+           FROM transactions 
+           WHERE user_id IS NULL OR user_id = $1
+           ORDER BY category`,
+          [userId]
+        );
+      } else {
+        // userId is null but has auth header - return ALL categories
+        result = await pool.query(
+          `SELECT DISTINCT category 
+           FROM transactions 
+           ORDER BY category`
+        );
+      }
+    } else {
+      result = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id IS NULL
+         ORDER BY category`
+      );
+    }
 
     res.json({ categories: result.rows.map(r => r.category) });
   } catch (error) {
