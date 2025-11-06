@@ -379,14 +379,37 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
       top5: categoriesResult.rows.slice(0, 5).map(r => ({ category: r.category, type: r.type, total: r.total, count: r.count }))
     });
 
-    // Get all accounts
-    const accountsResult = await db.query(
-      `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
-       FROM accounts 
-       WHERE user_id = $1 OR user_id IS NULL
-       ORDER BY account_type, name`,
-      [userId]
-    );
+    // Get all accounts (try bank_accounts first, fallback to accounts if it doesn't exist)
+    let accountsResult;
+    try {
+      accountsResult = await db.query(
+        `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
+         FROM bank_accounts 
+         WHERE user_id = $1 OR user_id IS NULL
+         ORDER BY account_type, name`,
+        [userId]
+      );
+    } catch (error) {
+      // If bank_accounts doesn't exist, try accounts table
+      if (error.message.includes('does not exist')) {
+        console.log('⚠️ bank_accounts table not found, trying accounts table...');
+        try {
+          accountsResult = await db.query(
+            `SELECT id, name, account_type, balance, credit_limit, exclude_from_stats
+             FROM accounts 
+             WHERE user_id = $1 OR user_id IS NULL
+             ORDER BY account_type, name`,
+            [userId]
+          );
+        } catch (error2) {
+          // If accounts also doesn't exist, return empty result
+          console.log('⚠️ accounts table also not found, returning empty accounts array');
+          accountsResult = { rows: [] };
+        }
+      } else {
+        throw error;
+      }
+    }
 
     // Get recent transactions (last 10 to reduce token usage)
     const recentTransactionsResult = await db.query(
@@ -496,7 +519,13 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
       }))
     };
   } catch (error) {
-    console.error('Error fetching financial context:', error);
+    console.error('❌ Error fetching financial context:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      userId,
+      timePeriod
+    });
     // Return minimal valid data structure instead of null
     return {
       timePeriod: timePeriod || 'all',
