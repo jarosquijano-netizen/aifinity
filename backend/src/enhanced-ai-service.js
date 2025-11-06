@@ -436,14 +436,22 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
       [userId]
     );
 
-    // Get settings (expected income)
-    const settingsResult = await db.query(
-      `SELECT expected_monthly_income
-       FROM settings
-       WHERE user_id = $1 OR user_id IS NULL
-       LIMIT 1`,
-      [userId]
-    );
+    // Get settings (expected income) - make it optional in case table doesn't exist
+    let expectedIncome = 0;
+    try {
+      const settingsResult = await db.query(
+        `SELECT expected_monthly_income
+         FROM settings
+         WHERE user_id = $1 OR user_id IS NULL
+         LIMIT 1`,
+        [userId]
+      );
+      expectedIncome = parseFloat(settingsResult.rows[0]?.expected_monthly_income || 0);
+    } catch (error) {
+      // If settings table doesn't exist, just use 0 for expected income
+      console.log('⚠️ settings table not found, using 0 for expected income');
+      expectedIncome = 0;
+    }
 
     const summaryAll = summaryAllResult.rows[0] || {};
     const summaryFiltered = summaryFilteredResult.rows[0] || {};
@@ -454,7 +462,6 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
     const accounts = accountsResult.rows || [];
     const recentTransactions = recentTransactionsResult.rows || [];
     const trends = trendsResult.rows || [];
-    const expectedIncome = parseFloat(settingsResult.rows[0]?.expected_monthly_income || 0);
 
     return {
       timePeriod: timePeriod || 'all',
@@ -477,7 +484,7 @@ async function fetchUserFinancialData(db, userId, timePeriod = null) {
           income: currentMonthIncome,
           expenses: currentMonthExpenses,
           netBalance: currentMonthIncome - currentMonthExpenses,
-          expectedIncome: expectedIncome
+          expectedIncome: expectedIncome || 0
         }
       },
       budgets: budgets.map(b => ({
