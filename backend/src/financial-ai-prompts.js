@@ -277,16 +277,33 @@ ${dataContext}
 - End with 1-2 immediate action items
 
 ## CRITICAL: Data Interpretation Rules
-- **FOR "HOW MUCH MONEY" QUESTIONS**: Always check the "⭐ Total Available Money" section first - this is the actual money in bank accounts
-- If account balances are shown, USE THOSE NUMBERS - they represent actual money in bank accounts
-- Account balances (🏦 section) show CURRENT money, not historical transactions
-- Transaction summaries show income/expense FLOWS, not current balances
-- If transaction count > 0, the user HAS data - don't say "no data"
-- If all values are €0.00 AND transaction count is 0, then say no transactions recorded
-- If account balances exist, prioritize those over transaction summaries for "how much money" questions
-- The "Total Available Money" is the most important number for "how much money do I have" questions
 
-Please provide a comprehensive financial analysis and advice:`;
+**⚠️ VERY IMPORTANT - READ THIS FIRST:**
+
+1. **CHECK TRANSACTION COUNT FIRST**: If "Total Transactions" > 0, the user HAS DATA - you MUST analyze it
+2. **DO NOT SAY "NO DATA"** if transaction count > 0 - even if some values are €0.00
+3. **USE THE ACTUAL NUMBERS PROVIDED** - don't assume data is missing
+4. **FOR "HOW MUCH MONEY" QUESTIONS**: 
+   - Check "⭐ Total Available Money" section first
+   - If account balances exist, USE THOSE NUMBERS (they show actual money in bank accounts)
+   - Account balances show CURRENT money, not historical transactions
+5. **FOR SPENDING CATEGORY QUESTIONS**:
+   - Use the "📈 Top Spending Categories" section
+   - Provide specific amounts and percentages from the data
+   - Compare to benchmarks when available
+   - If categories list is empty BUT transaction count > 0, mention that transactions exist but need categorization
+6. **Transaction summaries show income/expense FLOWS, not current balances**
+7. **If all values are €0.00 AND transaction count is 0**, then say no transactions recorded
+8. **If transaction count > 0**, analyze the data provided - don't ask them to add data
+
+**Example Response Structure:**
+- Start with a summary of what you found in their data
+- Use specific numbers from the data (e.g., "You spent €1,234 in Restaurants this month")
+- Provide actionable recommendations based on their actual spending
+- If data shows categories, list them with amounts
+- If data shows no categories but transactions exist, explain how to categorize
+
+Please provide a comprehensive financial analysis and advice based on the ACTUAL DATA PROVIDED ABOVE:`;
 
   return prompt;
 }
