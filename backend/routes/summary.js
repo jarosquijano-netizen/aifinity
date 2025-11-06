@@ -100,11 +100,21 @@ router.get('/', optionalAuth, async (req, res) => {
           [userId, currentMonth]
         );
       } else {
-        // Filter by account_ids when userId is null
+        // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
+          `SELECT DISTINCT ba.id 
+           FROM bank_accounts ba
+           WHERE EXISTS (
+             SELECT 1 FROM transactions t 
+             WHERE t.account_id = ba.id 
+             LIMIT 1
+           )
+           OR ba.exclude_from_stats = false
+           ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
+        
+        console.log('📋 Filtering income by account_ids:', accountIds.length, 'accounts');
         
         if (accountIds.length > 0) {
           actualIncomeResult = await pool.query(
@@ -112,7 +122,7 @@ router.get('/', optionalAuth, async (req, res) => {
              FROM transactions
              WHERE type = 'income'
              AND computable = true
-             AND (account_id = ANY($2::int[]) OR user_id IS NULL)
+             AND account_id = ANY($2::int[])
              AND (
                (applicable_month IS NOT NULL AND applicable_month = $1)
                OR
@@ -174,9 +184,17 @@ router.get('/', optionalAuth, async (req, res) => {
           [userId, currentMonthDate]
         );
       } else {
-        // Filter by account_ids when userId is null
+        // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
+          `SELECT DISTINCT ba.id 
+           FROM bank_accounts ba
+           WHERE EXISTS (
+             SELECT 1 FROM transactions t 
+             WHERE t.account_id = ba.id 
+             LIMIT 1
+           )
+           OR ba.exclude_from_stats = false
+           ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
         
@@ -186,7 +204,7 @@ router.get('/', optionalAuth, async (req, res) => {
              FROM transactions
              WHERE type = 'expense'
              AND computable = true
-             AND (account_id = ANY($2::int[]) OR user_id IS NULL)
+             AND account_id = ANY($2::int[])
              AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $1::date)
              AND amount > 0`,
             [currentMonthDate, accountIds]
@@ -246,9 +264,17 @@ router.get('/', optionalAuth, async (req, res) => {
           [userId, currentMonth, currentMonthDate]
         );
       } else {
-        // Filter by account_ids when userId is null
+        // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
+          `SELECT DISTINCT ba.id 
+           FROM bank_accounts ba
+           WHERE EXISTS (
+             SELECT 1 FROM transactions t 
+             WHERE t.account_id = ba.id 
+             LIMIT 1
+           )
+           OR ba.exclude_from_stats = false
+           ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
         
@@ -260,7 +286,7 @@ router.get('/', optionalAuth, async (req, res) => {
                COUNT(*) as count,
                type
              FROM transactions
-             WHERE (account_id = ANY($3::int[]) OR user_id IS NULL)
+             WHERE account_id = ANY($3::int[])
              AND computable = true
              AND (
                (type = 'income' AND (
@@ -337,16 +363,24 @@ router.get('/', optionalAuth, async (req, res) => {
           [userId]
         );
       } else {
-        // Filter by account_ids when userId is null
+        // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
+          `SELECT DISTINCT ba.id 
+           FROM bank_accounts ba
+           WHERE EXISTS (
+             SELECT 1 FROM transactions t 
+             WHERE t.account_id = ba.id 
+             LIMIT 1
+           )
+           OR ba.exclude_from_stats = false
+           ORDER BY ba.created_at DESC`
         );
         const accountIds = userAccountsResult.rows.map(a => a.id);
         
         if (accountIds.length > 0) {
           recentResult = await pool.query(
             `SELECT * FROM transactions
-             WHERE account_id = ANY($1::int[]) OR user_id IS NULL
+             WHERE account_id = ANY($1::int[])
              ORDER BY date DESC
              LIMIT 10`,
             [accountIds]
