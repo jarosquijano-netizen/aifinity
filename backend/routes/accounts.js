@@ -212,6 +212,80 @@ router.delete('/:id', optionalAuth, async (req, res) => {
   }
 });
 
+// Clean up duplicate accounts (keep oldest, delete newer duplicates)
+router.post('/cleanup-duplicates', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const hasAuthHeader = req.headers['authorization'];
+    
+    if (!userId && !hasAuthHeader) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Get all accounts
+    const allAccounts = await pool.query(
+      `SELECT id, name, account_type, user_id, created_at 
+       FROM bank_accounts 
+       ORDER BY created_at ASC`
+    );
+
+    const seen = new Map(); // key: "name|account_type" -> account id to keep
+    const toDelete = [];
+
+    for (const account of allAccounts.rows) {
+      const key = `${account.name.toLowerCase()}|${account.account_type}`;
+      
+      if (!seen.has(key)) {
+        // First occurrence - keep this one
+        seen.set(key, account.id);
+      } else {
+        // Duplicate found - mark for deletion
+        const keepId = seen.get(key);
+        const keepAccount = allAccounts.rows.find(a => a.id === keepId);
+        
+        // Prefer keeping account with correct user_id
+        if (userId) {
+          if (account.user_id === userId && keepAccount.user_id !== userId) {
+            // Current account has correct user_id, keep it instead
+            toDelete.push(keepId);
+            seen.set(key, account.id);
+            continue;
+          }
+        }
+        
+        // Keep the original, delete this duplicate
+        toDelete.push(account.id);
+      }
+    }
+
+    if (toDelete.length === 0) {
+      return res.json({ 
+        message: 'No duplicate accounts found',
+        deleted: 0 
+      });
+    }
+
+    // Delete duplicate accounts
+    const deleteResult = await pool.query(
+      `DELETE FROM bank_accounts 
+       WHERE id = ANY($1::int[])
+       RETURNING id, name, account_type`,
+      [toDelete]
+    );
+
+    console.log(`🗑️ Deleted ${deleteResult.rows.length} duplicate accounts:`, deleteResult.rows);
+
+    res.json({ 
+      message: `Deleted ${deleteResult.rows.length} duplicate account(s)`,
+      deleted: deleteResult.rows.length,
+      accounts: deleteResult.rows
+    });
+  } catch (error) {
+    console.error('Cleanup duplicates error:', error);
+    res.status(500).json({ error: 'Failed to cleanup duplicates' });
+  }
+});
+
 // Recalculate account balance from transactions
 router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
   try {
