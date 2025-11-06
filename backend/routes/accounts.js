@@ -70,7 +70,8 @@ router.get('/', optionalAuth, async (req, res) => {
 
     // Deduplicate accounts: if same name + account_type, keep the one with correct user_id (or oldest if same)
     const deduplicatedAccounts = [];
-    const seen = new Map(); // key: "name|account_type"
+    const seen = new Map(); // key: "name|account_type" -> account id to keep
+    const accountMapping = new Map(); // duplicate account_id -> keep account_id (for transaction reassignment)
     
     // Sort by user_id (prefer non-null), then by created_at (oldest first)
     const sortedAccounts = result.rows.sort((a, b) => {
@@ -89,10 +90,28 @@ router.get('/', optionalAuth, async (req, res) => {
     for (const account of sortedAccounts) {
       const key = `${account.name.toLowerCase()}|${account.account_type}`;
       if (!seen.has(key)) {
-        seen.set(key, true);
+        seen.set(key, account.id);
         deduplicatedAccounts.push(account);
       } else {
+        const keepAccountId = seen.get(key);
+        accountMapping.set(account.id, keepAccountId);
         console.log(`⚠️ Skipping duplicate account: ${account.name} (${account.account_type}) - ID: ${account.id}, user_id: ${account.user_id}`);
+        console.log(`   → Transactions will be reassigned to account ID: ${keepAccountId}`);
+      }
+    }
+
+    // Reassign transactions from duplicate accounts to kept accounts
+    if (accountMapping.size > 0) {
+      console.log(`🔄 Reassigning transactions from ${accountMapping.size} duplicate account(s)...`);
+      for (const [duplicateId, keepId] of accountMapping.entries()) {
+        const updateResult = await pool.query(
+          `UPDATE transactions 
+           SET account_id = $1 
+           WHERE account_id = $2 
+           RETURNING id`,
+          [keepId, duplicateId]
+        );
+        console.log(`   ✅ Reassigned ${updateResult.rows.length} transactions from account ${duplicateId} to ${keepId}`);
       }
     }
 
