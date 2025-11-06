@@ -554,7 +554,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                 <th className="px-1 py-3 w-20 text-base font-semibold">{t('date')}</th>
                 <th className="px-1 py-3 w-[200px] text-base font-semibold">{t('description')}</th>
                 <th className="px-1 py-3 w-24 text-base font-semibold">{t('category')}</th>
-                <th className="px-1 py-3 w-32 text-base font-semibold">{t('bank')}</th>
+                <th className="px-1 py-3 w-48 text-base font-semibold">{t('bank')}</th>
                 <th className="px-2 py-3 text-right w-28 text-base font-semibold">{t('amount')}</th>
                 <th className="px-2 py-3 w-20 text-center text-base font-semibold text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700">Actions</th>
               </tr>
@@ -624,7 +624,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                       </button>
                     </td>
                     <td className="px-1 py-3">
-                      <span className="text-sm text-gray-600 dark:text-gray-400 font-medium truncate block max-w-[120px]">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap" title={transaction.account_name || transaction.bank}>
                         {transaction.account_name || transaction.bank}
                       </span>
                     </td>
