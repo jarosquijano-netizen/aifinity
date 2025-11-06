@@ -244,7 +244,13 @@ router.get('/', optionalAuth, async (req, res) => {
             t.*,
             COALESCE(
               ba.name,
-              (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' LIMIT 1),
+              (SELECT name FROM bank_accounts 
+               WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' 
+               AND (user_id IS NULL OR user_id = $1)
+               ORDER BY 
+                 CASE WHEN account_id IS NOT NULL THEN 1 ELSE 2 END,
+                 created_at DESC
+               LIMIT 1),
               t.bank
             ) as account_name
            FROM transactions t
@@ -267,7 +273,13 @@ router.get('/', optionalAuth, async (req, res) => {
               t.*,
               COALESCE(
                 ba.name,
-                (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' AND id = ANY($1::int[]) LIMIT 1),
+                (SELECT name FROM bank_accounts 
+                 WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' 
+                 AND id = ANY($1::int[])
+                 ORDER BY 
+                   CASE WHEN account_id IS NOT NULL THEN 1 ELSE 2 END,
+                   created_at DESC
+                 LIMIT 1),
                 t.bank
               ) as account_name
              FROM transactions t
@@ -283,7 +295,10 @@ router.get('/', optionalAuth, async (req, res) => {
               t.*,
               COALESCE(
                 ba.name,
-                (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' LIMIT 1),
+                (SELECT name FROM bank_accounts 
+                 WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%'
+                 ORDER BY created_at DESC
+                 LIMIT 1),
                 t.bank
               ) as account_name
              FROM transactions t
@@ -301,7 +316,11 @@ router.get('/', optionalAuth, async (req, res) => {
           t.*,
           COALESCE(
             ba.name,
-            (SELECT name FROM bank_accounts WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%' LIMIT 1),
+            (SELECT name FROM bank_accounts 
+             WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%'
+             AND user_id IS NULL
+             ORDER BY created_at DESC
+             LIMIT 1),
             t.bank
           ) as account_name
          FROM transactions t
