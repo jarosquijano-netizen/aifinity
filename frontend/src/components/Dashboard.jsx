@@ -324,6 +324,18 @@ function Dashboard({ refreshTrigger }) {
     ?.filter(t => t.type === 'income')
     .slice(0, 2) || [];
 
+  // Helper: Get current month income transactions
+  const currentMonthIncomeTransactions = data.recentTransactions
+    ?.filter(t => {
+      if (t.type !== 'income') return false;
+      const transactionDate = new Date(t.date);
+      const currentDate = new Date();
+      return transactionDate.getMonth() === currentDate.getMonth() && 
+             transactionDate.getFullYear() === currentDate.getFullYear();
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
+    .slice(0, 5) || []; // Show up to 5 transactions
+
   // Helper: Get top expense category
   const topExpenseCategory = categoryData[0] || { name: 'N/A', value: 0 };
 
@@ -390,6 +402,29 @@ function Dashboard({ refreshTrigger }) {
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Mes: {data.currentMonth}
               </p>
+            )}
+            {/* Large mode: Show income transactions below total */}
+            {isLarge && currentMonthIncomeTransactions.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                  Ingresos este mes:
+                </p>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {currentMonthIncomeTransactions.map((t, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-700 dark:text-gray-300 truncate">{t.description || 'Sin descripción'}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                          {new Date(t.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-green-600 dark:text-green-400 ml-2">
+                        €{parseFloat(t.amount).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             {/* Small mode: Show last 2 income transactions */}
             {!isLarge && lastIncomeTransactions.length > 0 && (
