@@ -66,7 +66,7 @@ router.get('/', optionalAuth, async (req, res) => {
       transactionCount: parseInt(row.transaction_count || 0)
     }));
 
-    // Get category trends (exclude transfers, use applicable_month if available)
+    // Get category trends (exclude transfers, use applicable_month if available, deduplicate)
     let categoryTrendsResult;
     if (userId) {
       // User is logged in - get their category trends
@@ -76,11 +76,16 @@ router.get('/', optionalAuth, async (req, res) => {
            t.category,
            SUM(t.amount) as total,
            t.type
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.date, t.applicable_month, t.amount, t.category, t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')), t.category, t.type
          ORDER BY month DESC, total DESC`,
         [userId]
@@ -93,11 +98,16 @@ router.get('/', optionalAuth, async (req, res) => {
            t.category,
            SUM(t.amount) as total,
            t.type
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id IS NULL
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.date, t.applicable_month, t.amount, t.category, t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')), t.category, t.type
          ORDER BY month DESC, total DESC`
       );
@@ -118,7 +128,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
 
-    // Get last 2 months for comparison (exclude transfers)
+    // Get last 2 months for comparison (exclude transfers, deduplicate)
     let result;
     if (userId) {
       // User is logged in - get their insights
@@ -127,11 +137,16 @@ router.get('/insights', optionalAuth, async (req, res) => {
            TO_CHAR(t.date, 'YYYY-MM') as month,
            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.date, t.amount, t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY TO_CHAR(t.date, 'YYYY-MM')
          ORDER BY month DESC
          LIMIT 2`,
@@ -144,11 +159,16 @@ router.get('/insights', optionalAuth, async (req, res) => {
            TO_CHAR(t.date, 'YYYY-MM') as month,
            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id IS NULL
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.date, t.amount, t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY TO_CHAR(t.date, 'YYYY-MM')
          ORDER BY month DESC
          LIMIT 2`
@@ -227,18 +247,23 @@ router.get('/insights', optionalAuth, async (req, res) => {
       }
     }
 
-    // Get top spending category (exclude transfers)
+    // Get top spending category (exclude transfers, deduplicate)
     let topCategoryResult;
     if (userId) {
       // User is logged in - get their top category
       topCategoryResult = await pool.query(
         `SELECT t.category, SUM(t.amount) as total
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND t.type = 'expense'
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND t.type = 'expense'
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY t.category
          ORDER BY total DESC
          LIMIT 1`,
@@ -248,12 +273,17 @@ router.get('/insights', optionalAuth, async (req, res) => {
       // Not logged in - get only shared top category
       topCategoryResult = await pool.query(
         `SELECT t.category, SUM(t.amount) as total
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id IS NULL
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND t.type = 'expense'
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND t.type = 'expense'
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY t.category
          ORDER BY total DESC
          LIMIT 1`

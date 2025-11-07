@@ -239,7 +239,7 @@ router.get('/', optionalAuth, async (req, res) => {
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
            AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           ORDER BY t.date DESC, t.id DESC
+           ORDER BY t.date DESC, t.description, t.amount, t.type, t.id DESC
          ) t
          ORDER BY t.date DESC
          LIMIT 10`,
@@ -255,7 +255,7 @@ router.get('/', optionalAuth, async (req, res) => {
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id IS NULL
            AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           ORDER BY t.date DESC, t.id DESC
+           ORDER BY t.date DESC, t.description, t.amount, t.type, t.id DESC
          ) t
          ORDER BY t.date DESC
          LIMIT 10`
