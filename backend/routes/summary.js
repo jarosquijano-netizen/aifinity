@@ -9,12 +9,71 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const hasAuthHeader = req.headers['authorization'];
-
+    
+    console.log('📊 Summary request - userId:', userId, 'hasAuthHeader:', !!hasAuthHeader);
+    
     // TEMPORARY FIX: If Authorization header is present, return ALL transactions (even if userId is null)
     // Get overall totals (only computable transactions)
     let totalsResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
+    try {
+      if (userId || hasAuthHeader) {
+        if (userId) {
+          totalsResult = await pool.query(
+            `SELECT 
+               SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+               SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+               COUNT(*) as transaction_count,
+               MIN(date) as oldest_transaction_date,
+               MAX(date) as newest_transaction_date
+             FROM transactions
+             WHERE (user_id IS NULL OR user_id = $1)`,
+            [userId]
+          );
+        } else {
+          // userId is null but has auth header - filter by account_ids to get user's transactions
+          // Get user's accounts first - only accounts with transactions
+          const userAccountsResult = await pool.query(
+            `SELECT DISTINCT ba.id 
+             FROM bank_accounts ba
+             WHERE EXISTS (
+               SELECT 1 FROM transactions t 
+               WHERE t.account_id = ba.id 
+               LIMIT 1
+             )
+             ORDER BY ba.created_at DESC`
+          );
+          const accountIds = userAccountsResult.rows.map(a => a.id);
+          
+          console.log('📋 Filtering totals by account_ids:', accountIds.length, 'accounts');
+          
+          if (accountIds.length > 0) {
+            totalsResult = await pool.query(
+              `SELECT 
+                 SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+                 SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+                 COUNT(*) as transaction_count,
+                 MIN(date) as oldest_transaction_date,
+                 MAX(date) as newest_transaction_date
+               FROM transactions
+               WHERE account_id = ANY($1::int[])`,
+              [accountIds]
+            );
+          } else {
+            // No accounts found, return only shared transactions
+            totalsResult = await pool.query(
+              `SELECT 
+                 SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+                 SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+                 COUNT(*) as transaction_count,
+                 MIN(date) as oldest_transaction_date,
+                 MAX(date) as newest_transaction_date
+               FROM transactions
+               WHERE user_id IS NULL`
+            );
+          }
+          console.log('⚠️ TEMPORARY: Filtering by account_ids (userId is null but auth header present)');
+        }
+      } else {
         totalsResult = await pool.query(
           `SELECT 
              SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
@@ -23,64 +82,12 @@ router.get('/', optionalAuth, async (req, res) => {
              MIN(date) as oldest_transaction_date,
              MAX(date) as newest_transaction_date
            FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1)`,
-          [userId]
+           WHERE user_id IS NULL`
         );
-      } else {
-        // userId is null but has auth header - filter by account_ids to get user's transactions
-        // Get user's accounts first - only accounts with transactions
-        const userAccountsResult = await pool.query(
-          `SELECT DISTINCT ba.id 
-           FROM bank_accounts ba
-           WHERE EXISTS (
-             SELECT 1 FROM transactions t 
-             WHERE t.account_id = ba.id 
-             LIMIT 1
-           )
-           ORDER BY ba.created_at DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        console.log('📋 Filtering totals by account_ids:', accountIds.length, 'accounts');
-        
-        if (accountIds.length > 0) {
-          totalsResult = await pool.query(
-            `SELECT 
-               SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-               SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-               COUNT(*) as transaction_count,
-               MIN(date) as oldest_transaction_date,
-               MAX(date) as newest_transaction_date
-             FROM transactions
-             WHERE account_id = ANY($1::int[])`,
-            [accountIds]
-          );
-        } else {
-          // No accounts found, return only shared transactions
-          totalsResult = await pool.query(
-            `SELECT 
-               SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-               SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-               COUNT(*) as transaction_count,
-               MIN(date) as oldest_transaction_date,
-               MAX(date) as newest_transaction_date
-             FROM transactions
-             WHERE user_id IS NULL`
-          );
-        }
-        console.log('⚠️ TEMPORARY: Filtering by account_ids (userId is null but auth header present)');
       }
-    } else {
-      totalsResult = await pool.query(
-        `SELECT 
-           SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-           SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-           COUNT(*) as transaction_count,
-           MIN(date) as oldest_transaction_date,
-           MAX(date) as newest_transaction_date
-         FROM transactions
-         WHERE user_id IS NULL`
-      );
+    } catch (err) {
+      console.error('❌ Error in totals query:', err);
+      throw err;
     }
 
     const totals = totalsResult.rows[0];
