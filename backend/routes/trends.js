@@ -19,11 +19,16 @@ router.get('/', optionalAuth, async (req, res) => {
            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses,
            COUNT(*) as transaction_count
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.date, t.applicable_month, t.amount, t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM'))
          ORDER BY month DESC
          LIMIT 12`,
@@ -37,11 +42,16 @@ router.get('/', optionalAuth, async (req, res) => {
            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses,
            COUNT(*) as transaction_count
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id IS NULL
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND (t.computable = true OR t.computable IS NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.date, t.applicable_month, t.amount, t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM'))
          ORDER BY month DESC
          LIMIT 12`
