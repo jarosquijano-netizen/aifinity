@@ -102,20 +102,43 @@ router.get('/', optionalAuth, async (req, res) => {
     try {
       if (userId || hasAuthHeader) {
         if (userId) {
-          actualIncomeResult = await pool.query(
-            `SELECT COALESCE(SUM(amount), 0) as actual_income
-             FROM transactions
-             WHERE type = 'income'
-             AND computable = true
-             AND (user_id IS NULL OR user_id = $1)
-             AND (
-               (applicable_month IS NOT NULL AND applicable_month = $2)
-               OR
-               (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
-             )
-             AND amount > 0`,
-            [userId, currentMonth]
-          );
+          // Only count transactions from existing accounts
+          const existingAccountIds = await pool.query(`SELECT id FROM bank_accounts`);
+          const accountIds = existingAccountIds.rows.map(a => a.id);
+          
+          if (accountIds.length > 0) {
+            actualIncomeResult = await pool.query(
+              `SELECT COALESCE(SUM(amount), 0) as actual_income
+               FROM transactions
+               WHERE type = 'income'
+               AND computable = true
+               AND (user_id IS NULL OR user_id = $1)
+               AND (account_id IS NULL OR account_id = ANY($3::int[]))
+               AND (
+                 (applicable_month IS NOT NULL AND applicable_month = $2)
+                 OR
+                 (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+               )
+               AND amount > 0`,
+              [userId, currentMonth, accountIds]
+            );
+          } else {
+            actualIncomeResult = await pool.query(
+              `SELECT COALESCE(SUM(amount), 0) as actual_income
+               FROM transactions
+               WHERE type = 'income'
+               AND computable = true
+               AND (user_id IS NULL OR user_id = $1)
+               AND account_id IS NULL
+               AND (
+                 (applicable_month IS NOT NULL AND applicable_month = $2)
+                 OR
+                 (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+               )
+               AND amount > 0`,
+              [userId, currentMonth]
+            );
+          }
         } else {
           // Filter by account_ids when userId is null - only accounts with transactions
           const userAccountsResult = await pool.query(
@@ -193,16 +216,35 @@ router.get('/', optionalAuth, async (req, res) => {
     let actualExpensesResult;
     if (userId || hasAuthHeader) {
       if (userId) {
-        actualExpensesResult = await pool.query(
-          `SELECT COALESCE(SUM(amount), 0) as actual_expenses
-           FROM transactions
-           WHERE type = 'expense'
-           AND computable = true
-           AND (user_id IS NULL OR user_id = $1)
-           AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
-           AND amount > 0`,
-          [userId, currentMonthDate]
-        );
+        // Only count transactions from existing accounts
+        const existingAccountIds = await pool.query(`SELECT id FROM bank_accounts`);
+        const accountIds = existingAccountIds.rows.map(a => a.id);
+        
+        if (accountIds.length > 0) {
+          actualExpensesResult = await pool.query(
+            `SELECT COALESCE(SUM(amount), 0) as actual_expenses
+             FROM transactions
+             WHERE type = 'expense'
+             AND computable = true
+             AND (user_id IS NULL OR user_id = $1)
+             AND (account_id IS NULL OR account_id = ANY($3::int[]))
+             AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
+             AND amount > 0`,
+            [userId, currentMonthDate, accountIds]
+          );
+        } else {
+          actualExpensesResult = await pool.query(
+            `SELECT COALESCE(SUM(amount), 0) as actual_expenses
+             FROM transactions
+             WHERE type = 'expense'
+             AND computable = true
+             AND (user_id IS NULL OR user_id = $1)
+             AND account_id IS NULL
+             AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date)
+             AND amount > 0`,
+            [userId, currentMonthDate]
+          );
+        }
       } else {
         // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
@@ -260,28 +302,59 @@ router.get('/', optionalAuth, async (req, res) => {
     let categoriesResult;
     if (userId || hasAuthHeader) {
       if (userId) {
-        categoriesResult = await pool.query(
-          `SELECT 
-             category,
-             SUM(amount) as total,
-             COUNT(*) as count,
-             type
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1) 
-           AND computable = true
-           AND (
-             (type = 'income' AND (
-               (applicable_month IS NOT NULL AND applicable_month = $2)
+        // Only count transactions from existing accounts
+        const existingAccountIds = await pool.query(`SELECT id FROM bank_accounts`);
+        const accountIds = existingAccountIds.rows.map(a => a.id);
+        
+        if (accountIds.length > 0) {
+          categoriesResult = await pool.query(
+            `SELECT 
+               category,
+               SUM(amount) as total,
+               COUNT(*) as count,
+               type
+             FROM transactions
+             WHERE (user_id IS NULL OR user_id = $1)
+             AND (account_id IS NULL OR account_id = ANY($4::int[]))
+             AND computable = true
+             AND (
+               (type = 'income' AND (
+                 (applicable_month IS NOT NULL AND applicable_month = $2)
+                 OR
+                 (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+               ))
                OR
-               (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
-             ))
-             OR
-             (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
-           )
-           GROUP BY category, type
-           ORDER BY total DESC`,
-          [userId, currentMonth, currentMonthDate]
-        );
+               (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+             )
+             GROUP BY category, type
+             ORDER BY total DESC`,
+            [userId, currentMonth, currentMonthDate, accountIds]
+          );
+        } else {
+          categoriesResult = await pool.query(
+            `SELECT 
+               category,
+               SUM(amount) as total,
+               COUNT(*) as count,
+               type
+             FROM transactions
+             WHERE (user_id IS NULL OR user_id = $1)
+             AND account_id IS NULL
+             AND computable = true
+             AND (
+               (type = 'income' AND (
+                 (applicable_month IS NOT NULL AND applicable_month = $2)
+                 OR
+                 (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+               ))
+               OR
+               (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $3::date))
+             )
+             GROUP BY category, type
+             ORDER BY total DESC`,
+            [userId, currentMonth, currentMonthDate]
+          );
+        }
       } else {
         // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
@@ -373,13 +446,29 @@ router.get('/', optionalAuth, async (req, res) => {
     let recentResult;
     if (userId || hasAuthHeader) {
       if (userId) {
-        recentResult = await pool.query(
-          `SELECT * FROM transactions
-           WHERE user_id IS NULL OR user_id = $1
-           ORDER BY date DESC
-           LIMIT 10`,
-          [userId]
-        );
+        // Only show transactions from existing accounts
+        const existingAccountIds = await pool.query(`SELECT id FROM bank_accounts`);
+        const accountIds = existingAccountIds.rows.map(a => a.id);
+        
+        if (accountIds.length > 0) {
+          recentResult = await pool.query(
+            `SELECT * FROM transactions
+             WHERE (user_id IS NULL OR user_id = $1)
+             AND (account_id IS NULL OR account_id = ANY($2::int[]))
+             ORDER BY date DESC
+             LIMIT 10`,
+            [userId, accountIds]
+          );
+        } else {
+          recentResult = await pool.query(
+            `SELECT * FROM transactions
+             WHERE (user_id IS NULL OR user_id = $1)
+             AND account_id IS NULL
+             ORDER BY date DESC
+             LIMIT 10`,
+            [userId]
+          );
+        }
       } else {
         // Filter by account_ids when userId is null - only accounts with transactions
         const userAccountsResult = await pool.query(
