@@ -25,6 +25,12 @@ echo Running QA/UAT Sanity Check Tests...
 echo.
 
 cd backend
+if %errorlevel% neq 0 (
+    echo Error: Could not change to backend directory
+    pause
+    exit /b 1
+)
+
 npm run test:qa
 
 echo.

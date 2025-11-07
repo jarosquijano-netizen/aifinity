@@ -8,7 +8,8 @@
     "frontend": "cd frontend && npm run dev",
     "migrate": "cd backend && npm run migrate",
     "build:frontend": "cd frontend && npm run build",
-    "start:backend": "cd backend && npm start"
+    "start:backend": "cd backend && npm start",
+    "test:qa": "cd backend && npm run test:qa"
   },
   "keywords": [
     "financial",
