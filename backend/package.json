@@ -11,7 +11,9 @@
     "migrate": "node migrations/run.js",
     "lint": "eslint routes/**/*.js server.js --ext .js",
     "lint:fix": "eslint routes/**/*.js server.js --ext .js --fix",
-    "validate": "npm run lint && node -c server.js"
+    "validate": "npm run lint && node -c server.js",
+    "test": "node tests/qa-sanity-check.js",
+    "test:qa": "node tests/qa-sanity-check.js"
   },
   "keywords": [
     "finance",
@@ -21,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
