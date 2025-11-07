@@ -64,6 +64,12 @@ router.get('/', optionalAuth, async (req, res) => {
     console.log('📋 Found accounts:', result.rows.length);
     console.log('📋 Accounts returned:', result.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id })));
 
+    // TEMPORARILY DISABLE DEDUPLICATION TO DEBUG - return all accounts
+    // TODO: Re-enable deduplication after fixing the issue
+    console.log('⚠️ TEMPORARY: Deduplication disabled for debugging');
+    res.json({ accounts: result.rows });
+    return;
+    
     // Deduplicate accounts: if same name + account_type, keep the one with correct user_id (or oldest if same)
     const deduplicatedAccounts = [];
     const seen = new Map(); // key: "name|account_type" -> account id to keep
