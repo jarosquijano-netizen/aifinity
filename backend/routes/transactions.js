@@ -230,93 +230,36 @@ router.get('/', optionalAuth, async (req, res) => {
     );
     console.log('📋 ALL transactions in database (first 20):', allTransactionsCheck.rows.map(t => ({ id: t.id, date: t.date, description: t.description?.substring(0, 30), amount: t.amount, user_id: t.user_id })));
 
-    // Query to get ALL transactions - both user-specific and shared (NULL user_id)
-    // TEMPORARY FIX: If Authorization header is present, return ALL transactions (even if userId is null)
-    const hasAuthHeader = req.headers['authorization'];
+    // Get transactions for the current user
     let result;
     
-    if (userId || hasAuthHeader) {
-      // If user is logged in (or has auth header), get ALL transactions
-      // Try both user_id formats to be safe
-      if (userId) {
-        result = await pool.query(
-          `SELECT 
-            t.*,
-            COALESCE(
-              ba.name,
-              (SELECT name FROM bank_accounts ba2
-               WHERE LOWER(ba2.name) LIKE '%' || LOWER(t.bank) || '%' 
-               AND (ba2.user_id IS NULL OR ba2.user_id = $1)
-               AND EXISTS (
-                 SELECT 1 FROM transactions t2 
-                 WHERE t2.account_id = ba2.id 
-                 AND LOWER(t2.bank) = LOWER(t.bank)
-                 LIMIT 1
-               )
-               ORDER BY created_at DESC
-               LIMIT 1),
-              t.bank
-            ) as account_name
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE t.user_id IS NULL OR t.user_id = $1 OR t.user_id::text = $2
-           ORDER BY t.date DESC`,
-          [userId, userId?.toString()]
-        );
-      } else {
-        // userId is null but has auth header - filter by account_ids to get user's transactions
-        // Get user's accounts first
-        const userAccountsResult = await pool.query(
-          `SELECT id, name FROM bank_accounts ORDER BY created_at DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        if (accountIds.length > 0) {
-          result = await pool.query(
-            `SELECT 
-              t.*,
-              COALESCE(
-                ba.name,
-                (SELECT name FROM bank_accounts ba2
-                 WHERE LOWER(ba2.name) LIKE '%' || LOWER(t.bank) || '%' 
-                 AND ba2.id = ANY($1::int[])
-                 AND EXISTS (
-                   SELECT 1 FROM transactions t2 
-                   WHERE t2.account_id = ba2.id 
-                   AND LOWER(t2.bank) = LOWER(t.bank)
-                   LIMIT 1
-                 )
-                 ORDER BY created_at DESC
-                 LIMIT 1),
-                t.bank
-              ) as account_name
-             FROM transactions t
-             LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-             WHERE t.account_id = ANY($1::int[]) OR t.user_id IS NULL
-             ORDER BY t.date DESC`,
-            [accountIds]
-          );
-        } else {
-          // No accounts found, return only shared transactions
-          result = await pool.query(
-            `SELECT 
-              t.*,
-              COALESCE(
-                ba.name,
-                (SELECT name FROM bank_accounts 
-                 WHERE LOWER(name) LIKE '%' || LOWER(t.bank) || '%'
-                 ORDER BY created_at DESC
-                 LIMIT 1),
-                t.bank
-              ) as account_name
-             FROM transactions t
-             LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-             WHERE t.user_id IS NULL
-             ORDER BY t.date DESC`
-          );
-        }
-        console.log('⚠️ TEMPORARY: Filtering by account_ids (userId is null but auth header present)');
-      }
+    if (userId) {
+      // User is logged in - get their transactions
+      result = await pool.query(
+        `SELECT 
+          t.*,
+          COALESCE(
+            ba.name,
+            (SELECT name FROM bank_accounts ba2
+             WHERE LOWER(ba2.name) LIKE '%' || LOWER(t.bank) || '%' 
+             AND ba2.user_id = $1
+             AND EXISTS (
+               SELECT 1 FROM transactions t2 
+               WHERE t2.account_id = ba2.id 
+               AND LOWER(t2.bank) = LOWER(t.bank)
+               LIMIT 1
+             )
+             ORDER BY created_at DESC
+             LIMIT 1),
+            t.bank
+          ) as account_name
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         ORDER BY t.date DESC`,
+        [userId]
+      );
     } else {
       // If not logged in, get only shared transactions (user_id IS NULL)
       result = await pool.query(
@@ -334,6 +277,7 @@ router.get('/', optionalAuth, async (req, res) => {
          FROM transactions t
          LEFT JOIN bank_accounts ba ON t.account_id = ba.id
          WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
          ORDER BY t.date DESC`
       );
     }

@@ -8,23 +8,15 @@ const router = express.Router();
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    const hasAuthHeader = req.headers['authorization'];
     
-    // TEMPORARY FIX: If Authorization header is present, return ALL settings (even if userId is null)
+    // Get settings for the current user
     let result;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        result = await pool.query(
-          'SELECT * FROM user_settings WHERE user_id = $1 OR user_id IS NULL ORDER BY user_id DESC LIMIT 1',
-          [userId]
-        );
-      } else {
-        // userId is null but has auth header - return ALL settings (prefer non-null user_id)
-        result = await pool.query(
-          'SELECT * FROM user_settings ORDER BY user_id DESC NULLS LAST LIMIT 1'
-        );
-        console.log('⚠️ TEMPORARY: Returning ALL settings (userId is null but auth header present)');
-      }
+    if (userId) {
+      // User is logged in - get their settings
+      result = await pool.query(
+        'SELECT * FROM user_settings WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 1',
+        [userId]
+      );
     } else {
       // If not logged in, get only shared settings (user_id IS NULL)
       result = await pool.query(

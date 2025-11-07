@@ -8,85 +8,38 @@ const router = express.Router();
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    const hasAuthHeader = req.headers['authorization'];
     
-    console.log('📊 Summary request - userId:', userId, 'hasAuthHeader:', !!hasAuthHeader);
-    
-    // TEMPORARY FIX: If Authorization header is present, return ALL transactions (even if userId is null)
     // Get overall totals (only computable transactions)
     let totalsResult;
     try {
-      if (userId || hasAuthHeader) {
-        if (userId) {
-          // Only count transactions from existing accounts that belong to this user
-          // Use LEFT JOIN to exclude transactions with account_id pointing to deleted accounts
-          totalsResult = await pool.query(
-            `SELECT 
-               SUM(CASE WHEN t.type = 'income' AND t.computable = true THEN t.amount ELSE 0 END) as total_income,
-               SUM(CASE WHEN t.type = 'expense' AND t.computable = true THEN t.amount ELSE 0 END) as total_expenses,
-               COUNT(*) as transaction_count,
-               MIN(t.date) as oldest_transaction_date,
-               MAX(t.date) as newest_transaction_date
-             FROM transactions t
-             LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-             WHERE (t.user_id IS NULL OR t.user_id = $1)
-             AND (t.account_id IS NULL OR ba.id IS NOT NULL)`,
-            [userId]
-          );
-        } else {
-          // userId is null but has auth header - filter by account_ids to get user's transactions
-          // Get user's accounts first - only accounts with transactions
-          const userAccountsResult = await pool.query(
-            `SELECT DISTINCT ba.id 
-             FROM bank_accounts ba
-             WHERE EXISTS (
-               SELECT 1 FROM transactions t 
-               WHERE t.account_id = ba.id 
-               LIMIT 1
-             )
-             ORDER BY ba.id DESC`
-          );
-          const accountIds = userAccountsResult.rows.map(a => a.id);
-          
-          console.log('📋 Filtering totals by account_ids:', accountIds.length, 'accounts');
-          
-          if (accountIds.length > 0) {
-            totalsResult = await pool.query(
-              `SELECT 
-                 SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-                 SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-                 COUNT(*) as transaction_count,
-                 MIN(date) as oldest_transaction_date,
-                 MAX(date) as newest_transaction_date
-               FROM transactions
-               WHERE account_id = ANY($1::int[])`,
-              [accountIds]
-            );
-          } else {
-            // No accounts found, return only shared transactions
-            totalsResult = await pool.query(
-              `SELECT 
-                 SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-                 SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-                 COUNT(*) as transaction_count,
-                 MIN(date) as oldest_transaction_date,
-                 MAX(date) as newest_transaction_date
-               FROM transactions
-               WHERE user_id IS NULL`
-            );
-          }
-          console.log('⚠️ TEMPORARY: Filtering by account_ids (userId is null but auth header present)');
-        }
-      } else {
+      if (userId) {
+        // User is logged in - get their transactions
         totalsResult = await pool.query(
           `SELECT 
-             SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-             SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+             SUM(CASE WHEN t.type = 'income' AND t.computable = true THEN t.amount ELSE 0 END) as total_income,
+             SUM(CASE WHEN t.type = 'expense' AND t.computable = true THEN t.amount ELSE 0 END) as total_expenses,
              COUNT(*) as transaction_count,
-             MIN(date) as oldest_transaction_date,
-             MAX(date) as newest_transaction_date
-           FROM transactions
-           WHERE user_id IS NULL`
+             MIN(t.date) as oldest_transaction_date,
+             MAX(t.date) as newest_transaction_date
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)`,
+          [userId]
+        );
+      } else {
+        // Not logged in - get only shared transactions
+        totalsResult = await pool.query(
+          `SELECT 
+             SUM(CASE WHEN t.type = 'income' AND t.computable = true THEN t.amount ELSE 0 END) as total_income,
+             SUM(CASE WHEN t.type = 'expense' AND t.computable = true THEN t.amount ELSE 0 END) as total_expenses,
+             COUNT(*) as transaction_count,
+             MIN(t.date) as oldest_transaction_date,
+             MAX(t.date) as newest_transaction_date
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)`
         );
       }
     } catch (err) {
@@ -104,86 +57,40 @@ router.get('/', optionalAuth, async (req, res) => {
     // Use applicable_month if available, otherwise use date
     let actualIncomeResult;
     try {
-      if (userId || hasAuthHeader) {
-        if (userId) {
-          // Only count transactions from existing accounts
-          actualIncomeResult = await pool.query(
-            `SELECT COALESCE(SUM(t.amount), 0) as actual_income
-             FROM transactions t
-             LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-             WHERE t.type = 'income'
-             AND t.computable = true
-             AND (t.user_id IS NULL OR t.user_id = $1)
-             AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-             AND (
-               (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
-               OR
-               (t.applicable_month IS NULL AND TO_CHAR(t.date, 'YYYY-MM') = $2)
-             )
-             AND t.amount > 0`,
-            [userId, currentMonth]
-          );
-        } else {
-          // Filter by account_ids when userId is null - only accounts with transactions
-          const userAccountsResult = await pool.query(
-            `SELECT DISTINCT ba.id 
-             FROM bank_accounts ba
-             WHERE EXISTS (
-               SELECT 1 FROM transactions t 
-               WHERE t.account_id = ba.id 
-               LIMIT 1
-             )
-             ORDER BY ba.id DESC`
-          );
-          const accountIds = userAccountsResult.rows.map(a => a.id);
-          
-          console.log('📋 Filtering income by account_ids:', accountIds.length, 'accounts');
-          
-          if (accountIds.length > 0) {
-            actualIncomeResult = await pool.query(
-              `SELECT COALESCE(SUM(amount), 0) as actual_income
-               FROM transactions
-               WHERE type = 'income'
-               AND computable = true
-               AND account_id = ANY($2::int[])
-               AND (
-                 (applicable_month IS NOT NULL AND applicable_month = $1)
-                 OR
-                 (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
-               )
-               AND amount > 0`,
-              [currentMonth, accountIds]
-            );
-          } else {
-            actualIncomeResult = await pool.query(
-              `SELECT COALESCE(SUM(amount), 0) as actual_income
-               FROM transactions
-               WHERE type = 'income'
-               AND computable = true
-               AND user_id IS NULL
-               AND (
-                 (applicable_month IS NOT NULL AND applicable_month = $1)
-                 OR
-                 (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
-               )
-               AND amount > 0`,
-              [currentMonth]
-            );
-          }
-        }
-      } else {
+      if (userId) {
+        // User is logged in - get their income
         actualIncomeResult = await pool.query(
-          `SELECT COALESCE(SUM(amount), 0) as actual_income
-           FROM transactions
-           WHERE type = 'income'
-           AND computable = true
-           AND user_id IS NULL
+          `SELECT COALESCE(SUM(t.amount), 0) as actual_income
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND t.type = 'income'
+           AND t.computable = true
            AND (
-             (applicable_month IS NOT NULL AND applicable_month = $1)
+             (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
              OR
-             (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
+             (t.applicable_month IS NULL AND TO_CHAR(t.date, 'YYYY-MM') = $2)
            )
-           AND amount > 0`,
+           AND t.amount > 0`,
+          [userId, currentMonth]
+        );
+      } else {
+        // Not logged in - get only shared income
+        actualIncomeResult = await pool.query(
+          `SELECT COALESCE(SUM(t.amount), 0) as actual_income
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND t.type = 'income'
+           AND t.computable = true
+           AND (
+             (t.applicable_month IS NOT NULL AND t.applicable_month = $1)
+             OR
+             (t.applicable_month IS NULL AND TO_CHAR(t.date, 'YYYY-MM') = $1)
+           )
+           AND t.amount > 0`,
           [currentMonth]
         );
       }
@@ -194,72 +101,34 @@ router.get('/', optionalAuth, async (req, res) => {
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);
 
     // Get actual expenses for current month (only use actual date, not applicable_month)
-    // Use DATE_TRUNC to ensure we're comparing dates correctly, ignoring time components
-    // Explicitly ignore applicable_month for expenses - expenses should always use actual transaction date
     const currentMonthDate = currentMonth + '-01';
     let actualExpensesResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        // Only count transactions from existing accounts
-        actualExpensesResult = await pool.query(
-          `SELECT COALESCE(SUM(t.amount), 0) as actual_expenses
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE t.type = 'expense'
-           AND t.computable = true
-           AND (t.user_id IS NULL OR t.user_id = $1)
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date)
-           AND t.amount > 0`,
-          [userId, currentMonthDate]
-        );
-      } else {
-        // Filter by account_ids when userId is null - only accounts with transactions
-        const userAccountsResult = await pool.query(
-          `SELECT DISTINCT ba.id 
-           FROM bank_accounts ba
-           WHERE EXISTS (
-             SELECT 1 FROM transactions t 
-             WHERE t.account_id = ba.id 
-             LIMIT 1
-           )
-           ORDER BY ba.id DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        if (accountIds.length > 0) {
-          actualExpensesResult = await pool.query(
-            `SELECT COALESCE(SUM(amount), 0) as actual_expenses
-             FROM transactions
-             WHERE type = 'expense'
-             AND computable = true
-             AND account_id = ANY($2::int[])
-             AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $1::date)
-             AND amount > 0`,
-            [currentMonthDate, accountIds]
-          );
-        } else {
-          actualExpensesResult = await pool.query(
-            `SELECT COALESCE(SUM(amount), 0) as actual_expenses
-             FROM transactions
-             WHERE type = 'expense'
-             AND computable = true
-             AND user_id IS NULL
-             AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $1::date)
-             AND amount > 0`,
-            [currentMonthDate]
-          );
-        }
-      }
-    } else {
+    if (userId) {
+      // User is logged in - get their expenses
       actualExpensesResult = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) as actual_expenses
-         FROM transactions
-         WHERE type = 'expense'
-         AND computable = true
-         AND user_id IS NULL
-         AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $1::date)
-         AND amount > 0`,
+        `SELECT COALESCE(SUM(t.amount), 0) as actual_expenses
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND t.type = 'expense'
+         AND t.computable = true
+         AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date)
+         AND t.amount > 0`,
+        [userId, currentMonthDate]
+      );
+    } else {
+      // Not logged in - get only shared expenses
+      actualExpensesResult = await pool.query(
+        `SELECT COALESCE(SUM(t.amount), 0) as actual_expenses
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND t.type = 'expense'
+         AND t.computable = true
+         AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $1::date)
+         AND t.amount > 0`,
         [currentMonthDate]
       );
     }
@@ -268,115 +137,55 @@ router.get('/', optionalAuth, async (req, res) => {
     // Get category breakdown for current month (only computable transactions)
     // For expenses, use actual date only (never applicable_month); for income, use applicable_month if available
     let categoriesResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        // Only count transactions from existing accounts
-        categoriesResult = await pool.query(
-          `SELECT 
-             t.category,
-             SUM(t.amount) as total,
-             COUNT(*) as count,
-             t.type
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE (t.user_id IS NULL OR t.user_id = $1)
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND t.computable = true
-           AND (
-             (t.type = 'income' AND (
-               (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
-               OR
-               (t.applicable_month IS NULL AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
-             ))
-             OR
-             (t.type = 'expense' AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
-           )
-           GROUP BY t.category, t.type
-           ORDER BY total DESC`,
-          [userId, currentMonth, currentMonthDate]
-        );
-      } else {
-        // Filter by account_ids when userId is null - only accounts with transactions
-        const userAccountsResult = await pool.query(
-          `SELECT DISTINCT ba.id 
-           FROM bank_accounts ba
-           WHERE EXISTS (
-             SELECT 1 FROM transactions t 
-             WHERE t.account_id = ba.id 
-             LIMIT 1
-           )
-           ORDER BY ba.id DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        if (accountIds.length > 0) {
-          categoriesResult = await pool.query(
-            `SELECT 
-               category,
-               SUM(amount) as total,
-               COUNT(*) as count,
-               type
-             FROM transactions
-             WHERE account_id = ANY($3::int[])
-             AND computable = true
-             AND (
-               (type = 'income' AND (
-                 (applicable_month IS NOT NULL AND applicable_month = $1)
-                 OR
-                 (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
-               ))
-               OR
-               (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
-             )
-             GROUP BY category, type
-             ORDER BY total DESC`,
-            [currentMonth, currentMonthDate, accountIds]
-          );
-        } else {
-          categoriesResult = await pool.query(
-            `SELECT 
-               category,
-               SUM(amount) as total,
-               COUNT(*) as count,
-               type
-             FROM transactions
-             WHERE user_id IS NULL
-             AND computable = true
-             AND (
-               (type = 'income' AND (
-                 (applicable_month IS NOT NULL AND applicable_month = $1)
-                 OR
-                 (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
-               ))
-               OR
-               (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
-             )
-             GROUP BY category, type
-             ORDER BY total DESC`,
-            [currentMonth, currentMonthDate]
-          );
-        }
-      }
-    } else {
+    if (userId) {
+      // User is logged in - get their categories
       categoriesResult = await pool.query(
         `SELECT 
-           category,
-           SUM(amount) as total,
+           t.category,
+           SUM(t.amount) as total,
            COUNT(*) as count,
-           type
-         FROM transactions
-         WHERE user_id IS NULL
-         AND computable = true
+           t.type
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND t.computable = true
          AND (
-           (type = 'income' AND (
-             (applicable_month IS NOT NULL AND applicable_month = $1)
+           (t.type = 'income' AND (
+             (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
              OR
-             (applicable_month IS NULL AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
+             (t.applicable_month IS NULL AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
            ))
            OR
-           (type = 'expense' AND DATE_TRUNC('month', date) = DATE_TRUNC('month', $2::date))
+           (t.type = 'expense' AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
          )
-         GROUP BY category, type
+         GROUP BY t.category, t.type
+         ORDER BY total DESC`,
+        [userId, currentMonth, currentMonthDate]
+      );
+    } else {
+      // Not logged in - get only shared categories
+      categoriesResult = await pool.query(
+        `SELECT 
+           t.category,
+           SUM(t.amount) as total,
+           COUNT(*) as count,
+           t.type
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND t.computable = true
+         AND (
+           (t.type = 'income' AND (
+             (t.applicable_month IS NOT NULL AND t.applicable_month = $1)
+             OR
+             (t.applicable_month IS NULL AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date))
+           ))
+           OR
+           (t.type = 'expense' AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date))
+         )
+         GROUP BY t.category, t.type
          ORDER BY total DESC`,
         [currentMonth, currentMonthDate]
       );
@@ -384,55 +193,27 @@ router.get('/', optionalAuth, async (req, res) => {
 
     // Get recent transactions
     let recentResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        // Only show transactions from existing accounts
-        recentResult = await pool.query(
-          `SELECT t.*
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE (t.user_id IS NULL OR t.user_id = $1)
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           ORDER BY t.date DESC
-           LIMIT 10`,
-          [userId]
-        );
-      } else {
-        // Filter by account_ids when userId is null - only accounts with transactions
-        const userAccountsResult = await pool.query(
-          `SELECT DISTINCT ba.id 
-           FROM bank_accounts ba
-           WHERE EXISTS (
-             SELECT 1 FROM transactions t 
-             WHERE t.account_id = ba.id 
-             LIMIT 1
-           )
-           ORDER BY ba.id DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        if (accountIds.length > 0) {
-          recentResult = await pool.query(
-            `SELECT * FROM transactions
-             WHERE account_id = ANY($1::int[])
-             ORDER BY date DESC
-             LIMIT 10`,
-            [accountIds]
-          );
-        } else {
-          recentResult = await pool.query(
-            `SELECT * FROM transactions
-             WHERE user_id IS NULL
-             ORDER BY date DESC
-             LIMIT 10`
-          );
-        }
-      }
-    } else {
+    if (userId) {
+      // User is logged in - get their recent transactions
       recentResult = await pool.query(
-        `SELECT * FROM transactions
-         WHERE user_id IS NULL
-         ORDER BY date DESC
+        `SELECT t.*
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         ORDER BY t.date DESC
+         LIMIT 10`,
+        [userId]
+      );
+    } else {
+      // Not logged in - get only shared recent transactions
+      recentResult = await pool.query(
+        `SELECT t.*
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         ORDER BY t.date DESC
          LIMIT 10`
       );
     }
@@ -473,6 +254,3 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 export default router;
-
-
-

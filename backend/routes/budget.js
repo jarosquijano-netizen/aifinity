@@ -56,30 +56,23 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
 router.get('/overview', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    const hasAuthHeader = req.headers['authorization'];
     const { month } = req.query; // Format: YYYY-MM
     
     // Get current month if not specified
     const targetMonth = month || new Date().toISOString().slice(0, 7);
     
-    // TEMPORARY FIX: If Authorization header is present, return ALL data (even if userId is null)
     // Get categories with budgets
     let categoriesResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        categoriesResult = await pool.query(
-          `SELECT * FROM categories 
-           WHERE user_id IS NULL OR user_id = $1
-           ORDER BY name ASC`,
-          [userId]
-        );
-      } else {
-        categoriesResult = await pool.query(
-          `SELECT * FROM categories 
-           ORDER BY name ASC`
-        );
-      }
+    if (userId) {
+      // User is logged in - get their categories
+      categoriesResult = await pool.query(
+        `SELECT * FROM categories 
+         WHERE user_id = $1
+         ORDER BY name ASC`,
+        [userId]
+      );
     } else {
+      // Not logged in - get only shared categories
       categoriesResult = await pool.query(
         `SELECT * FROM categories 
          WHERE user_id IS NULL
@@ -89,118 +82,74 @@ router.get('/overview', optionalAuth, async (req, res) => {
     
     // Get actual spending for the month (exclude transfers)
     let spendingResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        spendingResult = await pool.query(
-          `SELECT 
-             t.category,
-             SUM(t.amount) as total_spent,
-             COUNT(*) as transaction_count
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE (t.user_id IS NULL OR t.user_id = $1)
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $2
-           AND t.type = 'expense'
-           AND (t.computable = true OR t.computable IS NULL)
-           GROUP BY t.category`,
-          [userId, targetMonth]
-        );
-      } else {
-        // Filter by account_ids when userId is null
-        const userAccountsResult = await pool.query(
-          `SELECT id FROM bank_accounts ORDER BY created_at DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        if (accountIds.length > 0) {
-          spendingResult = await pool.query(
-            `SELECT 
-               category,
-               SUM(amount) as total_spent,
-               COUNT(*) as transaction_count
-             FROM transactions
-             WHERE (account_id = ANY($2::int[]) OR user_id IS NULL)
-             AND TO_CHAR(date, 'YYYY-MM') = $1
-             AND type = 'expense'
-             AND (computable = true OR computable IS NULL)
-             GROUP BY category`,
-            [targetMonth, accountIds]
-          );
-        } else {
-          spendingResult = await pool.query(
-            `SELECT 
-               category,
-               SUM(amount) as total_spent,
-               COUNT(*) as transaction_count
-             FROM transactions
-             WHERE user_id IS NULL
-             AND TO_CHAR(date, 'YYYY-MM') = $1
-             AND type = 'expense'
-             AND (computable = true OR computable IS NULL)
-             GROUP BY category`,
-            [targetMonth]
-          );
-        }
-      }
-    } else {
+    if (userId) {
+      // User is logged in - get their spending
       spendingResult = await pool.query(
         `SELECT 
-           category,
-           SUM(amount) as total_spent,
+           t.category,
+           SUM(t.amount) as total_spent,
            COUNT(*) as transaction_count
-         FROM transactions
-         WHERE user_id IS NULL
-         AND TO_CHAR(date, 'YYYY-MM') = $1
-         AND type = 'expense'
-         AND (computable = true OR computable IS NULL)
-         GROUP BY category`,
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND TO_CHAR(t.date, 'YYYY-MM') = $2
+         AND t.type = 'expense'
+         AND (t.computable = true OR t.computable IS NULL)
+         GROUP BY t.category`,
+        [userId, targetMonth]
+      );
+    } else {
+      // Not logged in - get only shared spending
+      spendingResult = await pool.query(
+        `SELECT 
+           t.category,
+           SUM(t.amount) as total_spent,
+           COUNT(*) as transaction_count
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND TO_CHAR(t.date, 'YYYY-MM') = $1
+         AND t.type = 'expense'
+         AND (t.computable = true OR t.computable IS NULL)
+         GROUP BY t.category`,
         [targetMonth]
       );
     }
     
     // Get transfers separately (not counted in total but shown for review)
     let transfersResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        transfersResult = await pool.query(
-          `SELECT 
-             SUM(t.amount) as total_spent,
-             COUNT(*) as transaction_count
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE (t.user_id IS NULL OR t.user_id = $1)
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $2
-           AND t.type = 'expense'
-           AND t.computable = false
-           AND t.category = 'Transferencias'`,
-          [userId, targetMonth]
-        );
-      } else {
-        transfersResult = await pool.query(
-          `SELECT 
-             SUM(amount) as total_spent,
-             COUNT(*) as transaction_count
-           FROM transactions
-           WHERE TO_CHAR(date, 'YYYY-MM') = $1
-           AND type = 'expense'
-           AND computable = false
-           AND category = 'Transferencias'`,
-          [targetMonth]
-        );
-      }
-    } else {
+    if (userId) {
+      // User is logged in - get their transfers
       transfersResult = await pool.query(
         `SELECT 
-           SUM(amount) as total_spent,
+           SUM(t.amount) as total_spent,
            COUNT(*) as transaction_count
-         FROM transactions
-         WHERE user_id IS NULL
-         AND TO_CHAR(date, 'YYYY-MM') = $1
-         AND type = 'expense'
-         AND computable = false
-         AND category = 'Transferencias'`,
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND TO_CHAR(t.date, 'YYYY-MM') = $2
+         AND t.type = 'expense'
+         AND t.computable = false
+         AND t.category = 'Transferencias'`,
+        [userId, targetMonth]
+      );
+    } else {
+      // Not logged in - get only shared transfers
+      transfersResult = await pool.query(
+        `SELECT 
+           SUM(t.amount) as total_spent,
+           COUNT(*) as transaction_count
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         AND TO_CHAR(t.date, 'YYYY-MM') = $1
+         AND t.type = 'expense'
+         AND t.computable = false
+         AND t.category = 'Transferencias'`,
         [targetMonth]
       );
     }
