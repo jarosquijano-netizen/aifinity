@@ -171,20 +171,25 @@ router.get('/', optionalAuth, async (req, res) => {
            SUM(t.amount) as total,
            COUNT(*) as count,
            t.type
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND t.computable = true
-         AND (
-           (t.type = 'income' AND (
-             (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount, t.type, t.date, t.applicable_month
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND t.computable = true
+           AND (
+             (t.type = 'income' AND (
+               (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
+               OR
+               (t.applicable_month IS NULL AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
+             ))
              OR
-             (t.applicable_month IS NULL AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
-           ))
-           OR
-           (t.type = 'expense' AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
-         )
+             (t.type = 'expense' AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $3::date))
+           )
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
          GROUP BY t.category, t.type
          ORDER BY total DESC`,
         [userId, currentMonth, currentMonthDate]
@@ -228,10 +233,14 @@ router.get('/', optionalAuth, async (req, res) => {
       // User is logged in - get their recent transactions
       recentResult = await pool.query(
         `SELECT t.*
-         FROM transactions t
-         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-         WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) t.*
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           ORDER BY t.date DESC, t.id DESC
+         ) t
          ORDER BY t.date DESC
          LIMIT 10`,
         [userId]
