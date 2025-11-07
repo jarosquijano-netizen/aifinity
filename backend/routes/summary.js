@@ -99,85 +99,90 @@ router.get('/', optionalAuth, async (req, res) => {
     // Get actual income for current month - sum all income transactions, not just one
     // Use applicable_month if available, otherwise use date
     let actualIncomeResult;
-    if (userId || hasAuthHeader) {
-      if (userId) {
+    try {
+      if (userId || hasAuthHeader) {
+        if (userId) {
+          actualIncomeResult = await pool.query(
+            `SELECT COALESCE(SUM(amount), 0) as actual_income
+             FROM transactions
+             WHERE type = 'income'
+             AND computable = true
+             AND (user_id IS NULL OR user_id = $1)
+             AND (
+               (applicable_month IS NOT NULL AND applicable_month = $2)
+               OR
+               (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+             )
+             AND amount > 0`,
+            [userId, currentMonth]
+          );
+        } else {
+          // Filter by account_ids when userId is null - only accounts with transactions
+          const userAccountsResult = await pool.query(
+            `SELECT DISTINCT ba.id 
+             FROM bank_accounts ba
+             WHERE EXISTS (
+               SELECT 1 FROM transactions t 
+               WHERE t.account_id = ba.id 
+               LIMIT 1
+             )
+             ORDER BY ba.id DESC`
+          );
+          const accountIds = userAccountsResult.rows.map(a => a.id);
+          
+          console.log('📋 Filtering income by account_ids:', accountIds.length, 'accounts');
+          
+          if (accountIds.length > 0) {
+            actualIncomeResult = await pool.query(
+              `SELECT COALESCE(SUM(amount), 0) as actual_income
+               FROM transactions
+               WHERE type = 'income'
+               AND computable = true
+               AND account_id = ANY($2::int[])
+               AND (
+                 (applicable_month IS NOT NULL AND applicable_month = $1)
+                 OR
+                 (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
+               )
+               AND amount > 0`,
+              [currentMonth, accountIds]
+            );
+          } else {
+            actualIncomeResult = await pool.query(
+              `SELECT COALESCE(SUM(amount), 0) as actual_income
+               FROM transactions
+               WHERE type = 'income'
+               AND computable = true
+               AND user_id IS NULL
+               AND (
+                 (applicable_month IS NOT NULL AND applicable_month = $1)
+                 OR
+                 (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
+               )
+               AND amount > 0`,
+              [currentMonth]
+            );
+          }
+        }
+      } else {
         actualIncomeResult = await pool.query(
           `SELECT COALESCE(SUM(amount), 0) as actual_income
            FROM transactions
            WHERE type = 'income'
            AND computable = true
-           AND (user_id IS NULL OR user_id = $1)
+           AND user_id IS NULL
            AND (
-             (applicable_month IS NOT NULL AND applicable_month = $2)
+             (applicable_month IS NOT NULL AND applicable_month = $1)
              OR
-             (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $2)
+             (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
            )
            AND amount > 0`,
-          [userId, currentMonth]
+          [currentMonth]
         );
-      } else {
-        // Filter by account_ids when userId is null - only accounts with transactions
-        const userAccountsResult = await pool.query(
-          `SELECT DISTINCT ba.id 
-           FROM bank_accounts ba
-           WHERE EXISTS (
-             SELECT 1 FROM transactions t 
-             WHERE t.account_id = ba.id 
-             LIMIT 1
-           )
-           ORDER BY ba.id DESC`
-        );
-        const accountIds = userAccountsResult.rows.map(a => a.id);
-        
-        console.log('📋 Filtering income by account_ids:', accountIds.length, 'accounts');
-        
-        if (accountIds.length > 0) {
-          actualIncomeResult = await pool.query(
-            `SELECT COALESCE(SUM(amount), 0) as actual_income
-             FROM transactions
-             WHERE type = 'income'
-             AND computable = true
-             AND account_id = ANY($2::int[])
-             AND (
-               (applicable_month IS NOT NULL AND applicable_month = $1)
-               OR
-               (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
-             )
-             AND amount > 0`,
-            [currentMonth, accountIds]
-          );
-        } else {
-          actualIncomeResult = await pool.query(
-            `SELECT COALESCE(SUM(amount), 0) as actual_income
-             FROM transactions
-             WHERE type = 'income'
-             AND computable = true
-             AND user_id IS NULL
-             AND (
-               (applicable_month IS NOT NULL AND applicable_month = $1)
-               OR
-               (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
-             )
-             AND amount > 0`,
-            [currentMonth]
-          );
-        }
       }
-    } else {
-      actualIncomeResult = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) as actual_income
-         FROM transactions
-         WHERE type = 'income'
-         AND computable = true
-         AND user_id IS NULL
-         AND (
-           (applicable_month IS NOT NULL AND applicable_month = $1)
-           OR
-           (applicable_month IS NULL AND TO_CHAR(date, 'YYYY-MM') = $1)
-         )
-         AND amount > 0`,
-        [currentMonth]
-      );
+    } catch (err) {
+      console.error('❌ Error in actualIncome query:', err);
+      throw err;
     }
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);
 
