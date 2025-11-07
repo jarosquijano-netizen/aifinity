@@ -48,10 +48,11 @@ function assert(condition, message) {
 }
 
 async function apiCall(method, endpoint, data = null, token = null) {
+  const apiUrl = process.env.API_BASE_URL || API_BASE_URL;
   try {
     const config = {
       method,
-      url: `${API_BASE_URL}${endpoint}`,
+      url: `${apiUrl}${endpoint}`,
       headers: {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` })
@@ -70,36 +71,59 @@ async function apiCall(method, endpoint, data = null, token = null) {
 }
 
 async function checkServerHealth() {
-  try {
-    // Try to connect to a simple endpoint
-    const response = await axios.get(`${API_BASE_URL.replace('/api', '')}/health`, { timeout: 3000 });
-    return true;
-  } catch (error) {
-    // Try accounts endpoint as fallback
+  // Try multiple ports (5000 default, 5002 from START_LOCALHOST.bat)
+  const ports = [5000, 5002];
+  const baseUrls = ports.map(port => `http://localhost:${port}`);
+  
+  for (const baseUrl of baseUrls) {
     try {
-      await axios.get(`${API_BASE_URL}/accounts`, { timeout: 3000 });
+      // Try health endpoint first
+      const response = await axios.get(`${baseUrl}/health`, { timeout: 3000 });
+      // Update API_BASE_URL if we found a working server
+      if (baseUrl.includes(':5002')) {
+        process.env.API_BASE_URL = `${baseUrl}/api`;
+      }
+      log(`✅ Found server running on ${baseUrl}`, 'success');
       return true;
-    } catch (err) {
-      log(`\n❌ Cannot connect to server at ${API_BASE_URL}`, 'error');
-      log('   Please ensure the backend server is running:', 'error');
-      log('   Run: npm run dev (in backend directory)', 'error');
-      return false;
+    } catch (error) {
+      // Try accounts endpoint as fallback
+      try {
+        await axios.get(`${baseUrl}/api/accounts`, { timeout: 3000 });
+        if (baseUrl.includes(':5002')) {
+          process.env.API_BASE_URL = `${baseUrl}/api`;
+        }
+        log(`✅ Found server running on ${baseUrl}`, 'success');
+        return true;
+      } catch (err) {
+        // Continue to next port
+        continue;
+      }
     }
   }
+  
+  log(`\n❌ Cannot connect to server at ports 5000 or 5002`, 'error');
+  log('   Please ensure the backend server is running:', 'error');
+  log('   Option 1: npm run backend (from root directory)', 'error');
+  log('   Option 2: cd backend && npm run dev', 'error');
+  log('   Option 3: Double-click START_LOCALHOST.bat', 'error');
+  return false;
 }
 
 // Test Suite
 async function runTests() {
   log('\n🧪 Starting QA/UAT Sanity Check Tests\n', 'info');
   log('='.repeat(60), 'info');
-  log(`\n📍 Testing API at: ${API_BASE_URL}`, 'info');
   
-  // Check server health first
+  // Check server health first (this will update API_BASE_URL if needed)
   const serverRunning = await checkServerHealth();
   if (!serverRunning) {
     log('\n⚠️  Tests cannot proceed without a running server.', 'error');
     process.exit(1);
   }
+  
+  // Use updated API_BASE_URL if server was found on different port
+  const finalApiUrl = process.env.API_BASE_URL || API_BASE_URL;
+  log(`📍 Testing API at: ${finalApiUrl}`, 'info');
   
   log('\n' + '='.repeat(60), 'info');
   
