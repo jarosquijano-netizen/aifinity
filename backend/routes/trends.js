@@ -151,30 +151,68 @@ router.get('/insights', optionalAuth, async (req, res) => {
       const currentMonth = result.rows[0];
       const previousMonth = result.rows[1];
 
-      const expenseChange = ((parseFloat(currentMonth.expenses) - parseFloat(previousMonth.expenses)) / parseFloat(previousMonth.expenses)) * 100;
-      const incomeChange = ((parseFloat(currentMonth.income) - parseFloat(previousMonth.income)) / parseFloat(previousMonth.income)) * 100;
+      const currentExpenses = parseFloat(currentMonth.expenses || 0);
+      const previousExpenses = parseFloat(previousMonth.expenses || 0);
+      const currentIncome = parseFloat(currentMonth.income || 0);
+      const previousIncome = parseFloat(previousMonth.income || 0);
 
-      if (expenseChange > 0) {
+      // Only calculate percentage changes if previous month has data
+      if (previousExpenses > 0) {
+        const expenseChange = ((currentExpenses - previousExpenses) / previousExpenses) * 100;
+        if (expenseChange > 0) {
+          insights.push({
+            type: 'warning',
+            message: `Your spending increased by ${Math.abs(expenseChange).toFixed(1)}% this month compared to last month.`
+          });
+        } else if (expenseChange < 0) {
+          insights.push({
+            type: 'success',
+            message: `Great! Your spending decreased by ${Math.abs(expenseChange).toFixed(1)}% this month.`
+          });
+        }
+      } else if (currentExpenses > 0) {
         insights.push({
-          type: 'warning',
-          message: `Your spending increased by ${Math.abs(expenseChange).toFixed(1)}% this month compared to last month.`
-        });
-      } else if (expenseChange < 0) {
-        insights.push({
-          type: 'success',
-          message: `Great! Your spending decreased by ${Math.abs(expenseChange).toFixed(1)}% this month.`
+          type: 'info',
+          message: `You spent €${currentExpenses.toFixed(2)} this month.`
         });
       }
 
-      if (incomeChange > 0) {
-        insights.push({
-          type: 'success',
-          message: `Your income increased by ${Math.abs(incomeChange).toFixed(1)}% this month.`
-        });
-      } else if (incomeChange < 0) {
+      if (previousIncome > 0) {
+        const incomeChange = ((currentIncome - previousIncome) / previousIncome) * 100;
+        if (incomeChange > 0) {
+          insights.push({
+            type: 'success',
+            message: `Your income increased by ${Math.abs(incomeChange).toFixed(1)}% this month.`
+          });
+        } else if (incomeChange < 0) {
+          insights.push({
+            type: 'info',
+            message: `Your income decreased by ${Math.abs(incomeChange).toFixed(1)}% this month.`
+          });
+        }
+      } else if (currentIncome > 0) {
         insights.push({
           type: 'info',
-          message: `Your income decreased by ${Math.abs(incomeChange).toFixed(1)}% this month.`
+          message: `You earned €${currentIncome.toFixed(2)} this month.`
+        });
+      }
+    } else if (result.rows.length === 1) {
+      // Only one month of data
+      const currentMonth = result.rows[0];
+      const currentExpenses = parseFloat(currentMonth.expenses || 0);
+      const currentIncome = parseFloat(currentMonth.income || 0);
+      
+      if (currentExpenses > 0) {
+        insights.push({
+          type: 'info',
+          message: `You spent €${currentExpenses.toFixed(2)} this month.`
+        });
+      }
+      
+      if (currentIncome > 0) {
+        insights.push({
+          type: 'info',
+          message: `You earned €${currentIncome.toFixed(2)} this month.`
         });
       }
     }
@@ -223,7 +261,17 @@ router.get('/insights', optionalAuth, async (req, res) => {
     res.json({ insights });
   } catch (error) {
     console.error('Insights error:', error);
-    res.status(500).json({ error: 'Failed to generate insights' });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail
+    });
+    res.status(500).json({ 
+      error: 'Failed to generate insights',
+      message: error.message,
+      details: error.detail || error.hint || 'Check server logs'
+    });
   }
 });
 
