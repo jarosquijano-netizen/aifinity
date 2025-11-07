@@ -334,23 +334,6 @@ function Dashboard({ refreshTrigger }) {
     { name: 'Expenses', value: data.actualExpenses !== undefined ? data.actualExpenses : 0, color: '#ef4444' }
   ];
 
-  // Helper: Get last 2 income transactions
-  const lastIncomeTransactions = data.recentTransactions
-    ?.filter(t => t.type === 'income')
-    .slice(0, 2) || [];
-
-  // Helper: Get current month income transactions
-  const currentMonthIncomeTransactions = data.recentTransactions
-    ?.filter(t => {
-      if (t.type !== 'income') return false;
-      const transactionDate = new Date(t.date);
-      const currentDate = new Date();
-      return transactionDate.getMonth() === currentDate.getMonth() && 
-             transactionDate.getFullYear() === currentDate.getFullYear();
-    })
-    .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
-    .slice(0, 5) || []; // Show up to 5 transactions
-
   // Helper: Get top expense category
   const topExpenseCategory = categoryData[0] || { name: 'N/A', value: 0 };
 
