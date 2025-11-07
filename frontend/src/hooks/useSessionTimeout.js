@@ -12,10 +12,11 @@ export function useSessionTimeout(timeoutMinutes = 30, warningMinutes = 1, onTim
   const [timeRemaining, setTimeRemaining] = useState(null);
   const timeoutRef = useRef(null);
   const warningTimeoutRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
   const lastActivityRef = useRef(Date.now());
 
   const resetTimer = () => {
-    // Clear existing timeouts
+    // Clear existing timeouts and intervals
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -23,6 +24,10 @@ export function useSessionTimeout(timeoutMinutes = 30, warningMinutes = 1, onTim
     if (warningTimeoutRef.current) {
       clearTimeout(warningTimeoutRef.current);
       warningTimeoutRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
 
     // Hide warning if it was showing
@@ -37,11 +42,12 @@ export function useSessionTimeout(timeoutMinutes = 30, warningMinutes = 1, onTim
     warningTimeoutRef.current = setTimeout(() => {
       setShowWarning(true);
       // Start countdown
-      const countdownInterval = setInterval(() => {
+      countdownIntervalRef.current = setInterval(() => {
         const elapsed = Date.now() - lastActivityRef.current;
         const remaining = timeoutMinutes * 60 * 1000 - elapsed;
         if (remaining <= 0) {
-          clearInterval(countdownInterval);
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
           setTimeRemaining(0);
         } else {
           setTimeRemaining(Math.ceil(remaining / 1000)); // seconds remaining
@@ -51,14 +57,17 @@ export function useSessionTimeout(timeoutMinutes = 30, warningMinutes = 1, onTim
       // Set logout timeout when warning appears
       const logoutTime = warningMinutes * 60 * 1000;
       timeoutRef.current = setTimeout(() => {
-        clearInterval(countdownInterval);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
         if (onTimeout) {
           onTimeout();
         }
       }, logoutTime);
     }, warningTime);
 
-    // Set logout timeout (if warning hasn't been shown yet)
+    // Set initial logout timeout (will be replaced by warning timeout if warning is shown)
     const logoutTime = timeoutMinutes * 60 * 1000;
     timeoutRef.current = setTimeout(() => {
       if (onTimeout) {
@@ -115,6 +124,9 @@ export function useSessionTimeout(timeoutMinutes = 30, warningMinutes = 1, onTim
       }
       if (warningTimeoutRef.current) {
         clearTimeout(warningTimeoutRef.current);
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
       }
     };
   }, [timeoutMinutes, warningMinutes, onTimeout]);
