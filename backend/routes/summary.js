@@ -426,8 +426,20 @@ router.get('/', optionalAuth, async (req, res) => {
       recentTransactions: recentResult.rows
     });
   } catch (error) {
-    console.error('Summary error:', error);
-    res.status(500).json({ error: 'Failed to fetch summary' });
+    console.error('❌ Summary error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      position: error.position
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch summary',
+      message: error.message,
+      details: error.detail || error.hint || 'Check server logs'
+    });
   }
 });
 
