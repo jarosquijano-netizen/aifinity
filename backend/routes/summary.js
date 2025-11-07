@@ -18,17 +18,37 @@ router.get('/', optionalAuth, async (req, res) => {
     try {
       if (userId || hasAuthHeader) {
         if (userId) {
-          totalsResult = await pool.query(
-            `SELECT 
-               SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
-               SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
-               COUNT(*) as transaction_count,
-               MIN(date) as oldest_transaction_date,
-               MAX(date) as newest_transaction_date
-             FROM transactions
-             WHERE (user_id IS NULL OR user_id = $1)`,
-            [userId]
-          );
+          // Only count transactions from existing accounts
+          const existingAccountIds = await pool.query(`SELECT id FROM bank_accounts`);
+          const accountIds = existingAccountIds.rows.map(a => a.id);
+          
+          if (accountIds.length > 0) {
+            totalsResult = await pool.query(
+              `SELECT 
+                 SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+                 SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+                 COUNT(*) as transaction_count,
+                 MIN(date) as oldest_transaction_date,
+                 MAX(date) as newest_transaction_date
+               FROM transactions
+               WHERE (user_id IS NULL OR user_id = $1)
+               AND (account_id IS NULL OR account_id = ANY($2::int[]))`,
+              [userId, accountIds]
+            );
+          } else {
+            totalsResult = await pool.query(
+              `SELECT 
+                 SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
+                 SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses,
+                 COUNT(*) as transaction_count,
+                 MIN(date) as oldest_transaction_date,
+                 MAX(date) as newest_transaction_date
+               FROM transactions
+               WHERE (user_id IS NULL OR user_id = $1)
+               AND account_id IS NULL`,
+              [userId]
+            );
+          }
         } else {
           // userId is null but has auth header - filter by account_ids to get user's transactions
           // Get user's accounts first - only accounts with transactions
