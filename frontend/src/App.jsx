@@ -9,8 +9,10 @@ import Insights from './components/Insights';
 import Budget from './components/Budget';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
+import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { getStoredAuth, clearAuth } from './utils/auth';
 import { useLanguage } from './context/LanguageContext';
+import { useSessionTimeout } from './hooks/useSessionTimeout';
 
 function App() {
   // Initialize activeTab from URL hash, fallback to 'dashboard' when logged in
@@ -31,6 +33,23 @@ function App() {
   const [transactionFilters, setTransactionFilters] = useState({});
   const [justLoggedIn, setJustLoggedIn] = useState(false);
   const { t } = useLanguage();
+
+  // Session timeout handler
+  const handleSessionTimeout = () => {
+    console.log('⏰ Session timeout - logging out user');
+    clearAuth();
+    setUser(null);
+    setRefreshTrigger(prev => prev + 1);
+    // Show a message or redirect
+    alert('Your session has expired due to inactivity. Please log in again.');
+  };
+
+  // Session timeout hook (30 minutes inactivity, 1 minute warning)
+  const { showWarning, timeRemaining, resetTimer } = useSessionTimeout(
+    30, // 30 minutes of inactivity
+    1,  // Show warning 1 minute before logout
+    handleSessionTimeout
+  );
 
   // Update URL hash when activeTab changes
   useEffect(() => {
@@ -88,6 +107,10 @@ function App() {
     clearAuth();
     setUser(null);
     setRefreshTrigger(prev => prev + 1);
+    // Reset session timer when logging out manually
+    if (resetTimer) {
+      resetTimer();
+    }
   };
 
   const tabs = [
@@ -176,6 +199,18 @@ function App() {
 
       {showAuth && (
         <Auth onClose={() => setShowAuth(false)} onLogin={handleLogin} />
+      )}
+
+      {/* Session Timeout Warning */}
+      {user && showWarning && (
+        <SessionTimeoutWarning
+          timeRemaining={timeRemaining}
+          onStayLoggedIn={() => {
+            resetTimer();
+            setShowWarning(false);
+          }}
+          onLogout={handleLogout}
+        />
       )}
     </div>
   );
