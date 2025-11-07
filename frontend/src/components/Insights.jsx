@@ -278,6 +278,22 @@ function Insights() {
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('pendingExpectedIncome')}</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">€{ingresoEsperadoPendiente.toFixed(2)}</p>
+                  {expectedIncome > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {actualIncome >= expectedIncome 
+                        ? (language === 'es' ? 'Ingreso completo recibido' : 'Full income received')
+                        : (language === 'es' 
+                          ? `Faltan €${(expectedIncome - actualIncome).toFixed(2)} de €${expectedIncome.toFixed(2)}`
+                          : `€${(expectedIncome - actualIncome).toFixed(2)} remaining of €${expectedIncome.toFixed(2)}`
+                        )
+                      }
+                    </p>
+                  )}
+                  {expectedIncome === 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      {language === 'es' ? 'No configurado en Ajustes' : 'Not configured in Settings'}
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 p-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('safeSpendingCapacity')}</p>
