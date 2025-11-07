@@ -48,24 +48,23 @@ export function useSessionTimeout(timeoutMinutes = 30, warningMinutes = 1, onTim
         }
       }, 1000);
       
-      // Clear countdown when warning is dismissed or timeout occurs
+      // Set logout timeout when warning appears
+      const logoutTime = warningMinutes * 60 * 1000;
       timeoutRef.current = setTimeout(() => {
         clearInterval(countdownInterval);
         if (onTimeout) {
           onTimeout();
         }
-      }, warningMinutes * 60 * 1000);
+      }, logoutTime);
     }, warningTime);
 
-    // Set logout timeout
+    // Set logout timeout (if warning hasn't been shown yet)
     const logoutTime = timeoutMinutes * 60 * 1000;
-    if (!timeoutRef.current) {
-      timeoutRef.current = setTimeout(() => {
-        if (onTimeout) {
-          onTimeout();
-        }
-      }, logoutTime);
-    }
+    timeoutRef.current = setTimeout(() => {
+      if (onTimeout) {
+        onTimeout();
+      }
+    }, logoutTime);
   };
 
   useEffect(() => {
