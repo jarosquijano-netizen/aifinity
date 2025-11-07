@@ -209,25 +209,61 @@ router.put('/:id', optionalAuth, async (req, res) => {
 
 // Delete bank account
 router.delete('/:id', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
 
-    const result = await pool.query(
-      `DELETE FROM bank_accounts 
-       WHERE id = $1 AND (user_id IS NULL OR user_id = $2)
-       RETURNING *`,
+    await client.query('BEGIN');
+
+    // First, verify the account exists and belongs to the user
+    const accountCheck = await client.query(
+      `SELECT id, name FROM bank_accounts 
+       WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
       [id, userId]
     );
 
-    if (result.rows.length === 0) {
+    if (accountCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Account not found' });
     }
 
-    res.json({ message: 'Account deleted successfully' });
+    const accountName = accountCheck.rows[0].name;
+    
+    // Delete all transactions associated with this account
+    const deleteTransactionsResult = await client.query(
+      `DELETE FROM transactions 
+       WHERE account_id = $1 
+       RETURNING id`,
+      [id]
+    );
+    
+    console.log(`🗑️ Deleted ${deleteTransactionsResult.rows.length} transactions from account "${accountName}" (ID: ${id})`);
+
+    // Delete the account
+    const deleteAccountResult = await client.query(
+      `DELETE FROM bank_accounts 
+       WHERE id = $1 AND (user_id IS NULL OR user_id = $2)
+       RETURNING id, name`,
+      [id, userId]
+    );
+
+    await client.query('COMMIT');
+
+    console.log(`✅ Successfully deleted account "${accountName}" (ID: ${id}) and ${deleteTransactionsResult.rows.length} associated transactions`);
+
+    res.json({ 
+      message: 'Account deleted successfully',
+      deletedTransactions: deleteTransactionsResult.rows.length,
+      account: deleteAccountResult.rows[0]
+    });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Delete account error:', error);
     res.status(500).json({ error: 'Failed to delete account' });
+  } finally {
+    client.release();
   }
 });
 
