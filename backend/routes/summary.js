@@ -40,7 +40,7 @@ router.get('/', optionalAuth, async (req, res) => {
                WHERE t.account_id = ba.id 
                LIMIT 1
              )
-             ORDER BY ba.created_at DESC`
+             ORDER BY ba.id DESC`
           );
           const accountIds = userAccountsResult.rows.map(a => a.id);
           
