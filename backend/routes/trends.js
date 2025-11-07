@@ -17,14 +17,16 @@ router.get('/', optionalAuth, async (req, res) => {
       if (userId) {
         trendsResult = await pool.query(
           `SELECT 
-             COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM')) as month,
-             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-             SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses,
+             COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')) as month,
+             SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
+             SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses,
              COUNT(*) as transaction_count
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1)
-           AND (computable = true OR computable IS NULL)
-           GROUP BY COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM'))
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE (t.user_id IS NULL OR t.user_id = $1)
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM'))
            ORDER BY month DESC
            LIMIT 12`,
           [userId]
@@ -74,14 +76,16 @@ router.get('/', optionalAuth, async (req, res) => {
       if (userId) {
         categoryTrendsResult = await pool.query(
           `SELECT 
-             COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM')) as month,
-             category,
-             SUM(amount) as total,
-             type
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1)
-           AND (computable = true OR computable IS NULL)
-           GROUP BY COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM')), category, type
+             COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')) as month,
+             t.category,
+             SUM(t.amount) as total,
+             t.type
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE (t.user_id IS NULL OR t.user_id = $1)
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')), t.category, t.type
            ORDER BY month DESC, total DESC`,
           [userId]
         );
@@ -136,13 +140,15 @@ router.get('/insights', optionalAuth, async (req, res) => {
       if (userId) {
         result = await pool.query(
           `SELECT 
-             TO_CHAR(date, 'YYYY-MM') as month,
-             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-             SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1)
-           AND (computable = true OR computable IS NULL)
-           GROUP BY TO_CHAR(date, 'YYYY-MM')
+             TO_CHAR(t.date, 'YYYY-MM') as month,
+             SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
+             SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE (t.user_id IS NULL OR t.user_id = $1)
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND (t.computable = true OR t.computable IS NULL)
+           GROUP BY TO_CHAR(t.date, 'YYYY-MM')
            ORDER BY month DESC
            LIMIT 2`,
           [userId]
@@ -214,12 +220,14 @@ router.get('/insights', optionalAuth, async (req, res) => {
     if (userId || hasAuthHeader) {
       if (userId) {
         topCategoryResult = await pool.query(
-          `SELECT category, SUM(amount) as total
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1) 
-           AND type = 'expense'
-           AND (computable = true OR computable IS NULL)
-           GROUP BY category
+          `SELECT t.category, SUM(t.amount) as total
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE (t.user_id IS NULL OR t.user_id = $1)
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND t.type = 'expense'
+           AND (t.computable = true OR t.computable IS NULL)
+           GROUP BY t.category
            ORDER BY total DESC
            LIMIT 1`,
           [userId]
