@@ -80,7 +80,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
       );
     }
     
-    // Get actual spending for the month (exclude transfers, deduplicate)
+    // Get actual spending for the month (exclude transfers, deduplicate, exclude NC category)
     let spendingResult;
     if (userId) {
       // User is logged in - get their spending
@@ -100,6 +100,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
            AND t.type = 'expense'
            AND t.computable = true
            AND t.amount > 0
+           AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
          GROUP BY t.category`,
@@ -123,6 +124,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
            AND t.type = 'expense'
            AND t.computable = true
            AND t.amount > 0
+           AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
          GROUP BY t.category`,
@@ -174,45 +176,6 @@ router.get('/overview', optionalAuth, async (req, res) => {
         count: parseInt(row.transaction_count)
       };
     });
-    
-    // Get total spent including uncategorized expenses (for comparison with dashboard)
-    let totalSpentAllExpenses;
-    if (userId) {
-      totalSpentAllExpenses = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) as total_spent
-         FROM (
-           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) t.amount
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE t.user_id = $1
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $2
-           AND t.type = 'expense'
-           AND t.computable = true
-           AND t.amount > 0
-           ORDER BY t.date, t.description, t.amount, t.type, t.id
-         ) unique_transactions`,
-        [userId, targetMonth]
-      );
-    } else {
-      totalSpentAllExpenses = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) as total_spent
-         FROM (
-           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) t.amount
-           FROM transactions t
-           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-           WHERE t.user_id IS NULL
-           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $1
-           AND t.type = 'expense'
-           AND t.computable = true
-           AND t.amount > 0
-           ORDER BY t.date, t.description, t.amount, t.type, t.id
-         ) unique_transactions`,
-        [targetMonth]
-      );
-    }
-    const totalSpentAll = parseFloat(totalSpentAllExpenses.rows[0]?.total_spent || 0);
     
     // Combine budgets with actual spending
     const overview = categoriesResult.rows.map(category => {
@@ -278,12 +241,14 @@ router.get('/overview', optionalAuth, async (req, res) => {
       });
     }
     
-    // Calculate totals (excluding transfers)
-    // Use totalSpentAll to match dashboard (includes uncategorized expenses)
+    // Calculate totals (excluding transfers and NC category)
+    // Total Spent = sum of all "Spent" values shown in the Budget table
     const totalBudget = overview
-      .filter(cat => !cat.isTransfer)
+      .filter(cat => !cat.isTransfer && cat.name !== 'NC' && cat.name !== 'nc')
       .reduce((sum, cat) => sum + cat.budget, 0);
-    const totalSpent = totalSpentAll; // Use all expenses to match dashboard
+    const totalSpent = overview
+      .filter(cat => !cat.isTransfer && cat.name !== 'NC' && cat.name !== 'nc')
+      .reduce((sum, cat) => sum + cat.spent, 0);
     const totalRemaining = totalBudget - totalSpent;
     
     res.json({
