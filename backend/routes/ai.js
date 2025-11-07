@@ -1,12 +1,12 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 import { handleAIChatRequest } from '../src/enhanced-ai-service.js';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticateToken);
+// All routes use optional auth (to match other routes)
+router.use(optionalAuth);
 
 // Get AI configuration for the user
 router.get('/config', async (req, res) => {
