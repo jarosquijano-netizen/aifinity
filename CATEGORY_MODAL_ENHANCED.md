@@ -237,3 +237,6 @@ Cada categoría mantiene su color distintivo del badge:
 
 
 
+
+
+

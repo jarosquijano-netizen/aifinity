@@ -239,3 +239,6 @@ const color = incomeRatio >= 100
 
 
 
+
+
+

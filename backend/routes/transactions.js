@@ -365,30 +365,48 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
         console.log(`✅ Updating all to category: "${category}"\n`);
         
         const updateQuery = computable !== undefined
-          ? 'UPDATE transactions SET category = $1, computable = $3 WHERE id = ANY($2::int[])'
-          : 'UPDATE transactions SET category = $1 WHERE id = ANY($2::int[])';
+          ? 'UPDATE transactions SET category = $1, computable = $3 WHERE id = ANY($2::int[]) AND user_id = $4'
+          : 'UPDATE transactions SET category = $1 WHERE id = ANY($2::int[]) AND user_id = $3';
         
         const updateParams = computable !== undefined
-          ? [category, similarIds, computable]
-          : [category, similarIds];
+          ? [category, similarIds, computable, userId]
+          : [category, similarIds, userId];
         
         await client.query(updateQuery, updateParams);
-        updatedCount = similarIds.length;
+        
+        // Verify all updated transactions belong to the user
+        const verifyResult = await client.query(
+          'SELECT id FROM transactions WHERE id = ANY($1::int[]) AND user_id = $2',
+          [similarIds, userId]
+        );
+        
+        if (verifyResult.rows.length !== similarIds.length) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ error: 'Cannot update transactions belonging to other users' });
+        }
+        
+        updatedCount = verifyResult.rows.length;
       } else if (updateSimilar) {
         console.log(`\n🔍 No similar transactions found (≥90% similarity) for: "${transaction.description.substring(0, 60)}..."\n`);
       }
     }
 
-    // Update the main transaction
+    // Update the main transaction - ensure it belongs to the user
     const updateQuery = computable !== undefined
-      ? 'UPDATE transactions SET category = $1, computable = $2 WHERE id = $3'
-      : 'UPDATE transactions SET category = $1 WHERE id = $2';
+      ? 'UPDATE transactions SET category = $1, computable = $2 WHERE id = $3 AND user_id = $4'
+      : 'UPDATE transactions SET category = $1 WHERE id = $2 AND user_id = $3';
     
     const updateParams = computable !== undefined
-      ? [category, computable, transactionId]
-      : [category, transactionId];
+      ? [category, computable, transactionId, userId]
+      : [category, transactionId, userId];
     
-    await client.query(updateQuery, updateParams);
+    const updateResult = await client.query(updateQuery, updateParams);
+    
+    // Verify the transaction belongs to the user
+    if (updateResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Cannot update transaction belonging to another user' });
+    }
 
     // Update summaries
     await updateSummaries(client, userId);
@@ -413,28 +431,20 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
 router.get('/categories', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    const hasAuthHeader = req.headers['authorization'];
     
-    // TEMPORARY FIX: If Authorization header is present, return ALL categories (even if userId is null)
+    // Get categories for the current user
     let result;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        result = await pool.query(
-          `SELECT DISTINCT category 
-           FROM transactions 
-           WHERE user_id IS NULL OR user_id = $1
-           ORDER BY category`,
-          [userId]
-        );
-      } else {
-        // userId is null but has auth header - return ALL categories
-        result = await pool.query(
-          `SELECT DISTINCT category 
-           FROM transactions 
-           ORDER BY category`
-        );
-      }
+    if (userId) {
+      // User is logged in - get their categories
+      result = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id = $1
+         ORDER BY category`,
+        [userId]
+      );
     } else {
+      // If not logged in, get only shared categories (user_id IS NULL)
       result = await pool.query(
         `SELECT DISTINCT category 
          FROM transactions 
@@ -505,12 +515,12 @@ router.delete('/all', optionalAuth, async (req, res) => {
     const userId = req.user?.id || req.user?.userId || null;
     
     await pool.query(
-      'DELETE FROM transactions WHERE user_id IS NULL OR user_id = $1',
+      'DELETE FROM transactions WHERE user_id = $1',
       [userId]
     );
     
     await pool.query(
-      'DELETE FROM summaries WHERE user_id IS NULL OR user_id = $1',
+      'DELETE FROM summaries WHERE user_id = $1',
       [userId]
     );
 
@@ -529,7 +539,7 @@ async function updateSummaries(client, userId) {
        SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as total_income,
        SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as total_expenses
      FROM transactions
-     WHERE (user_id IS NULL OR user_id = $1)
+     WHERE user_id = $1
      GROUP BY TO_CHAR(date, 'YYYY-MM')`,
     [userId]
   );
@@ -665,6 +675,18 @@ router.post('/transfer', optionalAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
+    // Verify both accounts belong to the user
+    const accountCheck = await client.query(
+      `SELECT id FROM bank_accounts 
+       WHERE id IN ($1, $2) AND user_id = $3`,
+      [fromAccountId, toAccountId, userId]
+    );
+    
+    if (accountCheck.rows.length !== 2) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'One or both accounts do not belong to you' });
+    }
+
     const transferDate = date || new Date().toISOString().split('T')[0];
     const transferDescription = description || `Transferencia`;
     const transferAmount = parseFloat(amount);
@@ -693,14 +715,14 @@ router.post('/transfer', optionalAuth, async (req, res) => {
       [userId, transferDate, `${transferDescription} ← Cuenta origen`, transferAmount, toAccountId]
     );
 
-    // Update account balances
+    // Update account balances - accounts already verified above
     await client.query(
-      `UPDATE bank_accounts SET balance = balance - $1, balance_updated_at = NOW() WHERE id = $2 AND (user_id IS NULL OR user_id = $3)`,
+      `UPDATE bank_accounts SET balance = balance - $1, balance_updated_at = NOW() WHERE id = $2 AND user_id = $3`,
       [transferAmount, fromAccountId, userId]
     );
-
+    
     await client.query(
-      `UPDATE bank_accounts SET balance = balance + $1, balance_updated_at = NOW() WHERE id = $2 AND (user_id IS NULL OR user_id = $3)`,
+      `UPDATE bank_accounts SET balance = balance + $1, balance_updated_at = NOW() WHERE id = $2 AND user_id = $3`,
       [transferAmount, toAccountId, userId]
     );
 

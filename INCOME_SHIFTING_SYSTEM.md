@@ -419,3 +419,6 @@ console.log('Income Ratio:', (data.actualIncome / expectedIncome) * 100);
 
 
 
+
+
+

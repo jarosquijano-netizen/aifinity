@@ -13,7 +13,7 @@ router.get('/csv', optionalAuth, async (req, res) => {
     const result = await pool.query(
       `SELECT bank, date, category, description, amount, type
        FROM transactions
-       WHERE user_id IS NULL OR user_id = $1
+       WHERE user_id = $1
        ORDER BY date DESC`,
       [userId]
     );
@@ -53,7 +53,7 @@ router.get('/excel', optionalAuth, async (req, res) => {
     const result = await pool.query(
       `SELECT bank, date, category, description, amount, type
        FROM transactions
-       WHERE user_id IS NULL OR user_id = $1
+       WHERE user_id = $1
        ORDER BY date DESC`,
       [userId]
     );

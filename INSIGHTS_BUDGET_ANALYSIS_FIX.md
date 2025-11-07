@@ -488,3 +488,6 @@ const recentDailyRate = calcularPromedioDias(7);
 
 
 
+
+
+

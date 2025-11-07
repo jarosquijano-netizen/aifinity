@@ -363,3 +363,6 @@ Ingresos reales (mes actual):       €1,474.21 (49.1% del esperado) (2025-10)
 
 
 
+
+
+

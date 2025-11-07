@@ -81,7 +81,7 @@ router.get('/actual-income/:month', optionalAuth, async (req, res) => {
        FROM transactions
        WHERE type = 'income'
        AND computable = true
-       AND (user_id IS NULL OR user_id = $1)
+       AND user_id = $1
        AND (
          (applicable_month IS NOT NULL AND applicable_month = $2)
          OR
@@ -116,7 +116,7 @@ router.get('/calculate-expected-income', optionalAuth, async (req, res) => {
         FROM transactions
         WHERE type = 'income'
         AND computable = true
-        AND (user_id IS NULL OR user_id = $1)
+        AND user_id = $1
         AND date >= CURRENT_DATE - INTERVAL '4 months'
         GROUP BY COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM'))
         ORDER BY month DESC
@@ -164,7 +164,7 @@ router.post('/update-expected-from-actual', optionalAuth, async (req, res) => {
         FROM transactions
         WHERE type = 'income'
         AND computable = true
-        AND (user_id IS NULL OR user_id = $1)
+        AND user_id = $1
         AND date >= CURRENT_DATE - INTERVAL '4 months'
         GROUP BY COALESCE(applicable_month, TO_CHAR(date, 'YYYY-MM'))
         ORDER BY month DESC
@@ -172,7 +172,7 @@ router.post('/update-expected-from-actual', optionalAuth, async (req, res) => {
       )
       SELECT AVG(income) as avg_income
       FROM monthly_income`,
-      [userId === 0 ? null : userId]
+      [userId]
     );
     
     const avgIncome = parseFloat(calcResult.rows[0]?.avg_income || 0);

@@ -68,8 +68,8 @@ router.get('/', optionalAuth, async (req, res) => {
     // TODO: Re-enable deduplication after fixing the issue
     console.log('⚠️ TEMPORARY: Deduplication disabled for debugging');
     res.json({ accounts: result.rows });
-    return;
     
+    /* COMMENTED OUT FOR DEBUGGING - DEDUPLICATION LOGIC
     // Deduplicate accounts: if same name + account_type, keep the one with correct user_id (or oldest if same)
     const deduplicatedAccounts = [];
     const seen = new Map(); // key: "name|account_type" -> account id to keep
@@ -120,6 +120,7 @@ router.get('/', optionalAuth, async (req, res) => {
     console.log(`📋 Deduplicated: ${result.rows.length} → ${deduplicatedAccounts.length} accounts`);
 
     res.json({ accounts: deduplicatedAccounts });
+    */
   } catch (error) {
     console.error('Get accounts error:', error);
     res.status(500).json({ error: 'Failed to fetch accounts' });
@@ -185,7 +186,7 @@ router.put('/:id', optionalAuth, async (req, res) => {
     const result = await pool.query(
       `UPDATE bank_accounts 
        SET name = $1, account_type = $2, color = $3, balance = $4, currency = $5, exclude_from_stats = $6, credit_limit = $7
-       WHERE id = $8 AND (user_id IS NULL OR user_id = $9)
+       WHERE id = $8 AND user_id = $9
        RETURNING *`,
       [name, accountType, color, finalBalance, currency, excludeFromStats, finalCreditLimit, id, userId]
     );
@@ -222,7 +223,7 @@ router.delete('/:id', optionalAuth, async (req, res) => {
     // First, verify the account exists and belongs to the user
     const accountCheck = await client.query(
       `SELECT id, name FROM bank_accounts 
-       WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
+       WHERE id = $1 AND user_id = $2`,
       [id, userId]
     );
 
@@ -246,7 +247,7 @@ router.delete('/:id', optionalAuth, async (req, res) => {
     // Delete the account
     const deleteAccountResult = await client.query(
       `DELETE FROM bank_accounts 
-       WHERE id = $1 AND (user_id IS NULL OR user_id = $2)
+       WHERE id = $1 AND user_id = $2
        RETURNING id, name`,
       [id, userId]
     );
@@ -383,11 +384,11 @@ router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
     const account = accountResult.rows[0];
     const isCreditCard = account.account_type === 'credit';
 
-    // Get all transactions for this account
+    // Get all transactions for this account (belonging to this user)
     const result = await pool.query(
       `SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as calculated_balance
        FROM transactions
-       WHERE account_id = $1 AND (user_id IS NULL OR user_id = $2) AND computable = true`,
+       WHERE account_id = $1 AND user_id = $2 AND computable = true`,
       [id, userId]
     );
 
@@ -398,11 +399,11 @@ router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
     // So we just use the transaction sum directly (expenses are negative, refunds are positive)
     const calculatedBalance = transactionSum;
 
-    // Update the account balance
+    // Update the account balance - account already verified above
     const updateResult = await pool.query(
       `UPDATE bank_accounts 
        SET balance = $1, balance_updated_at = NOW(), balance_source = 'calculated'
-       WHERE id = $2 AND (user_id IS NULL OR user_id = $3)
+       WHERE id = $2 AND user_id = $3
        RETURNING *`,
       [calculatedBalance, id, userId]
     );
