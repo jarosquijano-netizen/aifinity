@@ -205,10 +205,23 @@ function Insights() {
   const annualInterestCost = totalDebt * 0.20;
 
   const balanceDisponible = totalAccountsBalance;
+  // Calculate pending expected income: remaining expected income for the month
+  // If actual income >= expected income, show 0 (already received all expected)
+  // Otherwise, show the difference
   const ingresoEsperadoPendiente = expectedIncome > 0 ? Math.max(0, expectedIncome - actualIncome) : 0;
   const diasRestantesMes = daysRemaining;
   const capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
   const gastoDiarioSeguro = capacidadSegura / Math.max(1, diasRestantesMes);
+  
+  // Debug logging (remove in production)
+  console.log('Expected Income Calculation:', {
+    expectedIncome,
+    actualIncome,
+    ingresoEsperadoPendiente,
+    daysElapsed,
+    daysInMonth,
+    currentMonth: new Date().toISOString().slice(0, 7)
+  });
 
   // Progress bar component
   const ProgressBar = ({ value, className = "" }) => (
