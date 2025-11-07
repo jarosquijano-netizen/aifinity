@@ -80,14 +80,54 @@ async function fixUserId() {
     
     // Step 4: Update settings with user_id = NULL (if settings table exists)
     try {
-      const settingsResult = await client.query(
-        `UPDATE user_settings 
-         SET user_id = $1 
-         WHERE user_id IS NULL OR user_id = 0
-         RETURNING user_id`,
+      // First check if settings with user_id = 1 already exists
+      const existingSettings = await client.query(
+        `SELECT user_id FROM user_settings WHERE user_id = $1 LIMIT 1`,
         [userId]
       );
-      console.log(`✅ Updated ${settingsResult.rows.length} settings records to user_id = ${userId}`);
+      
+      if (existingSettings.rows.length > 0) {
+        // Settings already exist for this user, just update NULL settings to point to this user
+        // But we need to be careful - if there are NULL settings, we might want to merge them
+        const nullSettings = await client.query(
+          `SELECT * FROM user_settings WHERE user_id IS NULL OR user_id = 0 LIMIT 1`
+        );
+        
+        if (nullSettings.rows.length > 0) {
+          // Merge NULL settings into existing settings (prefer non-zero values)
+          const nullSetting = nullSettings.rows[0];
+          const existingSetting = existingSettings.rows[0];
+          
+          // Update existing settings with NULL settings if existing is zero/null
+          const finalIncome = existingSetting.expected_monthly_income || nullSetting.expected_monthly_income || 0;
+          
+          await client.query(
+            `UPDATE user_settings 
+             SET expected_monthly_income = $1, updated_at = NOW()
+             WHERE user_id = $2`,
+            [finalIncome, userId]
+          );
+          
+          // Delete the NULL settings record
+          await client.query(
+            `DELETE FROM user_settings WHERE user_id IS NULL OR user_id = 0`
+          );
+          
+          console.log(`✅ Merged and updated settings for user_id = ${userId}`);
+        } else {
+          console.log(`✅ Settings already exist for user_id = ${userId}, no NULL settings to update`);
+        }
+      } else {
+        // No settings exist for this user, update NULL settings
+        const settingsResult = await client.query(
+          `UPDATE user_settings 
+           SET user_id = $1 
+           WHERE user_id IS NULL OR user_id = 0
+           RETURNING user_id`,
+          [userId]
+        );
+        console.log(`✅ Updated ${settingsResult.rows.length} settings records to user_id = ${userId}`);
+      }
     } catch (err) {
       if (err.message.includes('does not exist')) {
         console.log('⚠️  user_settings table does not exist, skipping...');
