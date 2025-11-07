@@ -93,15 +93,17 @@ router.get('/overview', optionalAuth, async (req, res) => {
       if (userId) {
         spendingResult = await pool.query(
           `SELECT 
-             category,
-             SUM(amount) as total_spent,
+             t.category,
+             SUM(t.amount) as total_spent,
              COUNT(*) as transaction_count
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1)
-           AND TO_CHAR(date, 'YYYY-MM') = $2
-           AND type = 'expense'
-           AND (computable = true OR computable IS NULL)
-           GROUP BY category`,
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE (t.user_id IS NULL OR t.user_id = $1)
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND TO_CHAR(t.date, 'YYYY-MM') = $2
+           AND t.type = 'expense'
+           AND (t.computable = true OR t.computable IS NULL)
+           GROUP BY t.category`,
           [userId, targetMonth]
         );
       } else {
@@ -163,14 +165,16 @@ router.get('/overview', optionalAuth, async (req, res) => {
       if (userId) {
         transfersResult = await pool.query(
           `SELECT 
-             SUM(amount) as total_spent,
+             SUM(t.amount) as total_spent,
              COUNT(*) as transaction_count
-           FROM transactions
-           WHERE (user_id IS NULL OR user_id = $1)
-           AND TO_CHAR(date, 'YYYY-MM') = $2
-           AND type = 'expense'
-           AND computable = false
-           AND category = 'Transferencias'`,
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE (t.user_id IS NULL OR t.user_id = $1)
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND TO_CHAR(t.date, 'YYYY-MM') = $2
+           AND t.type = 'expense'
+           AND t.computable = false
+           AND t.category = 'Transferencias'`,
           [userId, targetMonth]
         );
       } else {
