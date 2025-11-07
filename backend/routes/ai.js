@@ -12,29 +12,20 @@ router.use(optionalAuth);
 router.get('/config', async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    const hasAuthHeader = req.headers['authorization'];
     
-    // TEMPORARY FIX: If Authorization header is present, return ALL configs (even if userId is null)
+    // Get AI configs for the current user
     let result;
-    if (userId || hasAuthHeader) {
-      if (userId) {
-        result = await pool.query(
-          `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
-           FROM ai_config 
-           WHERE user_id = $1 OR user_id IS NULL
-           ORDER BY is_active DESC, created_at DESC`,
-          [userId]
-        );
-      } else {
-        // userId is null but has auth header - return ALL configs
-        result = await pool.query(
-          `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
-           FROM ai_config 
-           ORDER BY is_active DESC, created_at DESC`
-        );
-        console.log('⚠️ TEMPORARY: Returning ALL AI configs (userId is null but auth header present)');
-      }
+    if (userId) {
+      // User is logged in - get their configs
+      result = await pool.query(
+        `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
+         FROM ai_config 
+         WHERE user_id = $1
+         ORDER BY is_active DESC, created_at DESC`,
+        [userId]
+      );
     } else {
+      // If not logged in, get only shared configs (user_id IS NULL)
       result = await pool.query(
         `SELECT id, provider, api_key_preview, is_active, created_at, updated_at 
          FROM ai_config 
