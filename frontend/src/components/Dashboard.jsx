@@ -442,12 +442,12 @@ function Dashboard({ refreshTrigger }) {
               </div>
             )}
             {/* Small mode: Show last 2 income transactions */}
-            {!isLarge && lastIncomeTransactions.length > 0 && (
+            {!isLarge && currentMonthIncomeTransactions.length > 0 && (
               <div className="mt-2 space-y-1">
                 <p className="text-[9px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wide">Últimos ingresos:</p>
-                {lastIncomeTransactions.map((t, idx) => (
+                {currentMonthIncomeTransactions.slice(0, 2).map((t, idx) => (
                   <div key={idx} className="flex justify-between items-center text-[10px]">
-                    <span className="text-gray-600 dark:text-gray-400 truncate max-w-[120px]">{t.description}</span>
+                    <span className="text-gray-600 dark:text-gray-400 truncate max-w-[120px]">{t.description || 'Sin descripción'}</span>
                     <span className="font-semibold text-green-600 dark:text-green-400">€{parseFloat(t.amount).toFixed(0)}</span>
                   </div>
                 ))}
