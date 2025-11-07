@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "prestart": "npm run validate || true",
+    "prestart": "node -c server.js || true",
     "dev": "nodemon server.js",
     "migrate": "node migrations/run.js",
     "lint": "eslint routes/**/*.js server.js --ext .js",
