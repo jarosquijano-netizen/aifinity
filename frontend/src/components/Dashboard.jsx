@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
-import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts, getSettings, createTransfer } from '../utils/api';
+import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
 import api from '../utils/api';
 import TransferModal from './TransferModal';
@@ -77,6 +77,7 @@ function Dashboard({ refreshTrigger }) {
   const [budgetData, setBudgetData] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [expectedIncome, setExpectedIncome] = useState(0);
+  const [currentMonthIncomeTransactions, setCurrentMonthIncomeTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -203,18 +204,32 @@ function Dashboard({ refreshTrigger }) {
     try {
       setLoading(true);
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      const currentDate = new Date();
       
-      const [summary, trends, budget, accountsData, settings] = await Promise.all([
+      const [summary, trends, budget, accountsData, settings, transactionsData] = await Promise.all([
         getSummary(),
         api.get('/trends'),
         api.get(`/budget/overview?month=${currentMonth}`).catch(() => ({ data: { totals: { budget: 0, spent: 0, remaining: 0, usagePercentage: 0 } } })),
         getAccounts(),
-        getSettings().catch(() => ({ expectedMonthlyIncome: 0 }))
+        getSettings().catch(() => ({ expectedMonthlyIncome: 0 })),
+        getTransactions().catch(() => ({ transactions: [] }))
       ]);
       setData(summary);
       setBudgetData(budget.data);
       setAccounts(accountsData.accounts || []);
       setExpectedIncome(settings.expectedMonthlyIncome || 0);
+      
+      // Filter current month income transactions
+      const currentMonthIncome = (transactionsData.transactions || [])
+        .filter(t => {
+          if (t.type !== 'income') return false;
+          const transactionDate = new Date(t.date);
+          return transactionDate.getMonth() === currentDate.getMonth() && 
+                 transactionDate.getFullYear() === currentDate.getFullYear();
+        })
+        .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
+        .slice(0, 5); // Show up to 5 transactions
+      setCurrentMonthIncomeTransactions(currentMonthIncome);
       
       // Get last 6 months of data with budget percentage
       const last6Months = trends.data.monthlyTrends?.slice(-6) || [];
