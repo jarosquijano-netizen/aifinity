@@ -587,21 +587,10 @@ function Budget({ onNavigateToTransactions }) {
                         }`}
                       >
                         <div className="px-6 py-5">
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                             {/* Category Info */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 mb-3">
-                                <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${categoryConfig.badgeColor}`}>
-                                  {categoryConfig.icon} {categoryConfig.label}
-                                </span>
-                                {category.isTransfer && (
-                                  <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                    🔄 Transfer
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                              <div className="flex flex-wrap items-center gap-2">
                                 {category.transactionCount > 0 && onNavigateToTransactions ? (
                                   <button
                                     onClick={() => onNavigateToTransactions({ category: category.name })}
@@ -609,39 +598,36 @@ function Budget({ onNavigateToTransactions }) {
                                   >
                                     {(() => {
                                       const parsed = parseCategory(category.name);
-                                      return parsed.group ? (
-                                        <span className="flex items-center gap-3">
-                                          <span className="text-sm px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium">
-                                            {parsed.group}
-                                          </span>
-                                          <span className={`text-base font-semibold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
-                                            {parsed.category}
-                                          </span>
-                                        </span>
-                                      ) : (
-                                        <span className={`text-base font-semibold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
-                                          {category.name}
+                                      const displayName = parsed.category || parsed.displayName || category.name;
+                                      return (
+                                        <span className={`text-base font-semibold ${categoryConfig.textColor}`}>
+                                          {displayName}
                                         </span>
                                       );
                                     })()}
                                   </button>
                                 ) : (
-                                  <span className={`text-base font-semibold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
+                                  <span className={`text-base font-semibold ${categoryConfig.textColor}`}>
                                     {(() => {
                                       const parsed = parseCategory(category.name);
-                                      return parsed.group ? (
-                                        <span className="flex items-center gap-3">
-                                          <span className="text-sm px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium">
-                                            {parsed.group}
-                                          </span>
-                                          <span className="text-base font-semibold">{parsed.category}</span>
-                                        </span>
-                                      ) : (
-                                        category.name
-                                      );
+                                      return parsed.category || parsed.displayName || category.name;
                                     })()}
                                   </span>
                                 )}
+                                
+                                {/* Status badge next to name */}
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryConfig.badgeColor}`}>
+                                  {categoryConfig.icon} {categoryConfig.label}
+                                </span>
+                                
+                                {/* Transfer badge */}
+                                {category.isTransfer && (
+                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                    🔄 Transfer
+                                  </span>
+                                )}
+                                
+                                {/* Transaction count */}
                                 {category.transactionCount > 0 && (
                                   <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                                     ({category.transactionCount} trans.)
@@ -657,7 +643,7 @@ function Budget({ onNavigateToTransactions }) {
                             </div>
 
                             {/* Budget/Spent/Remaining */}
-                            <div className="grid grid-cols-3 md:grid-cols-4 gap-6 text-base">
+                            <div className="grid grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8 lg:min-w-[600px] overflow-x-auto">
                               <div className="text-right">
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Budget</p>
                                 {editingId === (category.id || category.name) ? (
@@ -670,11 +656,11 @@ function Budget({ onNavigateToTransactions }) {
                                     onKeyPress={(e) => {
                                       if (e.key === 'Enter') handleSaveBudget(category.id, category.name);
                                     }}
-                                    className="w-full max-w-32 px-3 py-2 border border-primary rounded-lg focus:ring-2 focus:ring-primary text-base"
+                                    className="w-full max-w-40 px-3 py-2 border border-primary rounded-lg focus:ring-2 focus:ring-primary text-base"
                                     autoFocus
                                   />
                                 ) : (
-                                  <p className={`text-base font-bold ${categoryConfig.textColor}`}>
+                                  <p className={`text-lg font-bold ${categoryConfig.textColor}`}>
                                     {category.budget > 0 ? formatCurrency(category.budget) : '—'}
                                   </p>
                                 )}
@@ -682,14 +668,14 @@ function Budget({ onNavigateToTransactions }) {
                               
                               <div className="text-right">
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Spent</p>
-                                <p className={`text-base font-bold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
+                                <p className={`text-lg font-bold ${categoryConfig.textColor}`}>
                                   {formatCurrency(category.spent)}
                                 </p>
                               </div>
                               
                               <div className="text-right">
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Remaining</p>
-                                <p className={`text-base font-bold ${
+                                <p className={`text-lg font-bold ${
                                   category.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                 }`}>
                                   {formatCurrency(category.remaining)}
@@ -699,9 +685,9 @@ function Budget({ onNavigateToTransactions }) {
                               {/* Progress Bar */}
                               <div className="hidden md:block">
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Progress</p>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-1">
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-5 mb-2">
                                   <div
-                                    className={`h-3 rounded-full transition-all ${categoryConfig.progressColor}`}
+                                    className={`h-5 rounded-full transition-all ${categoryConfig.progressColor}`}
                                     style={{ width: `${Math.min(category.percentage || 0, 100)}%` }}
                                   />
                                 </div>
@@ -726,9 +712,9 @@ function Budget({ onNavigateToTransactions }) {
 
                           {/* Mobile Progress Bar */}
                           <div className="md:hidden mt-4">
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-5 mb-2">
                               <div
-                                className={`h-3 rounded-full transition-all ${categoryConfig.progressColor}`}
+                                className={`h-5 rounded-full transition-all ${categoryConfig.progressColor}`}
                                 style={{ width: `${Math.min(category.percentage || 0, 100)}%` }}
                               />
                             </div>
