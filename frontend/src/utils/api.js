@@ -163,6 +163,13 @@ export const getBudgetOverview = async (month) => {
   return response.data;
 };
 
+export const getBudgetInsights = async (month, useAI = true) => {
+  const response = await api.get('/budget/insights', { 
+    params: { month, useAI: useAI.toString() } 
+  });
+  return response.data;
+};
+
 export const updateCategoryBudget = async (categoryId, budgetAmount, categoryName = null) => {
   const response = await api.put(`/budget/categories/${categoryId || 'new'}`, { 
     budget_amount: budgetAmount,

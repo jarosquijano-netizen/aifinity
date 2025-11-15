@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { optionalAuth } from '../middleware/auth.js';
+import aiInsightService from '../services/aiInsightService.js';
 
 const router = express.Router();
 
@@ -425,6 +426,230 @@ router.get('/overview', optionalAuth, async (req, res) => {
       error: 'Failed to fetch budget overview',
       message: error.message,
       details: error.detail || error.hint || 'Check server logs'
+    });
+  }
+});
+
+// Get AI insights for budget categories
+router.get('/insights', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { month, useAI = 'true' } = req.query;
+    
+    // Get current month if not specified
+    const targetMonth = month || new Date().toISOString().slice(0, 7);
+    
+    // Get user profile (family size, income, location)
+    let userProfile = {
+      familySize: 1,
+      monthlyIncome: 3000,
+      location: 'Spain',
+      userId: userId
+    };
+    
+    // Try to get user settings if logged in
+    if (userId) {
+      try {
+        const settingsResult = await pool.query(
+          `SELECT family_size, expected_monthly_income, location 
+           FROM settings 
+           WHERE user_id = $1 
+           LIMIT 1`,
+          [userId]
+        );
+        
+        if (settingsResult.rows.length > 0) {
+          const settings = settingsResult.rows[0];
+          userProfile.familySize = settings.family_size || 1;
+          userProfile.monthlyIncome = settings.expected_monthly_income || 3000;
+          userProfile.location = settings.location || 'Spain';
+        }
+      } catch (error) {
+        console.error('Error fetching user settings:', error);
+        // Continue with defaults - settings table might not exist yet
+      }
+    }
+    
+    // Get budget categories data (reuse overview logic)
+    // Get ALL transaction categories
+    let allTransactionCategories;
+    if (userId) {
+      allTransactionCategories = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id = $1
+         AND category IS NOT NULL
+         AND category != ''
+         AND category != 'NC'
+         AND category != 'nc'
+         ORDER BY category ASC`,
+        [userId]
+      );
+    } else {
+      allTransactionCategories = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id IS NULL
+         AND category IS NOT NULL
+         AND category != ''
+         AND category != 'NC'
+         AND category != 'nc'
+         ORDER BY category ASC`
+      );
+    }
+    
+    // Get categories with budgets
+    let categoriesResult;
+    if (userId) {
+      categoriesResult = await pool.query(
+        `SELECT * FROM categories 
+         WHERE user_id = $1
+         ORDER BY name ASC`,
+        [userId]
+      );
+    } else {
+      categoriesResult = await pool.query(
+        `SELECT * FROM categories 
+         WHERE user_id IS NULL
+         ORDER BY name ASC`
+      );
+    }
+    
+    // Create budget map
+    const budgetMap = {};
+    categoriesResult.rows.forEach(cat => {
+      budgetMap[cat.name] = cat;
+    });
+    
+    // Get spending for the month
+    let spendingResult;
+    if (userId) {
+      spendingResult = await pool.query(
+        `SELECT 
+           t.category,
+           SUM(t.amount) as total_spent,
+           COUNT(*) as transaction_count
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND TO_CHAR(t.date, 'YYYY-MM') = $2
+           AND t.type = 'expense'
+           AND t.computable = true
+           AND t.amount > 0
+           AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
+         GROUP BY t.category`,
+        [userId, targetMonth]
+      );
+    } else {
+      spendingResult = await pool.query(
+        `SELECT 
+           t.category,
+           SUM(t.amount) as total_spent,
+           COUNT(*) as transaction_count
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND TO_CHAR(t.date, 'YYYY-MM') = $1
+           AND t.type = 'expense'
+           AND t.computable = true
+           AND t.amount > 0
+           AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
+         GROUP BY t.category`,
+        [targetMonth]
+      );
+    }
+    
+    // Create spending map
+    const spendingMap = {};
+    spendingResult.rows.forEach(row => {
+      spendingMap[row.category] = {
+        spent: parseFloat(row.total_spent) || 0,
+        transactionCount: parseInt(row.transaction_count) || 0
+      };
+    });
+    
+    // Build categories list for insights
+    const categories = [];
+    allTransactionCategories.rows.forEach(row => {
+      const categoryName = row.category;
+      const budget = budgetMap[categoryName]?.budget_amount || 0;
+      const spending = spendingMap[categoryName] || { spent: 0, transactionCount: 0 };
+      
+      categories.push({
+        name: categoryName,
+        budget: budget,
+        spent: spending.spent,
+        percentage: budget > 0 ? (spending.spent / budget) * 100 : 0,
+        transactionCount: spending.transactionCount
+      });
+    });
+    
+    // Generate insights for each category
+    const insightsPromises = categories.map(async (category) => {
+      try {
+        const categoryData = {
+          category: category.name,
+          budget: category.budget || 0,
+          spent: category.spent || 0,
+          percentage: category.percentage || 0,
+          transactionCount: category.transactionCount || 0,
+          previousMonth: 0 // Could be enhanced later
+        };
+        
+        const insight = await aiInsightService.generateInsight(
+          categoryData,
+          userProfile,
+          useAI === 'true'
+        );
+        
+        return {
+          category: category.name,
+          insight: insight,
+          priority: categoryData.percentage >= 100 ? 1 : 
+                    categoryData.percentage >= 90 ? 2 : 
+                    categoryData.percentage >= 75 ? 3 : 4
+        };
+      } catch (error) {
+        console.error(`Error generating insight for ${category.name}:`, error);
+        return {
+          category: category.name,
+          insight: null,
+          priority: 5,
+          error: error.message
+        };
+      }
+    });
+    
+    const insights = await Promise.all(insightsPromises);
+    
+    // Filter out null insights and sort by priority
+    const validInsights = insights
+      .filter(i => i.insight !== null)
+      .sort((a, b) => a.priority - b.priority);
+    
+    res.json({
+      success: true,
+      insights: validInsights,
+      month: targetMonth
+    });
+    
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate insights',
+      message: error.message 
     });
   }
 });

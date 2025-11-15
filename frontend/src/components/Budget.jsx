@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, Edit2, AlertCircle, CheckCircle, TrendingUp, Calendar, Search, Filter, ChevronDown, ChevronUp, Zap, BarChart3, X } from 'lucide-react';
-import { getBudgetOverview, updateCategoryBudget } from '../utils/api';
+import { getBudgetOverview, updateCategoryBudget, getBudgetInsights } from '../utils/api';
 import { parseCategory } from '../utils/categoryFormat';
+import BudgetInsight from './BudgetInsight';
 
 function Budget({ onNavigateToTransactions }) {
   const [data, setData] = useState(null);
@@ -10,6 +11,8 @@ function Budget({ onNavigateToTransactions }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [insights, setInsights] = useState({});
+  const [insightsLoading, setInsightsLoading] = useState(false);
   
   // UX Enhancement states
   const [filterMode, setFilterMode] = useState('all'); // 'all', 'problems', 'attention'
@@ -28,6 +31,12 @@ function Budget({ onNavigateToTransactions }) {
     fetchData();
   }, [selectedMonth]);
 
+  useEffect(() => {
+    if (data) {
+      fetchInsights();
+    }
+  }, [data, selectedMonth]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -38,6 +47,25 @@ function Budget({ onNavigateToTransactions }) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInsights = async () => {
+    try {
+      setInsightsLoading(true);
+      const insightsData = await getBudgetInsights(selectedMonth, true);
+      
+      // Convert insights array to map for easy lookup
+      const insightsMap = {};
+      insightsData.insights?.forEach(item => {
+        insightsMap[item.category] = item.insight;
+      });
+      setInsights(insightsMap);
+    } catch (err) {
+      console.error('Failed to load insights:', err);
+      // Don't show error to user, just continue without insights
+    } finally {
+      setInsightsLoading(false);
     }
   };
 
@@ -634,6 +662,13 @@ function Budget({ onNavigateToTransactions }) {
                                   ⚠️ {category.note}
                                 </p>
                               )}
+                              
+                              {/* Budget Insight */}
+                              <BudgetInsight 
+                                insight={insights[category.name]}
+                                loading={insightsLoading}
+                                category={category.name}
+                              />
                             </div>
 
                             {/* Budget/Spent/Remaining */}
