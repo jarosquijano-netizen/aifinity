@@ -92,9 +92,9 @@ function SetupBudget({ onBudgetSaved }) {
       setSuccessMessages(prev => ({ ...prev, [categoryName]: 'Budget saved!' }));
       setTimeout(() => {
         setSuccessMessages(prev => {
-          const new = { ...prev };
-          delete new[categoryName];
-          return new;
+          const updated = { ...prev };
+          delete updated[categoryName];
+          return updated;
         });
       }, 3000);
       
