@@ -218,6 +218,7 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
               )}
             </div>
           </div>
+          </div>
 
           {/* Sticky Bottom Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-6 space-y-4 flex-shrink-0">
