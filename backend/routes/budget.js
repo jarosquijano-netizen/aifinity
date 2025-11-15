@@ -729,6 +729,53 @@ router.get('/overview', optionalAuth, async (req, res) => {
       }
     });
     
+    // SECOND: Add all transaction categories (that don't already exist)
+    allTransactionCategories.rows.forEach(row => {
+      const categoryName = row.category;
+      
+      // Check if this category is a duplicate or already exists
+      let existingKey = null;
+      
+      for (const key in allCategoriesMap) {
+        if (isDuplicateCategory(categoryName, key)) {
+          // Found a duplicate - prefer hierarchical format
+          if (categoryName.includes(' > ')) {
+            // New category is hierarchical, replace old format
+            existingKey = key;
+            break;
+          } else if (key.includes(' > ')) {
+            // Existing category is hierarchical, skip adding this one
+            existingKey = key;
+            break;
+          } else {
+            // Both are old format, use existing
+            existingKey = key;
+            break;
+          }
+        }
+      }
+      
+      if (!existingKey) {
+        // No duplicate found, add the category (transaction category without budget)
+        allCategoriesMap[categoryName] = {
+          name: categoryName,
+          hasBudget: false,
+          budgetData: null
+        };
+      } else if (categoryName.includes(' > ')) {
+        // Replace old format with hierarchical format
+        // Preserve budget data if it exists
+        const existingData = allCategoriesMap[existingKey];
+        delete allCategoriesMap[existingKey];
+        allCategoriesMap[categoryName] = {
+          name: categoryName,
+          hasBudget: existingData?.hasBudget || false,
+          budgetData: existingData?.budgetData || null
+        };
+      }
+      // If existingKey exists and new category is NOT hierarchical, skip it (keep existing)
+    });
+    
     // Get actual spending for the month (exclude transfers, deduplicate, exclude NC category)
     // IMPORTANT: Use DATE_TRUNC for expenses (same as dashboard/summary) - expenses always use actual date, never applicable_month
     const targetMonthDate = targetMonth + '-01';
