@@ -451,7 +451,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
     if (userId) {
       try {
         const settingsResult = await pool.query(
-          `SELECT family_size, expected_monthly_income, location 
+          `SELECT family_size, expected_monthly_income, location, ages 
            FROM user_settings 
            WHERE user_id = $1 
            LIMIT 1`,
@@ -463,6 +463,8 @@ router.get('/insights', optionalAuth, async (req, res) => {
           userProfile.familySize = settings.family_size || 1;
           userProfile.monthlyIncome = settings.expected_monthly_income || 3000;
           userProfile.location = settings.location || 'Spain';
+          const ages = settings.ages || [];
+          userProfile.ages = Array.isArray(ages) ? ages : (typeof ages === 'string' ? JSON.parse(ages) : []);
         }
       } catch (error) {
         console.error('Error fetching user settings:', error);

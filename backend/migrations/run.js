@@ -115,7 +115,12 @@ const runMigrations = async () => {
       ALTER TABLE user_settings 
       ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT 'Spain'
     `);
-    console.log('✅ Family size and location columns added');
+    // Add ages column to store ages of family members (JSON array)
+    await client.query(`
+      ALTER TABLE user_settings 
+      ADD COLUMN IF NOT EXISTS ages JSONB DEFAULT '[]'::jsonb
+    `);
+    console.log('✅ Family size, location, and ages columns added');
     
     // Insert default settings for anonymous user
     await client.query(`

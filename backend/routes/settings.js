@@ -29,15 +29,19 @@ router.get('/', optionalAuth, async (req, res) => {
       return res.json({
         expectedMonthlyIncome: 0,
         familySize: 1,
-        location: 'Spain'
+        location: 'Spain',
+        ages: []
       });
     }
     
     const settings = result.rows[0];
+    const ages = settings.ages || [];
+    
     res.json({
       expectedMonthlyIncome: parseFloat(settings.expected_monthly_income || 0),
       familySize: parseInt(settings.family_size || 1),
-      location: settings.location || 'Spain'
+      location: settings.location || 'Spain',
+      ages: Array.isArray(ages) ? ages : (typeof ages === 'string' ? JSON.parse(ages) : [])
     });
   } catch (error) {
     console.error('Get settings error:', error);
@@ -49,7 +53,7 @@ router.get('/', optionalAuth, async (req, res) => {
 router.post('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || 0;
-    const { expectedMonthlyIncome, familySize, location } = req.body;
+    const { expectedMonthlyIncome, familySize, location, ages } = req.body;
     
     // Validate inputs
     if (expectedMonthlyIncome !== undefined && expectedMonthlyIncome < 0) {
@@ -64,6 +68,21 @@ router.post('/', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Location cannot be empty' });
     }
     
+    // Validate ages array
+    if (ages !== undefined) {
+      if (!Array.isArray(ages)) {
+        return res.status(400).json({ error: 'Ages must be an array' });
+      }
+      if (ages.length > 20) {
+        return res.status(400).json({ error: 'Maximum 20 family members' });
+      }
+      for (const age of ages) {
+        if (typeof age !== 'number' || age < 0 || age > 120) {
+          return res.status(400).json({ error: 'Each age must be a number between 0 and 120' });
+        }
+      }
+    }
+    
     // Get current settings to preserve values not being updated
     const currentSettings = await pool.query(
       'SELECT * FROM user_settings WHERE user_id = $1',
@@ -76,60 +95,54 @@ router.post('/', optionalAuth, async (req, res) => {
     const finalExpectedIncome = expectedMonthlyIncome !== undefined ? parseFloat(expectedMonthlyIncome) : (parseFloat(current.expected_monthly_income) || 0);
     const finalFamilySize = familySize !== undefined ? parseInt(familySize) : (parseInt(current.family_size) || 1);
     const finalLocation = location !== undefined ? location.trim() : (current.location || 'Spain');
+    const finalAges = ages !== undefined ? JSON.stringify(ages) : (current.ages ? JSON.stringify(current.ages) : '[]');
     
-    // Check if family_size and location columns exist
+    // Check if columns exist
     const columnCheck = await pool.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'user_settings' 
-      AND column_name IN ('family_size', 'location')
+      AND column_name IN ('family_size', 'location', 'ages')
     `);
     
     const hasFamilySize = columnCheck.rows.some(r => r.column_name === 'family_size');
     const hasLocation = columnCheck.rows.some(r => r.column_name === 'location');
+    const hasAges = columnCheck.rows.some(r => r.column_name === 'ages');
     
-    // Build dynamic query based on which columns exist
-    let query, params;
-    if (hasFamilySize && hasLocation) {
-      // All columns exist - use full query
-      query = `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, updated_at)
-               VALUES ($1, $2, $3, $4, NOW())
-               ON CONFLICT (user_id) 
-               DO UPDATE SET 
-                 expected_monthly_income = $2,
-                 family_size = $3,
-                 location = $4,
-                 updated_at = NOW()
-               RETURNING *`;
-      params = [userId, finalExpectedIncome, finalFamilySize, finalLocation];
-    } else {
-      // Some columns don't exist - add them first
-      if (!hasFamilySize) {
-        await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS family_size INTEGER DEFAULT 1`);
-      }
-      if (!hasLocation) {
-        await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT 'Spain'`);
-      }
-      // Now use full query
-      query = `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, updated_at)
-               VALUES ($1, $2, $3, $4, NOW())
-               ON CONFLICT (user_id) 
-               DO UPDATE SET 
-                 expected_monthly_income = $2,
-                 family_size = $3,
-                 location = $4,
-                 updated_at = NOW()
-               RETURNING *`;
-      params = [userId, finalExpectedIncome, finalFamilySize, finalLocation];
+    // Add missing columns
+    if (!hasFamilySize) {
+      await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS family_size INTEGER DEFAULT 1`);
+    }
+    if (!hasLocation) {
+      await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT 'Spain'`);
+    }
+    if (!hasAges) {
+      await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS ages JSONB DEFAULT '[]'::jsonb`);
     }
     
+    // Build query with all columns
+    const query = `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, ages, updated_at)
+                   VALUES ($1, $2, $3, $4, $5::jsonb, NOW())
+                   ON CONFLICT (user_id) 
+                   DO UPDATE SET 
+                     expected_monthly_income = $2,
+                     family_size = $3,
+                     location = $4,
+                     ages = $5::jsonb,
+                     updated_at = NOW()
+                   RETURNING *`;
+    const params = [userId, finalExpectedIncome, finalFamilySize, finalLocation, finalAges];
+    
     const result = await pool.query(query, params);
+    
+    const savedAges = result.rows[0].ages || [];
     
     res.json({
       message: 'Settings updated successfully',
       expectedMonthlyIncome: parseFloat(result.rows[0].expected_monthly_income || 0),
       familySize: parseInt(result.rows[0].family_size || 1),
-      location: result.rows[0].location || 'Spain'
+      location: result.rows[0].location || 'Spain',
+      ages: Array.isArray(savedAges) ? savedAges : (typeof savedAges === 'string' ? JSON.parse(savedAges) : [])
     });
   } catch (error) {
     console.error('Update settings error:', error);

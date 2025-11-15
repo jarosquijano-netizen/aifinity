@@ -33,6 +33,7 @@ function Settings() {
   // Family Settings state
   const [familySize, setFamilySize] = useState(1);
   const [location, setLocation] = useState('Spain');
+  const [ages, setAges] = useState([]);
   const [savingFamilySettings, setSavingFamilySettings] = useState(false);
   const [familySettingsSuccess, setFamilySettingsSuccess] = useState('');
 
@@ -248,9 +249,40 @@ function Settings() {
       setExpectedIncome(data.expectedMonthlyIncome || 0);
       setFamilySize(data.familySize || 1);
       setLocation(data.location || 'Spain');
+      setAges(data.ages || []);
     } catch (err) {
       console.error('Failed to load settings:', err);
     }
+  };
+  
+  // Update ages array when family size changes
+  useEffect(() => {
+    if (ages.length < familySize) {
+      // Add empty ages for new family members
+      const newAges = [...ages];
+      while (newAges.length < familySize) {
+        newAges.push(null);
+      }
+      setAges(newAges);
+    } else if (ages.length > familySize) {
+      // Remove extra ages
+      setAges(ages.slice(0, familySize));
+    }
+  }, [familySize]);
+  
+  const handleAgeChange = (index, value) => {
+    const newAges = [...ages];
+    newAges[index] = value === '' ? null : parseInt(value) || null;
+    setAges(newAges);
+  };
+  
+  const getAgeCategory = (age) => {
+    if (age === null || age === undefined) return 'Unknown';
+    if (age < 3) return 'Baby (0-2)';
+    if (age < 6) return 'Toddler (3-5)';
+    if (age < 13) return 'Child (6-12)';
+    if (age < 18) return 'Teen (13-17)';
+    return 'Adult (18+)';
   };
 
   const handleSaveExpectedIncome = async () => {
@@ -482,38 +514,76 @@ function Settings() {
         )}
 
         {/* Family Settings Form */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Family Size (adults + children)
-            </label>
-            <input
-              type="number"
-              value={familySize}
-              onChange={(e) => setFamilySize(parseInt(e.target.value) || 1)}
-              min="1"
-              max="20"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
-              placeholder="e.g. 4"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Used to compare your spending with average family spending benchmarks
-            </p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Family Size (adults + children)
+              </label>
+              <input
+                type="number"
+                value={familySize}
+                onChange={(e) => setFamilySize(parseInt(e.target.value) || 1)}
+                min="1"
+                max="20"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
+                placeholder="e.g. 4"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Used to compare your spending with average family spending benchmarks
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Location
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
+                placeholder="e.g. Spain, Madrid, Barcelona"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Used for regional spending benchmarks and insights
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Location
+          {/* Ages Section */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Family Member Ages
             </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
-              placeholder="e.g. Spain, Madrid, Barcelona"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Used for regional spending benchmarks and insights
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Enter ages for each family member to get personalized insights. Expenses differ significantly between a 4-year-old and a 15-year-old!
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: familySize }).map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                    Member {index + 1}
+                    {ages[index] !== null && ages[index] !== undefined && (
+                      <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                        ({getAgeCategory(ages[index])})
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    value={ages[index] || ''}
+                    onChange={(e) => handleAgeChange(index, e.target.value)}
+                    min="0"
+                    max="120"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
+                    placeholder="Age"
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+              💡 Tip: Ages help AI provide more accurate insights. For example, children's expenses (clothing, activities) vary greatly by age.
             </p>
           </div>
         </div>
@@ -524,7 +594,9 @@ function Settings() {
               try {
                 setSavingFamilySettings(true);
                 setFamilySettingsSuccess('');
-                await updateSettings({ familySize, location });
+                // Filter out null values and ensure ages array matches family size
+                const validAges = ages.slice(0, familySize).map(age => age !== null ? age : undefined).filter(age => age !== undefined);
+                await updateSettings({ familySize, location, ages: validAges.length > 0 ? validAges : undefined });
                 setFamilySettingsSuccess('Family settings saved successfully!');
                 setTimeout(() => setFamilySettingsSuccess(''), 3000);
               } catch (err) {
