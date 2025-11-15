@@ -145,16 +145,14 @@ function SetupBudget({ onBudgetSaved }) {
       const updatedCategories = await getTransactionCategories();
       setCategories(updatedCategories.categories || []);
       
-      // Update allCategoryBudgets map with the new budget
-      setAllCategoryBudgets(prev => {
-        const updated = { ...prev };
-        if (budgetAmount > 0) {
-          updated[categoryName] = budgetAmount;
-        } else {
-          delete updated[categoryName];
+      // Rebuild allCategoryBudgets map from refreshed categories (ensures accurate totals)
+      const allBudgetsMap = {};
+      (updatedCategories.categories || []).forEach(cat => {
+        if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
+          allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
         }
-        return updated;
       });
+      setAllCategoryBudgets(allBudgetsMap);
       
       // Update original budget to reflect saved value
       setOriginalBudgets(prev => ({
