@@ -267,16 +267,19 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
         
         if (aiSuggestion) {
           // Use AI-powered suggestion
+          // Ensure benchmark ranges are family-size specific (use AI ranges if available, otherwise use family benchmark)
+          const familyBenchmark = getBenchmark(categoryName, userProfile.familySize);
+          
           return {
             category: categoryName,
             currentBudget: currentBudget,
             suggestedBudget: aiSuggestion.suggestedBudget || 0,
             benchmark: {
-              min: aiSuggestion.rangeMin || benchmark.min || 0,
-              avg: aiSuggestion.suggestedBudget || benchmark.avg || 0,
-              max: aiSuggestion.rangeMax || benchmark.max || 0
+              min: aiSuggestion.rangeMin || familyBenchmark.min || 0,
+              avg: aiSuggestion.suggestedBudget || familyBenchmark.avg || 0,
+              max: aiSuggestion.rangeMax || familyBenchmark.max || 0
             },
-            reason: aiSuggestion.reasoning || generateBudgetReason(categoryName, aiSuggestion.suggestedBudget || 0, userProfile, benchmark),
+            reason: aiSuggestion.reasoning || generateBudgetReason(categoryName, aiSuggestion.suggestedBudget || 0, userProfile, familyBenchmark),
             confidence: aiSuggestion.confidence || 'medium',
             insights: aiSuggestion.insights || [],
             historical: aiSuggestion.historical,
@@ -326,18 +329,21 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
             suggestedBudget = Math.round(userProfile.monthlyIncome * 0.5 / 10) * 10;
           }
           
+          // Ensure benchmark ranges are family-size specific
+          const familyBenchmark = getBenchmark(categoryName, userProfile.familySize);
+          
           return {
             category: categoryName,
             currentBudget: currentBudget,
             suggestedBudget: suggestedBudget,
             benchmark: {
-              min: benchmark.min || 0,
-              avg: benchmark.avg || 0,
-              max: benchmark.max || 0
+              min: familyBenchmark.min || 0,
+              avg: familyBenchmark.avg || 0,
+              max: familyBenchmark.max || 0
             },
             reason: categoryTransactions.length > 0 
               ? `Based on your average spending of ${(categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / categoryTransactions.length).toFixed(0)}€ per transaction over ${categoryTransactions.length} transactions.`
-              : generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark),
+              : generateBudgetReason(categoryName, suggestedBudget, userProfile, familyBenchmark),
             confidence: categoryTransactions.length > 0 ? 'high' : 'medium'
           };
         }
