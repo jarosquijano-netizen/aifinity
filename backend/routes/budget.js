@@ -224,11 +224,13 @@ router.get('/overview', optionalAuth, async (req, res) => {
         };
       } else if (categoryName.includes(' > ')) {
         // Replace old format with hierarchical format
+        // Preserve budget data if it exists
+        const existingData = allCategoriesMap[existingKey];
         delete allCategoriesMap[existingKey];
         allCategoriesMap[categoryName] = {
           name: categoryName,
-          hasBudget: false,
-          budgetData: null
+          hasBudget: existingData?.hasBudget || false,
+          budgetData: existingData?.budgetData || null
         };
       }
       // If existingKey exists and new category is NOT hierarchical, skip it (keep existing)
