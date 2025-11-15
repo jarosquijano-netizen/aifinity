@@ -454,14 +454,35 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
         };
       });
       
-      // Ensure total doesn't exceed income
+      // Calculate total suggested and scale to match total budget set (if available)
       const totalSuggested = fallbackSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
+      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => sum + parseFloat(cat.budget_amount || 0), 0);
       const maxAllowedBudget = userProfile.monthlyIncome * 0.85;
       
-      if (totalSuggested > maxAllowedBudget && userProfile.monthlyIncome > 0) {
+      // Priority 1: Scale to match total budget set if it's reasonable
+      if (totalBudgetSet > 0 && totalSuggested > 0 && Math.abs(totalSuggested - totalBudgetSet) > totalBudgetSet * 0.1) {
+        const scaleFactor = totalBudgetSet / totalSuggested;
+        fallbackSuggestions.forEach(s => {
+          s.suggestedBudget = Math.round(s.suggestedBudget * scaleFactor);
+          // Also scale benchmark ranges proportionally
+          if (s.benchmark) {
+            s.benchmark.min = Math.round(s.benchmark.min * scaleFactor);
+            s.benchmark.avg = Math.round(s.benchmark.avg * scaleFactor);
+            s.benchmark.max = Math.round(s.benchmark.max * scaleFactor);
+          }
+          s.reason += ` (Scaled to match your total budget set of ${totalBudgetSet.toFixed(0)}€.)`;
+        });
+      } else if (totalSuggested > maxAllowedBudget && userProfile.monthlyIncome > 0) {
+        // Priority 2: Scale to fit within income constraints
         const scaleFactor = maxAllowedBudget / totalSuggested;
         fallbackSuggestions.forEach(s => {
           s.suggestedBudget = Math.round(s.suggestedBudget * scaleFactor);
+          // Also scale benchmark ranges proportionally
+          if (s.benchmark) {
+            s.benchmark.min = Math.round(s.benchmark.min * scaleFactor);
+            s.benchmark.avg = Math.round(s.benchmark.avg * scaleFactor);
+            s.benchmark.max = Math.round(s.benchmark.max * scaleFactor);
+          }
           s.reason += ` (Scaled to fit within income constraints.)`;
         });
       }
