@@ -16,6 +16,7 @@ function SetupBudget({ onBudgetSaved }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [budgets, setBudgets] = useState({});
   const [originalBudgets, setOriginalBudgets] = useState({}); // Track original values for comparison
+  const [allCategoryBudgets, setAllCategoryBudgets] = useState({}); // All budgets from database (for accurate totals)
   const [errors, setErrors] = useState({});
   const [successMessages, setSuccessMessages] = useState({});
   const [overallInsights, setOverallInsights] = useState(null);
@@ -65,10 +66,19 @@ function SetupBudget({ onBudgetSaved }) {
       setBudgets(budgetsMap);
       setOriginalBudgets(originalBudgetsMap);
       
-      // Also fetch existing budget categories to get IDs
+      // Also fetch existing budget categories to get IDs and ALL budgets
       try {
         const categoriesData = await getTransactionCategories();
         setCategories(categoriesData.categories || []);
+        
+        // Create a map of ALL category budgets from database (for accurate totals)
+        const allBudgetsMap = {};
+        (categoriesData.categories || []).forEach(cat => {
+          if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
+            allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+          }
+        });
+        setAllCategoryBudgets(allBudgetsMap);
       } catch (err) {
         console.error('Failed to load budget categories:', err);
         // Continue without category IDs - they'll be created if needed
@@ -131,9 +141,20 @@ function SetupBudget({ onBudgetSaved }) {
         });
       }, 3000);
       
-      // Refresh categories to get updated IDs
+      // Refresh categories to get updated IDs and budgets
       const updatedCategories = await getTransactionCategories();
       setCategories(updatedCategories.categories || []);
+      
+      // Update allCategoryBudgets map with the new budget
+      setAllCategoryBudgets(prev => {
+        const updated = { ...prev };
+        if (budgetAmount > 0) {
+          updated[categoryName] = budgetAmount;
+        } else {
+          delete updated[categoryName];
+        }
+        return updated;
+      });
       
       // Update original budget to reflect saved value
       setOriginalBudgets(prev => ({
@@ -306,13 +327,13 @@ function SetupBudget({ onBudgetSaved }) {
           <div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Total Budget Set</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {Object.values(budgets).reduce((sum, budget) => sum + (budget || 0), 0).toLocaleString('es-ES')}€
+              {Object.values(allCategoryBudgets).reduce((sum, budget) => sum + (budget || 0), 0).toLocaleString('es-ES')}€
             </div>
           </div>
           <div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Categories with Budget</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {Object.values(budgets).filter(b => b > 0).length}
+              {Object.values(allCategoryBudgets).filter(b => b > 0).length}
             </div>
           </div>
           <div>
