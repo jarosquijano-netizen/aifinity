@@ -13,6 +13,7 @@ function SetupBudget({ onBudgetSaved }) {
   const [saving, setSaving] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [budgets, setBudgets] = useState({});
+  const [originalBudgets, setOriginalBudgets] = useState({}); // Track original values for comparison
   const [errors, setErrors] = useState({});
   const [successMessages, setSuccessMessages] = useState({});
 
@@ -38,10 +39,14 @@ function SetupBudget({ onBudgetSaved }) {
       
       // Initialize budgets from suggestions (which include currentBudget)
       const budgetsMap = {};
+      const originalBudgetsMap = {};
       suggestionsData.suggestions?.forEach(item => {
-        budgetsMap[item.category] = item.currentBudget || 0;
+        const budgetValue = item.currentBudget || 0;
+        budgetsMap[item.category] = budgetValue;
+        originalBudgetsMap[item.category] = budgetValue; // Store original for comparison
       });
       setBudgets(budgetsMap);
+      setOriginalBudgets(originalBudgetsMap);
       
       // Also fetch existing budget categories to get IDs
       try {
@@ -107,6 +112,12 @@ function SetupBudget({ onBudgetSaved }) {
       // Refresh categories to get updated IDs
       const updatedCategories = await getTransactionCategories();
       setCategories(updatedCategories.categories || []);
+      
+      // Update original budget to reflect saved value
+      setOriginalBudgets(prev => ({
+        ...prev,
+        [categoryName]: budgetAmount
+      }));
       
       // Notify parent component to refresh overview
       if (onBudgetSaved) {

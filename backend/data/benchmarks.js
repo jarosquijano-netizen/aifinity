@@ -81,6 +81,45 @@ const SPENDING_BENCHMARKS = {
     family2: { min: 0, avg: 150, max: 400 },
     family3: { min: 0, avg: 200, max: 500 },
     family4: { min: 0, avg: 250, max: 600 }
+  },
+  'Compras > Ropa': {
+    family1: { min: 50, avg: 100, max: 200 },
+    family2: { min: 80, avg: 150, max: 300 },
+    family3: { min: 100, avg: 200, max: 400 },
+    family4: { min: 120, avg: 250, max: 500 },
+    percentOfIncome: { min: 3, avg: 5, max: 8 }
+  },
+  'Compras > Otras compras': {
+    family1: { min: 50, avg: 100, max: 200 },
+    family2: { min: 80, avg: 150, max: 300 },
+    family3: { min: 100, avg: 200, max: 400 },
+    family4: { min: 120, avg: 250, max: 500 },
+    percentOfIncome: { min: 3, avg: 5, max: 8 }
+  },
+  'Deporte > Deporte': {
+    family1: { min: 30, avg: 60, max: 120 },
+    family2: { min: 50, avg: 100, max: 200 },
+    family3: { min: 70, avg: 140, max: 280 },
+    family4: { min: 90, avg: 180, max: 360 }
+  },
+  'Educación > Estudios': {
+    family1: { min: 0, avg: 50, max: 200 },
+    family2: { min: 0, avg: 100, max: 400 },
+    family3: { min: 0, avg: 150, max: 600 },
+    family4: { min: 0, avg: 200, max: 800 },
+    percentOfIncome: { min: 0, avg: 5, max: 10 }
+  },
+  'Educación > Librería': {
+    family1: { min: 10, avg: 30, max: 60 },
+    family2: { min: 20, avg: 50, max: 100 },
+    family3: { min: 30, avg: 70, max: 140 },
+    family4: { min: 40, avg: 90, max: 180 }
+  },
+  'Entretenimiento': {
+    family1: { min: 50, avg: 100, max: 200 },
+    family2: { min: 80, avg: 150, max: 300 },
+    family3: { min: 100, avg: 200, max: 400 },
+    family4: { min: 120, avg: 250, max: 500 }
   }
 };
 
@@ -114,14 +153,69 @@ export function getCategoryBenchmark(category, userProfile) {
 }
 
 /**
- * Get benchmark value for a category
+ * Get benchmark value for a category with fallback matching
  * @param {string} category - Category name
  * @param {number} familySize - Family size
  * @returns {object} Benchmark object with min, avg, max
  */
 export function getBenchmark(category, familySize = 1) {
-  const benchmark = SPENDING_BENCHMARKS[category];
-  if (!benchmark) return { min: 0, avg: 0, max: 0 };
+  // Try exact match first
+  let benchmark = SPENDING_BENCHMARKS[category];
+  
+  if (!benchmark && category.includes(' > ')) {
+    // Try matching by group (e.g., "Compras > Ropa" -> "Compras > Compras")
+    const [group, subcategory] = category.split(' > ');
+    
+    // Try group + generic subcategory
+    const groupGeneric = `${group} > Compras`;
+    if (SPENDING_BENCHMARKS[groupGeneric]) {
+      benchmark = SPENDING_BENCHMARKS[groupGeneric];
+    }
+    
+    // Try matching subcategory to known patterns
+    if (!benchmark) {
+      // Map common subcategories to known benchmarks
+      const subcategoryMap = {
+        'Ropa': 'Compras > Compras',
+        'Otras compras': 'Compras > Compras',
+        'Deporte': 'Ocio > Entretenimiento',
+        'Estudios': 'Educación > Estudios',
+        'Librería': 'Educación > Librería'
+      };
+      
+      if (subcategoryMap[subcategory]) {
+        benchmark = SPENDING_BENCHMARKS[subcategoryMap[subcategory]];
+      }
+    }
+    
+    // Try matching by group only (e.g., "Compras > X" -> "Compras > Compras")
+    if (!benchmark) {
+      for (const [key, value] of Object.entries(SPENDING_BENCHMARKS)) {
+        if (key.startsWith(`${group} > `)) {
+          benchmark = value;
+          break;
+        }
+      }
+    }
+  } else if (!benchmark) {
+    // Try matching without hierarchy (e.g., "Entretenimiento" -> "Ocio > Entretenimiento")
+    for (const [key, value] of Object.entries(SPENDING_BENCHMARKS)) {
+      if (key.includes(`> ${category}`) || key === category) {
+        benchmark = value;
+        break;
+      }
+    }
+  }
+  
+  if (!benchmark) {
+    // Default fallback: use "Compras > Compras" as generic benchmark
+    benchmark = SPENDING_BENCHMARKS['Compras > Compras'] || { 
+      family1: { min: 50, avg: 100, max: 200 },
+      family2: { min: 80, avg: 150, max: 300 },
+      family3: { min: 100, avg: 200, max: 400 },
+      family4: { min: 120, avg: 250, max: 500 }
+    };
+  }
   
   const familyKey = `family${familySize}`;
   return benchmark[familyKey] || { min: 0, avg: 0, max: 0 };
