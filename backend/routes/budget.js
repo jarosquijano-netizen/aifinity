@@ -113,6 +113,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
     const targetMonth = month || new Date().toISOString().slice(0, 7);
     
     // Get ALL transaction categories (not just budget categories)
+    // Include "Finanzas > Transferencias" even if computable = false (for review)
     let allTransactionCategories;
     if (userId) {
       allTransactionCategories = await pool.query(
@@ -247,6 +248,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
     }
     
     // Get transfers separately (not counted in total but shown for review)
+    // Include both old "Transferencias" and new "Finanzas > Transferencias"
     let transfersResult;
     if (userId) {
       // User is logged in - get their transfers
@@ -260,8 +262,8 @@ router.get('/overview', optionalAuth, async (req, res) => {
          AND (t.account_id IS NULL OR ba.id IS NOT NULL)
          AND TO_CHAR(t.date, 'YYYY-MM') = $2
          AND t.type = 'expense'
-         AND t.computable = false
-         AND t.category = 'Transferencias'`,
+         AND (t.computable = false OR t.category IN ('Transferencias', 'Finanzas > Transferencias'))
+         AND t.category IN ('Transferencias', 'Finanzas > Transferencias')`,
         [userId, targetMonth]
       );
     } else {
@@ -276,8 +278,8 @@ router.get('/overview', optionalAuth, async (req, res) => {
          AND (t.account_id IS NULL OR ba.id IS NOT NULL)
          AND TO_CHAR(t.date, 'YYYY-MM') = $1
          AND t.type = 'expense'
-         AND t.computable = false
-         AND t.category = 'Transferencias'`,
+         AND (t.computable = false OR t.category IN ('Transferencias', 'Finanzas > Transferencias'))
+         AND t.category IN ('Transferencias', 'Finanzas > Transferencias')`,
         [targetMonth]
       );
     }
@@ -314,11 +316,36 @@ router.get('/overview', optionalAuth, async (req, res) => {
         hasBudget: categoryInfo.hasBudget
       };
     }).sort((a, b) => {
-      // Sort by status priority: over > warning > ok > no_budget
+      // Categories that should always go to the bottom
+      const bottomCategories = [
+        'Finanzas > Transferencias',
+        'Transferencias',
+        'Servicios > Cargos bancarios',
+        'Cargos bancarios',
+        'Otros > Sin categoría',
+        'Sin categoría',
+        'Uncategorized'
+      ].map(c => c.toLowerCase());
+      
+      const isABottom = bottomCategories.includes(a.name.toLowerCase());
+      const isBBottom = bottomCategories.includes(b.name.toLowerCase());
+      
+      // If one is bottom category and the other isn't, bottom goes last
+      if (isABottom && !isBBottom) return 1;
+      if (!isABottom && isBBottom) return -1;
+      
+      // If both are bottom categories, sort alphabetically
+      if (isABottom && isBBottom) {
+        return a.name.localeCompare(b.name);
+      }
+      
+      // For non-bottom categories, apply priority sorting
+      // Priority order: over > warning > ok > no_budget
       const statusPriority = { 'over': 0, 'warning': 1, 'ok': 2, 'no_budget': 3, 'transfer': 4 };
       const priorityA = statusPriority[a.status] ?? 5;
       const priorityB = statusPriority[b.status] ?? 5;
       
+      // First, sort by status priority
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
@@ -338,21 +365,30 @@ router.get('/overview', optionalAuth, async (req, res) => {
     });
     
     // Add transfers as a separate entry (not counted in totals)
+    // Check for both old "Transferencias" and new "Finanzas > Transferencias"
     const transfersData = transfersResult.rows[0];
     const transfersSpent = parseFloat(transfersData?.total_spent || 0);
     const transfersCount = parseInt(transfersData?.transaction_count || 0);
     
-    if (transfersCount > 0) {
+    // Also check for "Finanzas > Transferencias" in spending
+    const finanzasTransferenciasSpent = spendingMap['Finanzas > Transferencias']?.spent || 0;
+    const finanzasTransferenciasCount = spendingMap['Finanzas > Transferencias']?.count || 0;
+    
+    const totalTransfersSpent = transfersSpent + finanzasTransferenciasSpent;
+    const totalTransfersCount = transfersCount + finanzasTransferenciasCount;
+    
+    if (totalTransfersCount > 0) {
       overview.push({
         id: 'transfers',
-        name: 'Transferencias',
+        name: 'Finanzas > Transferencias',
         budget: 0,
-        spent: transfersSpent,
-        remaining: -transfersSpent,
+        spent: totalTransfersSpent,
+        remaining: -totalTransfersSpent,
         percentage: 0,
-        transactionCount: transfersCount,
+        transactionCount: totalTransfersCount,
         status: 'transfer',
         isTransfer: true,
+        hasBudget: false,
         note: 'No incluidas en el total (revisar si son gastos reales)'
       });
     }

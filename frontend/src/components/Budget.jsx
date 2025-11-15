@@ -218,9 +218,12 @@ function Budget({ onNavigateToTransactions }) {
                 ?.sort((a, b) => {
                   // Categories that should always go to the bottom
                   const bottomCategories = [
-                    'Cargos bancarios',
+                    'Finanzas > Transferencias',
                     'Transferencias',
                     'Transferencia',
+                    'Servicios > Cargos bancarios',
+                    'Cargos bancarios',
+                    'Otros > Sin categoría',
                     'Sin categoría',
                     'Uncategorized'
                   ].map(c => c.toLowerCase());
