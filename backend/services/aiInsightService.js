@@ -39,6 +39,7 @@ class AIInsightService {
         ...categoryData,
         familySize: userProfile?.familySize || 1,
         monthlyIncome: userProfile?.monthlyIncome || 3000,
+        ages: userProfile?.ages || [],
         averageTransaction: categoryData.spent / (categoryData.transactionCount || 1),
         remaining: (categoryData.budget || 0) - categoryData.spent
       };
@@ -138,6 +139,7 @@ class AIInsightService {
    */
   buildInsightPrompt(categoryData, userProfile) {
     const benchmark = getCategoryBenchmark(categoryData.category, userProfile);
+    const ageContext = this.getAgeContext(userProfile?.ages || []);
     
     return `You are a financial advisor analyzing spending patterns. Provide a brief, actionable insight (2-3 sentences max) for this budget category.
 
@@ -153,6 +155,7 @@ USER CONTEXT:
 - Monthly income: ${userProfile?.monthlyIncome || 'Not specified'}€
 - Location: ${userProfile?.location || 'Spain'}
 - Previous month spending in this category: ${categoryData.previousMonth || 'N/A'}€
+${ageContext}
 
 INDUSTRY BENCHMARKS:
 ${benchmark}
@@ -161,9 +164,42 @@ Provide insight that:
 1. Compares to benchmarks/averages
 2. Identifies if this is normal, concerning, or excellent
 3. Gives ONE specific, actionable recommendation
-4. Considers their income/family context
+4. Considers their income/family context${ageContext ? ' AND ages (e.g., expenses for a 4-year-old vs 15-year-old differ significantly)' : ''}
+${ageContext ? '5. Specifically consider age-related expenses (children\'s clothing, activities, education costs vary by age)' : ''}
 
 Format: Direct, friendly tone. Max 150 characters for mobile display. Include emoji at start.`;
+  }
+  
+  /**
+   * Get age context string for prompt
+   */
+  getAgeContext(ages) {
+    if (!ages || ages.length === 0) return '';
+    
+    const validAges = ages.filter(age => age !== null && age !== undefined);
+    if (validAges.length === 0) return '';
+    
+    // Categorize ages
+    const babies = validAges.filter(a => a < 3).length;
+    const toddlers = validAges.filter(a => a >= 3 && a < 6).length;
+    const children = validAges.filter(a => a >= 6 && a < 13).length;
+    const teens = validAges.filter(a => a >= 13 && a < 18).length;
+    const adults = validAges.filter(a => a >= 18).length;
+    
+    let context = '- Family ages: ';
+    const parts = [];
+    if (babies > 0) parts.push(`${babies} baby/babies (0-2)`);
+    if (toddlers > 0) parts.push(`${toddlers} toddler(s) (3-5)`);
+    if (children > 0) parts.push(`${children} child/children (6-12)`);
+    if (teens > 0) parts.push(`${teens} teen(s) (13-17)`);
+    if (adults > 0) parts.push(`${adults} adult(s) (18+)`);
+    
+    if (parts.length === 0) return '';
+    
+    context += parts.join(', ');
+    context += `\n- Age breakdown matters: Expenses differ significantly by age (e.g., a 4-year-old needs different clothing/activities than a 15-year-old)`;
+    
+    return context;
   }
 
   /**
