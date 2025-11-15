@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { optionalAuth } from '../middleware/auth.js';
 import aiInsightService from '../services/aiInsightService.js';
+import aiBudgetSuggestionService from '../services/aiBudgetSuggestionService.js';
 import { getCategoryBenchmark, getBenchmark } from '../data/benchmarks.js';
 
 const router = express.Router();
