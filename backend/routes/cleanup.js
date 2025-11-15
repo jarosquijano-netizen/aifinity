@@ -4,6 +4,7 @@ import runCategoryMappingMigration from '../migrations/category-mapping-migratio
 import cleanupUnusedBudgetCategories from '../migrations/cleanup-unused-budget-categories.js';
 import finalizeCategoryCleanup from '../migrations/finalize-category-cleanup.js';
 import renameHotelToVacation from '../migrations/rename-hotel-to-vacation.js';
+import recategorizeTransactions from '../migrations/recategorize-to-hierarchical.js';
 
 const router = express.Router();
 
@@ -197,6 +198,24 @@ router.post('/rename-hotel-to-vacation', async (req, res) => {
     console.error('❌ Error renaming Hotel to Vacation:', error);
     res.status(500).json({
       error: 'Failed to rename Hotel to Vacation',
+      details: error.message
+    });
+  }
+});
+
+router.post('/recategorize-to-hierarchical', async (req, res) => {
+  try {
+    console.log('🔄 Running recategorization to hierarchical format...');
+    const result = await recategorizeTransactions();
+    res.json({
+      success: true,
+      message: 'Transactions recategorized to hierarchical format',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error recategorizing transactions:', error);
+    res.status(500).json({
+      error: 'Failed to recategorize transactions',
       details: error.message
     });
   }

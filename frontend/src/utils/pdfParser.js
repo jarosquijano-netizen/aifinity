@@ -412,7 +412,7 @@ function categorizeTransaction(description) {
       descLower.includes('guissona') || descLower.includes('froiz') ||
       descLower.includes('gadis') || descLower.includes('eroski') ||
       descLower.includes('hiper garraf') || descLower.includes('alimentacio')) {
-    return 'Groceries';
+    return 'Alimentación > Supermercado';
   }
   
   // === RESTAURANTS & FOOD ===
@@ -427,37 +427,55 @@ function categorizeTransaction(description) {
       descLower.includes('panaderia') || descLower.includes('carnisseria') ||
       descLower.includes('tapa') || descLower.includes('cerveceria') ||
       descLower.includes('pizzeria') || descLower.includes('hamburgues')) {
-    return 'Food & Dining';
+    return 'Alimentación > Restaurante';
   }
   
   // === TRANSPORT & GAS ===
-  if (descLower.includes('transport') || descLower.includes('transporte') ||
-      descLower.includes('gas') || descLower.includes('gasolina') ||
+  if (descLower.includes('gas') || descLower.includes('gasolina') ||
       descLower.includes('petrol') || descLower.includes('repsol') ||
       descLower.includes('cepsa') || descLower.includes('bp ') ||
-      descLower.includes('galp') || descLower.includes('shell') ||
+      descLower.includes('galp') || descLower.includes('shell')) {
+    return 'Transporte > Gasolina';
+  }
+  
+  if (descLower.includes('parking') || descLower.includes('peaje') ||
+      descLower.includes('autopista') || descLower.includes('aparcament') ||
+      descLower.includes('estacionamiento')) {
+    return 'Transporte > Parking y peaje';
+  }
+  
+  if (descLower.includes('transport') || descLower.includes('transporte') ||
       descLower.includes('uber') || descLower.includes('cabify') ||
       descLower.includes('taxi') || descLower.includes('metro') ||
       descLower.includes('renfe') || descLower.includes('fgc') ||
-      descLower.includes('tmb') || descLower.includes('parking') ||
-      descLower.includes('peaje') || descLower.includes('autopista') ||
-      descLower.includes('aparcament') || descLower.includes('estacionamiento')) {
-    return 'Transport';
+      descLower.includes('tmb')) {
+    return 'Transporte > Transportes';
   }
   
   // === SHOPPING & RETAIL ===
+  if (descLower.includes('zara') || descLower.includes('h&m') ||
+      descLower.includes('mango') || descLower.includes('pull&bear') ||
+      descLower.includes('bershka') || descLower.includes('stradivarius') ||
+      descLower.includes('massimo dutti') || descLower.includes('primark')) {
+    return 'Compras > Ropa';
+  }
+  
+  if (descLower.includes('decathlon') || descLower.includes('sport') ||
+      descLower.includes('gimnasio') || descLower.includes('gym') ||
+      descLower.includes('fitness') || descLower.includes('club deportivo') ||
+      descLower.includes('piscina') || descLower.includes('yoga') ||
+      descLower.includes('pilates') || descLower.includes('crossfit')) {
+    return 'Deporte > Deporte';
+  }
+  
   if (descLower.includes('amazon') || descLower.includes('aliexpress') ||
       descLower.includes('ebay') || descLower.includes('shop') ||
       descLower.includes('tienda') || descLower.includes('store') ||
-      descLower.includes('zara') || descLower.includes('h&m') ||
-      descLower.includes('mango') || descLower.includes('pull&bear') ||
-      descLower.includes('bershka') || descLower.includes('stradivarius') ||
-      descLower.includes('massimo dutti') || descLower.includes('primark') ||
-      descLower.includes('decathlon') || descLower.includes('ikea') ||
-      descLower.includes('leroy merlin') || descLower.includes('media markt') ||
-      descLower.includes('mediamarkt') || descLower.includes('fnac') ||
-      descLower.includes('worten') || descLower.includes('compra tarj')) {
-    return 'Shopping';
+      descLower.includes('ikea') || descLower.includes('leroy merlin') ||
+      descLower.includes('media markt') || descLower.includes('mediamarkt') ||
+      descLower.includes('fnac') || descLower.includes('worten') ||
+      descLower.includes('compra tarj')) {
+    return 'Compras > Compras';
   }
   
   // === ONLINE SERVICES & SUBSCRIPTIONS ===
@@ -469,58 +487,103 @@ function categorizeTransaction(description) {
       descLower.includes('openai') || descLower.includes('notion') ||
       descLower.includes('canva') || descLower.includes('adobe') ||
       descLower.includes('microsoft 365') || descLower.includes('office 365')) {
-    return 'Subscriptions';
+    return 'Servicios > Servicios y productos online';
   }
   
   // === UTILITIES & BILLS ===
-  if (descLower.includes('electric') || descLower.includes('electrica') ||
-      descLower.includes('endesa') || descLower.includes('iberdrola') ||
-      descLower.includes('naturgy') || descLower.includes('fenosa') ||
-      descLower.includes('water') || descLower.includes('agua') ||
-      descLower.includes('aigues') || descLower.includes('internet') ||
-      descLower.includes('phone') || descLower.includes('telefono') ||
+  if (descLower.includes('internet') || descLower.includes('fibra') ||
+      descLower.includes('wifi')) {
+    return 'Servicios > Internet';
+  }
+  
+  if (descLower.includes('phone') || descLower.includes('telefono') ||
       descLower.includes('movistar') || descLower.includes('vodafone') ||
       descLower.includes('orange') || descLower.includes('yoigo') ||
       descLower.includes('jazztel') || descLower.includes('masmovil') ||
-      descLower.includes('fibra') || descLower.includes('gas natural') ||
-      descLower.includes('suministro')) {
-    return 'Utilities';
+      descLower.includes('móvil')) {
+    return 'Servicios > Móvil';
+  }
+  
+  if (descLower.includes('television') || descLower.includes('televisión') ||
+      descLower.includes('tv') || descLower.includes('canal+')) {
+    return 'Servicios > Televisión';
+  }
+  
+  if (descLower.includes('electric') || descLower.includes('electrica') ||
+      descLower.includes('endesa') || descLower.includes('iberdrola') ||
+      descLower.includes('naturgy') || descLower.includes('fenosa')) {
+    return 'Servicios > Electricidad';
   }
   
   // === RENT & HOUSING ===
+  if (descLower.includes('hipoteca') || descLower.includes('mortgage')) {
+    return 'Vivienda > Hipoteca';
+  }
+  
+  if (descLower.includes('comunidad') || descLower.includes('community')) {
+    return 'Vivienda > Comunidad';
+  }
+  
   if (descLower.includes('rent') || descLower.includes('alquiler') ||
-      descLower.includes('landlord') || descLower.includes('arrendamiento') ||
-      descLower.includes('comunidad') || descLower.includes('hipoteca') ||
-      descLower.includes('mortgage') || descLower.includes('vivienda')) {
-    return 'Housing';
+      descLower.includes('landlord') || descLower.includes('arrendamiento')) {
+    return 'Vivienda > Alquiler y compra';
+  }
+  
+  if (descLower.includes('mantenimiento') && (descLower.includes('hogar') || descLower.includes('casa'))) {
+    return 'Vivienda > Mantenimiento hogar';
+  }
+  
+  if (descLower.includes('vivienda') || descLower.includes('hogar') ||
+      descLower.includes('casa') || descLower.includes('home')) {
+    return 'Vivienda > Hogar';
   }
   
   // === INSURANCE ===
-  if (descLower.includes('seguro') || descLower.includes('insurance') ||
-      descLower.includes('sanitas') || descLower.includes('adeslas') ||
-      descLower.includes('asisa') || descLower.includes('mutua') ||
-      descLower.includes('mapfre') || descLower.includes('axa') ||
-      descLower.includes('allianz') || descLower.includes('generali')) {
-    return 'Insurance';
+  if (descLower.includes('seguro')) {
+    if (descLower.includes('auto') || descLower.includes('coche') || descLower.includes('vehiculo')) {
+      return 'Seguros > Seguro auto';
+    } else if (descLower.includes('salud') || descLower.includes('health') ||
+               descLower.includes('sanitas') || descLower.includes('adeslas')) {
+      return 'Seguros > Seguro salud';
+    } else if (descLower.includes('hogar') || descLower.includes('home') || descLower.includes('casa')) {
+      return 'Seguros > Seguro hogar';
+    }
+    return 'Seguros > Seguro salud'; // Default
+  }
+  
+  if (descLower.includes('insurance') || descLower.includes('sanitas') ||
+      descLower.includes('adeslas') || descLower.includes('asisa') ||
+      descLower.includes('mutua') || descLower.includes('mapfre') ||
+      descLower.includes('axa') || descLower.includes('allianz') ||
+      descLower.includes('generali')) {
+    return 'Seguros > Seguro salud';
   }
   
   // === HEALTHCARE & PHARMACY ===
   if (descLower.includes('pharmacy') || descLower.includes('farmacia') ||
-      descLower.includes('hospital') || descLower.includes('doctor') ||
+      descLower.includes('rossmann') || descLower.includes('drogueria')) {
+    return 'Salud > Farmacia';
+  }
+  
+  if (descLower.includes('hospital') || descLower.includes('doctor') ||
       descLower.includes('medico') || descLower.includes('clinica') ||
       descLower.includes('medical') || descLower.includes('dentist') ||
-      descLower.includes('dentista') || descLower.includes('optica') ||
-      descLower.includes('rossmann') || descLower.includes('drogueria')) {
-    return 'Healthcare';
+      descLower.includes('dentista') || descLower.includes('optica')) {
+    return 'Salud > Médico';
   }
   
   // === EDUCATION ===
+  if (descLower.includes('libreria') || descLower.includes('librería') ||
+      descLower.includes('bookstore') || descLower.includes('casa del libro')) {
+    return 'Educación > Librería';
+  }
+  
   if (descLower.includes('escuela') || descLower.includes('escola') ||
       descLower.includes('colegio') || descLower.includes('universidad') ||
       descLower.includes('universitat') || descLower.includes('estudios') ||
       descLower.includes('education') || descLower.includes('academy') ||
       descLower.includes('academia') || descLower.includes('curso')) {
-    return 'Education';
+    return 'Educación > Estudios';
   }
   
   // === ENTERTAINMENT & LEISURE ===
@@ -529,23 +592,34 @@ function categorizeTransaction(description) {
       descLower.includes('teatre') || descLower.includes('museum') ||
       descLower.includes('museo') || descLower.includes('concert') ||
       descLower.includes('concierto') || descLower.includes('entrada') ||
-      descLower.includes('ticket') || descLower.includes('ocio') ||
-      descLower.includes('parque') || descLower.includes('zoo')) {
-    return 'Entertainment';
+      descLower.includes('ticket') || descLower.includes('espectaculo')) {
+    return 'Ocio > Espectáculos';
+  }
+  
+  if (descLower.includes('hotel') || descLower.includes('resort') ||
+      descLower.includes('vacation') || descLower.includes('vacaciones') ||
+      descLower.includes('viaje') || descLower.includes('travel') ||
+      descLower.includes('vuelo') || descLower.includes('flight')) {
+    return 'Ocio > Vacation';
+  }
+  
+  if (descLower.includes('ocio') || descLower.includes('parque') ||
+      descLower.includes('zoo') || descLower.includes('entretenimiento')) {
+    return 'Ocio > Entretenimiento';
   }
   
   // === BANK FEES & CHARGES ===
   if (descLower.includes('comision') || descLower.includes('comisión') ||
       descLower.includes('bank fee') || descLower.includes('cargo banco') ||
       descLower.includes('mantenimiento') || descLower.includes('tarjeta anual')) {
-    return 'Bank Fees';
+    return 'Servicios > Cargos bancarios';
   }
   
   // === TAXES ===
   if (descLower.includes('impuesto') || descLower.includes('hacienda') ||
       descLower.includes('tax') || descLower.includes('iva') ||
       descLower.includes('agencia tributaria') || descLower.includes('ajuntament')) {
-    return 'Taxes';
+    return 'Organismos > Impuestos';
   }
   
   // === LOANS & FINANCING ===
@@ -553,31 +627,30 @@ function categorizeTransaction(description) {
       descLower.includes('loan') || descLower.includes('financiera') ||
       descLower.includes('cetelem') || descLower.includes('credito') ||
       descLower.includes('crédito') || descLower.includes('cuota')) {
-    return 'Loans';
+    return 'Finanzas > Préstamos';
   }
   
   // === TRANSFERS (should be excluded from budget) ===
   if (descLower.includes('transferencia') || descLower.includes('transfer') ||
-      descLower.includes('traspaso') || descLower.includes('ingreso') ||
-      descLower.includes('reintegro')) {
-    return 'Transferencias';
+      descLower.includes('traspaso') || descLower.includes('bizum')) {
+    return 'Finanzas > Transferencias';
   }
   
   // === CASH WITHDRAWALS ===
   if (descLower.includes('cajero') || descLower.includes('atm') ||
       descLower.includes('efectivo') || descLower.includes('cash') ||
-      descLower.includes('retirada')) {
-    return 'Cash';
+      descLower.includes('retirada') || descLower.includes('reintegro')) {
+    return 'Finanzas > Efectivo';
   }
   
   // === FINTECH & DIGITAL WALLETS ===
   if (descLower.includes('revolut') || descLower.includes('n26') ||
-      descLower.includes('paypal') || descLower.includes('bizum') ||
-      descLower.includes('verse') || descLower.includes('wise')) {
-    return 'Digital Payments';
+      descLower.includes('paypal') || descLower.includes('verse') ||
+      descLower.includes('wise')) {
+    return 'Finanzas > Transferencias';
   }
   
-  return 'Other';
+  return 'Otros > Otros';
 }
 
 /**
