@@ -3,6 +3,7 @@ import pool from '../config/database.js';
 import runCategoryMappingMigration from '../migrations/category-mapping-migration.js';
 import cleanupUnusedBudgetCategories from '../migrations/cleanup-unused-budget-categories.js';
 import finalizeCategoryCleanup from '../migrations/finalize-category-cleanup.js';
+import renameHotelToVacation from '../migrations/rename-hotel-to-vacation.js';
 
 const router = express.Router();
 
@@ -178,6 +179,24 @@ router.post('/finalize', async (req, res) => {
     console.error('❌ Error during final cleanup:', error);
     res.status(500).json({
       error: 'Failed to finalize category cleanup',
+      details: error.message
+    });
+  }
+});
+
+router.post('/rename-hotel-to-vacation', async (req, res) => {
+  try {
+    console.log('🔄 Running Hotel to Vacation rename migration...');
+    const result = await renameHotelToVacation();
+    res.json({
+      success: true,
+      message: 'Hotel category renamed to Vacation',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error renaming Hotel to Vacation:', error);
+    res.status(500).json({
+      error: 'Failed to rename Hotel to Vacation',
       details: error.message
     });
   }

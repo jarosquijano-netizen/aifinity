@@ -39,7 +39,7 @@ import {
   Tv,
   Fuel,
   Wrench,
-  Hotel as HotelIcon,
+  Plane as VacationIcon,
   Ticket,
   Baby,
   Building,
@@ -116,7 +116,8 @@ export const getCategoryIcon = (category) => {
     // Ocio y entretenimiento
     'Entretenimiento': Film,
     'Espectáculos': Ticket,
-    'Hotel': HotelIcon,
+    'Vacation': VacationIcon,
+    'Ocio > Vacation': VacationIcon,
     'Otros ocio': Music,
     'Loterías': DollarSign,
     
@@ -223,7 +224,8 @@ export const getAllCategoriesWithIcons = () => {
     // Ocio y entretenimiento
     { name: 'Entretenimiento', icon: Film, group: 'Ocio' },
     { name: 'Espectáculos', icon: Ticket, group: 'Ocio' },
-    { name: 'Hotel', icon: HotelIcon, group: 'Ocio' },
+    { name: 'Vacation', icon: VacationIcon, group: 'Ocio' },
+    { name: 'Ocio > Vacation', icon: VacationIcon, group: 'Ocio' },
     { name: 'Otros ocio', icon: Music, group: 'Ocio' },
     { name: 'Loterías', icon: DollarSign, group: 'Ocio' },
     

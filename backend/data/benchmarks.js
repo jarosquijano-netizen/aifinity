@@ -76,7 +76,7 @@ const SPENDING_BENCHMARKS = {
     family3: { min: 100, avg: 200, max: 400 },
     family4: { min: 120, avg: 250, max: 500 }
   },
-  'Ocio > Hotel': {
+  'Ocio > Vacation': {
     family1: { min: 0, avg: 100, max: 300 },
     family2: { min: 0, avg: 150, max: 400 },
     family3: { min: 0, avg: 200, max: 500 },

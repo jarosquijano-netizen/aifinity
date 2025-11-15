@@ -69,7 +69,7 @@ const CATEGORY_MAPPING = {
   "Entretenimiento": "Ocio > Entretenimiento",
   "Otros ocio": "Ocio > Otros ocio",
   "Espectáculos": "Ocio > Espectáculos",
-  "Hotel": "Ocio > Hotel",
+  "Hotel": "Ocio > Vacation",
   "Loterías": "Ocio > Loterías",
 
   // ========== EDUCACIÓN ==========

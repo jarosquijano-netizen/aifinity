@@ -53,7 +53,7 @@ const INSIGHT_TEMPLATES = {
       const recommended = getBenchmark(data.category, data.familySize).avg;
       return `⚠️ No budget set. You've spent ${data.spent.toFixed(2)}€. For a family of ${data.familySize}, typical range is ${recommended}€/month. Set a budget now.`;
     },
-    'Ocio > Hotel': (data) => {
+    'Ocio > Vacation': (data) => {
       return `⚠️ ${data.spent.toFixed(2)}€ spent on travel with no budget. If you travel quarterly, budget ~${(data.spent * 4 / 12).toFixed(0)}€/month or ${(data.spent * 4).toFixed(0)}€/year.`;
     },
     generic: (data) => {

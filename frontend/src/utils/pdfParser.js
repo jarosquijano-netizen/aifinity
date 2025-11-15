@@ -2371,7 +2371,7 @@ function categorizeCreditCardTransaction(description, isRefund) {
   }
   
   // Travel
-  if (descLower.includes('hotel') || descLower.includes('airbnb') ||
+      if (descLower.includes('hotel') || descLower.includes('airbnb') || descLower.includes('vacation') || descLower.includes('vacaciones') ||
       descLower.includes('booking') || descLower.includes('flight')) {
     return 'Viajes';
   }

@@ -60,7 +60,8 @@ export const getCategoryColor = (category) => {
     // Ocio y entretenimiento
     'Entretenimiento': 'badge-cyan',
     'Espectáculos': 'badge-purple',
-    'Hotel': 'badge-blue',
+    'Vacation': 'badge-blue',
+    'Ocio > Vacation': 'badge-blue',
     'Otros ocio': 'badge-cyan',
     'Loterías': 'badge-amber',
     

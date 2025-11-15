@@ -41,7 +41,7 @@ const NON_EXPENSE_CATEGORIES = [
 
 const BUDGETS_TO_ADD_OR_UPDATE = {
   'Compras > Ropa': 450.00,
-  'Ocio > Hotel': 500.00,
+  'Ocio > Vacation': 500.00,
   'Educación > Librería': 20.00,
   'Servicios > Cargos bancarios': 15.00,
   'Otros > Otros': 100.00,
