@@ -1076,13 +1076,22 @@ router.get('/overview', optionalAuth, async (req, res) => {
     }
     
     // Calculate totals (excluding transfers and NC category)
-    // Total Spent = sum of all "Spent" values shown in the Budget table
-    const totalBudget = overview
-      .filter(cat => !cat.isTransfer && cat.name !== 'NC' && cat.name !== 'nc')
-      .reduce((sum, cat) => sum + cat.budget, 0);
-    const totalSpent = overview
-      .filter(cat => !cat.isTransfer && cat.name !== 'NC' && cat.name !== 'nc')
-      .reduce((sum, cat) => sum + cat.spent, 0);
+    // CRITICAL: Calculate totals directly from spendingMap and budgetMap to avoid double-counting
+    // Total Budget = sum of all budget amounts from categories table
+    const totalBudget = Object.values(budgetMap).reduce((sum, cat) => {
+      // Exclude transfers and non-computable categories
+      if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
+          cat.name === 'NC' || cat.name === 'nc') {
+        return sum;
+      }
+      return sum + parseFloat(cat.budget_amount || 0);
+    }, 0);
+    
+    // Total Spent = sum of all spending from spendingMap (already deduplicated)
+    const totalSpent = Object.values(spendingMap).reduce((sum, spending) => {
+      return sum + (spending.spent || 0);
+    }, 0);
+    
     const totalRemaining = totalBudget - totalSpent;
     
     res.json({
