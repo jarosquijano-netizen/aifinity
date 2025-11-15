@@ -122,7 +122,7 @@ function Budget({ onNavigateToTransactions }) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Budget</span>
@@ -141,6 +141,37 @@ function Budget({ onNavigateToTransactions }) {
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Spent / Budget</span>
+            {data?.totals?.percentage >= 100 ? (
+              <AlertCircle className="w-4 h-4 text-danger" />
+            ) : data?.totals?.percentage >= 90 ? (
+              <AlertCircle className="w-4 h-4 text-orange-500" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-success" />
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className={`text-xl font-bold ${
+              data?.totals?.percentage >= 100 ? 'text-danger' :
+              data?.totals?.percentage >= 90 ? 'text-orange-500' :
+              'text-success'
+            }`}>
+              {formatCurrency(data?.totals?.spent || 0)} / {formatCurrency(data?.totals?.budget || 0)}
+            </p>
+            <p className={`text-xs font-medium ${
+              data?.totals?.percentage >= 100 ? 'text-danger' :
+              data?.totals?.percentage >= 90 ? 'text-orange-500' :
+              'text-success'
+            }`}>
+              {data?.totals?.percentage >= 100 ? 'Over Budget' :
+               data?.totals?.percentage >= 90 ? 'Near Limit' :
+               'On Track'}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Remaining</span>
             <TrendingUp className="w-4 h-4 text-success" />
           </div>
@@ -154,7 +185,11 @@ function Budget({ onNavigateToTransactions }) {
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Usage</span>
             <TrendingUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <p className={`text-2xl font-bold ${
+            data?.totals?.percentage >= 100 ? 'text-danger' :
+            data?.totals?.percentage >= 90 ? 'text-orange-500' :
+            'text-success'
+          }`}>
             {data?.totals?.percentage?.toFixed(1) || 0}%
           </p>
         </div>
