@@ -33,29 +33,6 @@ export function parseCategory(categoryName) {
 }
 
 /**
- * Format category for display
- * Shows group as badge and category as main text
- * @param {string} categoryName - Full category name
- * @returns {JSX.Element} - Formatted category display
- */
-export function formatCategoryDisplay(categoryName) {
-  const parsed = parseCategory(categoryName);
-  
-  if (parsed.group) {
-    return (
-      <span className="flex items-center gap-2">
-        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-          {parsed.group}
-        </span>
-        <span>{parsed.category}</span>
-      </span>
-    );
-  }
-  
-  return <span>{parsed.displayName}</span>;
-}
-
-/**
  * Get category group for sorting/grouping
  * @param {string} categoryName - Full category name
  * @returns {string} - Group name or null
