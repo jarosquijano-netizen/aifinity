@@ -24,13 +24,9 @@ function SetupBudget({ onBudgetSaved }) {
     try {
       setLoading(true);
       
-      // Fetch categories and suggestions in parallel
-      const [categoriesData, suggestionsData] = await Promise.all([
-        getTransactionCategories(),
-        getBudgetSuggestions()
-      ]);
+      // Fetch suggestions (which includes transaction categories)
+      const suggestionsData = await getBudgetSuggestions();
       
-      setCategories(categoriesData.categories || []);
       setUserProfile(suggestionsData.userProfile);
       
       // Convert suggestions array to map
@@ -40,14 +36,24 @@ function SetupBudget({ onBudgetSaved }) {
       });
       setSuggestions(suggestionsMap);
       
-      // Initialize budgets from existing categories
+      // Initialize budgets from suggestions (which include currentBudget)
       const budgetsMap = {};
-      categoriesData.categories?.forEach(cat => {
-        budgetsMap[cat.name] = parseFloat(cat.budget_amount || 0);
+      suggestionsData.suggestions?.forEach(item => {
+        budgetsMap[item.category] = item.currentBudget || 0;
       });
       setBudgets(budgetsMap);
+      
+      // Also fetch existing budget categories to get IDs
+      try {
+        const categoriesData = await getTransactionCategories();
+        setCategories(categoriesData.categories || []);
+      } catch (err) {
+        console.error('Failed to load budget categories:', err);
+        // Continue without category IDs - they'll be created if needed
+      }
     } catch (err) {
       console.error('Failed to load setup budget data:', err);
+      setError('Failed to load budget data. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -133,6 +139,7 @@ function SetupBudget({ onBudgetSaved }) {
   };
 
   // Get all unique transaction categories (from suggestions)
+  // If suggestions are empty, show empty state
   const allTransactionCategories = Object.keys(suggestions).sort();
 
   // Filter categories based on search
