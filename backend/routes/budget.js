@@ -776,12 +776,14 @@ router.get('/overview', optionalAuth, async (req, res) => {
     });
     
     // Get actual spending for the month (exclude transfers, deduplicate, exclude NC category)
+    // IMPORTANT: Use DATE_TRUNC for expenses (same as dashboard/summary) - expenses always use actual date, never applicable_month
+    const targetMonthDate = targetMonth + '-01';
     let spendingResult;
     if (userId) {
       // User is logged in - get their spending
       spendingResult = await pool.query(
         `SELECT 
-           t.category,
+           COALESCE(t.category, 'Otros > Sin categoría') as category,
            SUM(t.amount) as total_spent,
            COUNT(*) as transaction_count
          FROM (
@@ -791,15 +793,15 @@ router.get('/overview', optionalAuth, async (req, res) => {
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
            AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $2
            AND t.type = 'expense'
            AND t.computable = true
            AND t.amount > 0
+           AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date)
            AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
-         GROUP BY t.category`,
-        [userId, targetMonth]
+         GROUP BY COALESCE(t.category, 'Otros > Sin categoría')`,
+        [userId, targetMonthDate]
       );
     } else {
       // Not logged in - get only shared spending
@@ -815,19 +817,20 @@ router.get('/overview', optionalAuth, async (req, res) => {
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id IS NULL
            AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $1
            AND t.type = 'expense'
            AND t.computable = true
            AND t.amount > 0
+           AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $1::date)
            AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
          GROUP BY COALESCE(t.category, 'Otros > Sin categoría')`,
-        [targetMonth]
+        [targetMonthDate]
       );
     }
     
     // Get income for the month (for display purposes)
+    // IMPORTANT: Use applicable_month if available (same logic as dashboard/summary)
     let incomeResult;
     if (userId) {
       incomeResult = await pool.query(
@@ -842,10 +845,14 @@ router.get('/overview', optionalAuth, async (req, res) => {
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
            AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $2
            AND t.type = 'income'
            AND t.computable = true
            AND t.amount > 0
+           AND (
+             (t.applicable_month IS NOT NULL AND t.applicable_month = $2)
+             OR
+             (t.applicable_month IS NULL AND TO_CHAR(t.date, 'YYYY-MM') = $2)
+           )
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
          GROUP BY COALESCE(t.category, 'Finanzas > Ingresos')`,
@@ -864,10 +871,14 @@ router.get('/overview', optionalAuth, async (req, res) => {
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id IS NULL
            AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-           AND TO_CHAR(t.date, 'YYYY-MM') = $1
            AND t.type = 'income'
            AND t.computable = true
            AND t.amount > 0
+           AND (
+             (t.applicable_month IS NOT NULL AND t.applicable_month = $1)
+             OR
+             (t.applicable_month IS NULL AND TO_CHAR(t.date, 'YYYY-MM') = $1)
+           )
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
          GROUP BY COALESCE(t.category, 'Finanzas > Ingresos')`,
@@ -880,6 +891,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
     
     // Get transfers separately (not counted in total but shown for review)
     // Include both old "Transferencias" and new "Finanzas > Transferencias"
+    // Use DATE_TRUNC for consistency with expenses
     let transfersResult;
     if (userId) {
       // User is logged in - get their transfers
@@ -891,11 +903,11 @@ router.get('/overview', optionalAuth, async (req, res) => {
          LEFT JOIN bank_accounts ba ON t.account_id = ba.id
          WHERE t.user_id = $1
          AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND TO_CHAR(t.date, 'YYYY-MM') = $2
+         AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date)
          AND t.type = 'expense'
          AND (t.computable = false OR t.category IN ('Transferencias', 'Finanzas > Transferencias'))
          AND t.category IN ('Transferencias', 'Finanzas > Transferencias')`,
-        [userId, targetMonth]
+        [userId, targetMonthDate]
       );
     } else {
       // Not logged in - get only shared transfers
@@ -907,11 +919,11 @@ router.get('/overview', optionalAuth, async (req, res) => {
          LEFT JOIN bank_accounts ba ON t.account_id = ba.id
          WHERE t.user_id IS NULL
          AND (t.account_id IS NULL OR ba.id IS NOT NULL)
-         AND TO_CHAR(t.date, 'YYYY-MM') = $1
+         AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $1::date)
          AND t.type = 'expense'
          AND (t.computable = false OR t.category IN ('Transferencias', 'Finanzas > Transferencias'))
          AND t.category IN ('Transferencias', 'Finanzas > Transferencias')`,
-        [targetMonth]
+        [targetMonthDate]
       );
     }
     
