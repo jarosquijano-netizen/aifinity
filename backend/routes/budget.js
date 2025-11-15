@@ -191,44 +191,6 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       }
     });
     
-    // Generate suggestions for each deduplicated category
-    const suggestions = finalCategories.map(categoryName => {
-      const benchmark = getBenchmark(categoryName, userProfile.familySize);
-      const currentBudget = budgetMap[categoryName] || 0;
-      
-      // Calculate suggested budget based on benchmark
-      let suggestedBudget = benchmark.avg || 0;
-      
-      // Adjust based on income if available
-      if (userProfile.monthlyIncome > 0) {
-        // Try to get percentage of income recommendation
-        const categoryBenchmark = getCategoryBenchmark(categoryName, userProfile);
-        if (categoryBenchmark.includes('%')) {
-          // Extract percentage from benchmark text
-          const percentMatch = categoryBenchmark.match(/(\d+)%/);
-          if (percentMatch) {
-            const percent = parseInt(percentMatch[1]);
-            suggestedBudget = (userProfile.monthlyIncome * percent) / 100;
-          }
-        }
-      }
-      
-      // Round to nearest 10
-      suggestedBudget = Math.round(suggestedBudget / 10) * 10;
-      
-      return {
-        category: categoryName,
-        currentBudget: currentBudget,
-        suggestedBudget: suggestedBudget,
-        benchmark: {
-          min: benchmark.min || 0,
-          avg: benchmark.avg || 0,
-          max: benchmark.max || 0
-        },
-        reason: generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark)
-      };
-    });
-    
     // Get historical transactions for AI analysis (last 12 months)
     let historicalTransactions = [];
     if (userId) {
@@ -322,17 +284,61 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
             comparison: aiSuggestion.comparison
           };
         } else {
-          // Use existing benchmark-based suggestion
-          return suggestions.find(s => s.category === categoryName) || {
+          // No AI suggestion for this category - calculate from historical data
+          const categoryTransactions = historicalTransactions.filter(t => t.category === categoryName);
+          let suggestedBudget = benchmark.avg || 0;
+          
+          if (categoryTransactions.length > 0) {
+            // Use average spending from historical data
+            const threeMonthsAgo = new Date();
+            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+            const recentTransactions = categoryTransactions.filter(t => new Date(t.date) >= threeMonthsAgo);
+            
+            if (recentTransactions.length > 0) {
+              const recentAmounts = recentTransactions.map(t => Math.abs(t.amount));
+              const recentTotal = recentAmounts.reduce((sum, amt) => sum + amt, 0);
+              suggestedBudget = recentTotal / 3; // Average per month over last 3 months
+            } else {
+              const amounts = categoryTransactions.map(t => Math.abs(t.amount));
+              const total = amounts.reduce((sum, amt) => sum + amt, 0);
+              suggestedBudget = total / categoryTransactions.length;
+            }
+            
+            // Round to nearest 10
+            suggestedBudget = Math.round(suggestedBudget / 10) * 10;
+          } else {
+            // No historical data - use benchmark with income adjustment
+            if (userProfile.monthlyIncome > 0) {
+              const categoryBenchmark = getCategoryBenchmark(categoryName, userProfile);
+              if (categoryBenchmark.includes('%')) {
+                const percentMatch = categoryBenchmark.match(/(\d+)%/);
+                if (percentMatch) {
+                  const percent = parseFloat(percentMatch[1]);
+                  suggestedBudget = (userProfile.monthlyIncome * percent) / 100;
+                }
+              }
+            }
+            suggestedBudget = Math.round(suggestedBudget / 10) * 10;
+          }
+          
+          // Ensure suggestion doesn't exceed 50% of income for any single category
+          if (userProfile.monthlyIncome > 0 && suggestedBudget > userProfile.monthlyIncome * 0.5) {
+            suggestedBudget = Math.round(userProfile.monthlyIncome * 0.5 / 10) * 10;
+          }
+          
+          return {
             category: categoryName,
             currentBudget: currentBudget,
-            suggestedBudget: benchmark.avg || 0,
+            suggestedBudget: suggestedBudget,
             benchmark: {
               min: benchmark.min || 0,
               avg: benchmark.avg || 0,
               max: benchmark.max || 0
             },
-            reason: generateBudgetReason(categoryName, benchmark.avg || 0, userProfile, benchmark)
+            reason: categoryTransactions.length > 0 
+              ? `Based on your average spending of ${(categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / categoryTransactions.length).toFixed(0)}€ per transaction over ${categoryTransactions.length} transactions.`
+              : generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark),
+            confidence: categoryTransactions.length > 0 ? 'high' : 'medium'
           };
         }
       });
@@ -351,12 +357,92 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
     } catch (error) {
       console.error('Error generating AI budget suggestions, using fallback:', error);
       
-      // Fallback to simple benchmark-based suggestions
-      suggestions.sort((a, b) => a.category.localeCompare(b.category));
+      // Fallback: Generate suggestions based on historical spending and benchmarks
+      const fallbackSuggestions = finalCategories.map(categoryName => {
+        const benchmark = getBenchmark(categoryName, userProfile.familySize);
+        const currentBudget = budgetMap[categoryName] || 0;
+        
+        // Calculate average spending for this category from historical data
+        const categoryTransactions = historicalTransactions.filter(t => t.category === categoryName);
+        let suggestedBudget = 0;
+        
+        if (categoryTransactions.length > 0) {
+          // Use average of last 3 months if available, otherwise use overall average
+          const amounts = categoryTransactions.map(t => Math.abs(t.amount));
+          const total = amounts.reduce((sum, amt) => sum + amt, 0);
+          const avgSpending = total / categoryTransactions.length;
+          
+          // Get last 3 months average
+          const threeMonthsAgo = new Date();
+          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+          const recentTransactions = categoryTransactions.filter(t => new Date(t.date) >= threeMonthsAgo);
+          
+          if (recentTransactions.length > 0) {
+            const recentAmounts = recentTransactions.map(t => Math.abs(t.amount));
+            const recentTotal = recentAmounts.reduce((sum, amt) => sum + amt, 0);
+            suggestedBudget = recentTotal / 3; // Average per month over last 3 months
+          } else {
+            // Use overall average, but scale to monthly
+            suggestedBudget = avgSpending;
+          }
+        } else {
+          // No historical data - use benchmark
+          suggestedBudget = benchmark.avg || 0;
+          
+          // Adjust based on income if available
+          if (userProfile.monthlyIncome > 0) {
+            const categoryBenchmark = getCategoryBenchmark(categoryName, userProfile);
+            if (categoryBenchmark.includes('%')) {
+              const percentMatch = categoryBenchmark.match(/(\d+)%/);
+              if (percentMatch) {
+                const percent = parseFloat(percentMatch[1]);
+                suggestedBudget = (userProfile.monthlyIncome * percent) / 100;
+              }
+            }
+          }
+        }
+        
+        // Round to nearest 10
+        suggestedBudget = Math.round(suggestedBudget / 10) * 10;
+        
+        // Ensure suggestion doesn't exceed 50% of income for any single category
+        if (userProfile.monthlyIncome > 0 && suggestedBudget > userProfile.monthlyIncome * 0.5) {
+          suggestedBudget = Math.round(userProfile.monthlyIncome * 0.5 / 10) * 10;
+        }
+        
+        return {
+          category: categoryName,
+          currentBudget: currentBudget,
+          suggestedBudget: suggestedBudget,
+          benchmark: {
+            min: benchmark.min || 0,
+            avg: benchmark.avg || 0,
+            max: benchmark.max || 0
+          },
+          reason: categoryTransactions.length > 0 
+            ? `Based on your average spending of ${(categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / categoryTransactions.length).toFixed(0)}€ per transaction over ${categoryTransactions.length} transactions.`
+            : generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark),
+          confidence: categoryTransactions.length > 0 ? 'high' : 'medium'
+        };
+      });
+      
+      // Ensure total doesn't exceed income
+      const totalSuggested = fallbackSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
+      const maxAllowedBudget = userProfile.monthlyIncome * 0.85;
+      
+      if (totalSuggested > maxAllowedBudget && userProfile.monthlyIncome > 0) {
+        const scaleFactor = maxAllowedBudget / totalSuggested;
+        fallbackSuggestions.forEach(s => {
+          s.suggestedBudget = Math.round(s.suggestedBudget * scaleFactor);
+          s.reason += ` (Scaled to fit within income constraints.)`;
+        });
+      }
+      
+      fallbackSuggestions.sort((a, b) => a.category.localeCompare(b.category));
       
       res.json({
         success: true,
-        suggestions: suggestions,
+        suggestions: fallbackSuggestions,
         userProfile: userProfile
       });
     }
