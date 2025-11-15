@@ -378,18 +378,64 @@ router.get('/overview', optionalAuth, async (req, res) => {
     }
     
     // Create a map of actual spending
+    // Merge spending for duplicate categories (old format + hierarchical format)
     const spendingMap = {};
     spendingResult.rows.forEach(row => {
-      spendingMap[row.category] = {
+      const categoryName = row.category;
+      const spending = {
         spent: parseFloat(row.total_spent),
         count: parseInt(row.transaction_count)
       };
+      
+      // Check if this category is a duplicate of an existing one in spendingMap
+      let merged = false;
+      for (const key in spendingMap) {
+        if (isDuplicateCategory(categoryName, key)) {
+          // Merge spending: prefer hierarchical format
+          if (categoryName.includes(' > ')) {
+            // Replace old format with hierarchical
+            spendingMap[categoryName] = {
+              spent: spendingMap[key].spent + spending.spent,
+              count: spendingMap[key].count + spending.count
+            };
+            delete spendingMap[key];
+          } else if (key.includes(' > ')) {
+            // Add to existing hierarchical format
+            spendingMap[key].spent += spending.spent;
+            spendingMap[key].count += spending.count;
+          } else {
+            // Both are old format, just add
+            spendingMap[key].spent += spending.spent;
+            spendingMap[key].count += spending.count;
+          }
+          merged = true;
+          break;
+        }
+      }
+      
+      if (!merged) {
+        spendingMap[categoryName] = spending;
+      }
     });
     
     // Combine ALL categories (transaction + budget) with actual spending
     const overview = Object.values(allCategoriesMap).map(categoryInfo => {
       const categoryName = categoryInfo.name;
-      const spent = spendingMap[categoryName]?.spent || 0;
+      
+      // Find spending for this category or its duplicate
+      let spending = spendingMap[categoryName] || { spent: 0, count: 0 };
+      
+      // If no spending found, check for duplicate category names
+      if (spending.spent === 0 && spending.count === 0) {
+        for (const key in spendingMap) {
+          if (isDuplicateCategory(categoryName, key)) {
+            spending = spendingMap[key];
+            break;
+          }
+        }
+      }
+      
+      const spent = spending.spent || 0;
       const budget = categoryInfo.hasBudget ? parseFloat(categoryInfo.budgetData.budget_amount) : 0;
       const remaining = budget - spent;
       const percentage = budget > 0 ? (spent / budget) * 100 : 0;
@@ -401,7 +447,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
         spent: spent,
         remaining: remaining,
         percentage: percentage,
-        transactionCount: spendingMap[categoryName]?.count || 0,
+        transactionCount: spending.count || 0,
         status: budget === 0 ? 'no_budget' : 
                 spent > budget ? 'over' : 
                 percentage > 90 ? 'warning' : 
