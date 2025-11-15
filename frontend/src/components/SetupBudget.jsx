@@ -115,7 +115,7 @@ function SetupBudget({ onBudgetSaved }) {
     }));
   };
 
-  const handleSaveBudget = async (categoryName) => {
+  const handleSaveBudget = async (categoryName, budgetAmountOverride = null) => {
     try {
       setSaving(prev => ({ ...prev, [categoryName]: true }));
       setErrors(prev => {
@@ -128,8 +128,8 @@ function SetupBudget({ onBudgetSaved }) {
       const category = categories.find(c => c.name === categoryName);
       const categoryId = category?.id || null;
       
-      // Get the current budget amount from state (use the latest value)
-      const budgetAmount = budgets[categoryName] || 0;
+      // Use override value if provided (for Use button), otherwise use state
+      const budgetAmount = budgetAmountOverride !== null ? budgetAmountOverride : (budgets[categoryName] || 0);
       
       await updateCategoryBudget(categoryId, budgetAmount, categoryName);
       
@@ -181,15 +181,15 @@ function SetupBudget({ onBudgetSaved }) {
   const handleUseSuggestion = async (categoryName) => {
     const suggestion = suggestions[categoryName];
     if (suggestion) {
-      // Set the budget value first
+      // Set the budget value in state for UI update
       setBudgets(prev => ({
         ...prev,
         [categoryName]: suggestion.suggestedBudget
       }));
       
-      // Immediately save the budget (don't wait for timeout)
+      // Immediately save the budget with the suggested amount (pass directly to avoid state timing issues)
       try {
-        await handleSaveBudget(categoryName);
+        await handleSaveBudget(categoryName, suggestion.suggestedBudget);
       } catch (err) {
         console.error('Failed to save budget when using suggestion:', err);
         setErrors(prev => ({ ...prev, [categoryName]: 'Failed to save suggestion' }));
