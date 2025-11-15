@@ -88,7 +88,7 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center space-x-3">
@@ -108,7 +108,7 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
         </div>
 
         {/* Scrollable Body */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Transaction Info */}
           <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4 space-y-2">
@@ -221,7 +221,7 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
           </div>
 
           {/* Sticky Bottom Section */}
-          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-6 space-y-4 flex-shrink-0">
+          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-6 space-y-4 flex-shrink-0 sticky bottom-0">
             {/* Update Similar Checkbox */}
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
               <label className="flex items-start space-x-3 cursor-pointer">
