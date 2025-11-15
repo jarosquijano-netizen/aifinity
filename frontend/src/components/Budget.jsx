@@ -591,29 +591,13 @@ function Budget({ onNavigateToTransactions }) {
                             {/* Category Info */}
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                {category.transactionCount > 0 && onNavigateToTransactions ? (
-                                  <button
-                                    onClick={() => onNavigateToTransactions({ category: category.name })}
-                                    className="text-left hover:underline cursor-pointer"
-                                  >
-                                    {(() => {
-                                      const parsed = parseCategory(category.name);
-                                      const displayName = parsed.category || parsed.displayName || category.name;
-                                      return (
-                                        <span className={`text-base font-semibold ${categoryConfig.textColor}`}>
-                                          {displayName}
-                                        </span>
-                                      );
-                                    })()}
-                                  </button>
-                                ) : (
-                                  <span className={`text-base font-semibold ${categoryConfig.textColor}`}>
-                                    {(() => {
-                                      const parsed = parseCategory(category.name);
-                                      return parsed.category || parsed.displayName || category.name;
-                                    })()}
-                                  </span>
-                                )}
+                                {/* Category name - not clickable */}
+                                <span className={`text-base font-semibold ${categoryConfig.textColor}`}>
+                                  {(() => {
+                                    const parsed = parseCategory(category.name);
+                                    return parsed.category || parsed.displayName || category.name;
+                                  })()}
+                                </span>
                                 
                                 {/* Status badge next to name */}
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryConfig.badgeColor}`}>
@@ -627,11 +611,21 @@ function Budget({ onNavigateToTransactions }) {
                                   </span>
                                 )}
                                 
-                                {/* Transaction count */}
+                                {/* Transaction count - clickable link */}
                                 {category.transactionCount > 0 && (
-                                  <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                    ({category.transactionCount} trans.)
-                                  </span>
+                                  onNavigateToTransactions ? (
+                                    <button
+                                      onClick={() => onNavigateToTransactions({ category: category.name })}
+                                      className="text-sm text-gray-500 dark:text-gray-400 font-medium hover:text-primary dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                      title={`View ${category.transactionCount} transactions`}
+                                    >
+                                      ({category.transactionCount} trans.)
+                                    </button>
+                                  ) : (
+                                    <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                                      ({category.transactionCount} trans.)
+                                    </span>
+                                  )
                                 )}
                               </div>
                               
