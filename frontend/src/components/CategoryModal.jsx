@@ -217,102 +217,102 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
                 </div>
               )}
             </div>
-          </div>
+            </div>
           </div>
 
           {/* Sticky Bottom Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-6 space-y-4 flex-shrink-0 sticky bottom-0">
-            {/* Update Similar Checkbox */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-              <label className="flex items-start space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={updateSimilar}
-                  onChange={(e) => setUpdateSimilar(e.target.checked)}
-                  className="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {t('updateSimilarTransactions') || 'Actualizar transacciones similares'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {t('updateSimilarDescription') || 
-                      'Se actualizarán automáticamente todas las transacciones con descripciones 90% similares a esta'}
-                  </p>
-                </div>
-              </label>
-            </div>
-
-            {/* Computable Checkbox */}
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-              <label className="flex items-start space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!isComputable}
-                  onChange={(e) => setIsComputable(!e.target.checked)}
-                  className="mt-1 w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <RefreshCw className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {t('notComputable') || 'No Computable'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {t('notComputableDescription') || 
-                      'Marca esta opción para transferencias entre tus cuentas. No se contarán como ingresos ni gastos en las estadísticas.'}
-                  </p>
-                </div>
-              </label>
-            </div>
-
-            {/* Message */}
-            {message && (
-              <div className={`flex items-start space-x-3 p-4 rounded-lg ${
-                message.type === 'success' 
-                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-              }`}>
-                {message.type === 'success' ? (
-                  <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                )}
-                <p className="text-sm whitespace-pre-line leading-relaxed">{message.text}</p>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex space-x-3 pt-2">
-              <button
-                type="button"
-                onClick={() => onClose(false)}
-                disabled={loading}
-                className="flex-1 btn-secondary"
-              >
-                {t('cancel') || 'Cancelar'}
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !selectedCategory}
-                className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    {t('updating') || 'Actualizando...'}
+          {/* Update Similar Checkbox */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={updateSimilar}
+                onChange={(e) => setUpdateSimilar(e.target.checked)}
+                className="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {t('updateSimilarTransactions') || 'Actualizar transacciones similares'}
                   </span>
-                ) : (
-                  t('update') || 'Actualizar'
-                )}
-              </button>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {t('updateSimilarDescription') || 
+                    'Se actualizarán automáticamente todas las transacciones con descripciones 90% similares a esta'}
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Computable Checkbox */}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!isComputable}
+                onChange={(e) => setIsComputable(!e.target.checked)}
+                className="mt-1 w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+              />
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <RefreshCw className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {t('notComputable') || 'No Computable'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {t('notComputableDescription') || 
+                    'Marca esta opción para transferencias entre tus cuentas. No se contarán como ingresos ni gastos en las estadísticas.'}
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Message */}
+          {message && (
+            <div className={`flex items-start space-x-3 p-4 rounded-lg ${
+              message.type === 'success' 
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+            }`}>
+              {message.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              )}
+              <p className="text-sm whitespace-pre-line leading-relaxed">{message.text}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex space-x-3 pt-2">
+            <button
+              type="button"
+              onClick={() => onClose(false)}
+              disabled={loading}
+              className="flex-1 btn-secondary"
+            >
+              {t('cancel') || 'Cancelar'}
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !selectedCategory}
+              className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  {t('updating') || 'Actualizando...'}
+                </span>
+              ) : (
+                t('update') || 'Actualizar'
+              )}
+            </button>
             </div>
           </div>
         </form>
