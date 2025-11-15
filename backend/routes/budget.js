@@ -229,11 +229,137 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       };
     });
     
-    res.json({
-      success: true,
-      suggestions: suggestions,
-      userProfile: userProfile
-    });
+    // Get historical transactions for AI analysis (last 12 months)
+    let historicalTransactions = [];
+    if (userId) {
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+      
+      const transactionsResult = await pool.query(
+        `SELECT category, amount, date, description, type
+         FROM transactions 
+         WHERE user_id = $1
+         AND type = 'expense'
+         AND computable = true
+         AND date >= $2
+         ORDER BY date DESC`,
+        [userId, twelveMonthsAgo.toISOString().split('T')[0]]
+      );
+      
+      historicalTransactions = transactionsResult.rows.map(row => ({
+        category: row.category,
+        amount: parseFloat(row.amount),
+        date: row.date,
+        description: row.description || '',
+        type: row.type
+      }));
+    } else {
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+      
+      const transactionsResult = await pool.query(
+        `SELECT category, amount, date, description, type
+         FROM transactions 
+         WHERE user_id IS NULL
+         AND type = 'expense'
+         AND computable = true
+         AND date >= $1
+         ORDER BY date DESC`,
+        [twelveMonthsAgo.toISOString().split('T')[0]]
+      );
+      
+      historicalTransactions = transactionsResult.rows.map(row => ({
+        category: row.category,
+        amount: parseFloat(row.amount),
+        date: row.date,
+        description: row.description || '',
+        type: row.type
+      }));
+    }
+    
+    // Use advanced AI-powered budget suggestion service
+    try {
+      const aiSuggestions = await aiBudgetSuggestionService.generateBudgetSuggestions({
+        userId: userId,
+        familySize: userProfile.familySize,
+        monthlyIncome: userProfile.monthlyIncome,
+        location: userProfile.location,
+        historicalTransactions: historicalTransactions,
+        currentMonth: new Date().toISOString().slice(0, 7),
+        userPreferences: {
+          ages: userProfile.ages || []
+        }
+      });
+      
+      // Map AI suggestions to expected format, merging with existing categories
+      const aiSuggestionsMap = {};
+      aiSuggestions.suggestions.forEach(suggestion => {
+        aiSuggestionsMap[suggestion.name] = suggestion;
+      });
+      
+      // Combine AI suggestions with all categories
+      const finalSuggestions = finalCategories.map(categoryName => {
+        const aiSuggestion = aiSuggestionsMap[categoryName];
+        const benchmark = getBenchmark(categoryName, userProfile.familySize);
+        const currentBudget = budgetMap[categoryName] || 0;
+        
+        if (aiSuggestion) {
+          // Use AI-powered suggestion
+          return {
+            category: categoryName,
+            currentBudget: currentBudget,
+            suggestedBudget: aiSuggestion.suggestedBudget || 0,
+            benchmark: {
+              min: aiSuggestion.rangeMin || benchmark.min || 0,
+              avg: aiSuggestion.suggestedBudget || benchmark.avg || 0,
+              max: aiSuggestion.rangeMax || benchmark.max || 0
+            },
+            reason: aiSuggestion.reasoning || generateBudgetReason(categoryName, aiSuggestion.suggestedBudget || 0, userProfile, benchmark),
+            confidence: aiSuggestion.confidence || 'medium',
+            insights: aiSuggestion.insights || [],
+            historical: aiSuggestion.historical,
+            pattern: aiSuggestion.pattern,
+            comparison: aiSuggestion.comparison
+          };
+        } else {
+          // Use existing benchmark-based suggestion
+          return suggestions.find(s => s.category === categoryName) || {
+            category: categoryName,
+            currentBudget: currentBudget,
+            suggestedBudget: benchmark.avg || 0,
+            benchmark: {
+              min: benchmark.min || 0,
+              avg: benchmark.avg || 0,
+              max: benchmark.max || 0
+            },
+            reason: generateBudgetReason(categoryName, benchmark.avg || 0, userProfile, benchmark)
+          };
+        }
+      });
+      
+      // Sort suggestions alphabetically by category name
+      finalSuggestions.sort((a, b) => a.category.localeCompare(b.category));
+      
+      res.json({
+        success: true,
+        suggestions: finalSuggestions,
+        userProfile: userProfile,
+        overallInsights: aiSuggestions.overallInsights || null,
+        metadata: aiSuggestions.metadata || null
+      });
+      
+    } catch (error) {
+      console.error('Error generating AI budget suggestions, using fallback:', error);
+      
+      // Fallback to simple benchmark-based suggestions
+      suggestions.sort((a, b) => a.category.localeCompare(b.category));
+      
+      res.json({
+        success: true,
+        suggestions: suggestions,
+        userProfile: userProfile
+      });
+    }
   } catch (error) {
     console.error('Error generating budget suggestions:', error);
     res.status(500).json({
