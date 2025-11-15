@@ -106,10 +106,21 @@ const runMigrations = async () => {
     `);
     console.log('✅ User settings table created');
     
+    // Add family_size and location columns if they don't exist
+    await client.query(`
+      ALTER TABLE user_settings 
+      ADD COLUMN IF NOT EXISTS family_size INTEGER DEFAULT 1
+    `);
+    await client.query(`
+      ALTER TABLE user_settings 
+      ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT 'Spain'
+    `);
+    console.log('✅ Family size and location columns added');
+    
     // Insert default settings for anonymous user
     await client.query(`
-      INSERT INTO user_settings (user_id, expected_monthly_income)
-      VALUES (0, 0)
+      INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location)
+      VALUES (0, 0, 1, 'Spain')
       ON CONFLICT (user_id) DO NOTHING
     `);
     console.log('✅ Default user settings created');

@@ -452,7 +452,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
       try {
         const settingsResult = await pool.query(
           `SELECT family_size, expected_monthly_income, location 
-           FROM settings 
+           FROM user_settings 
            WHERE user_id = $1 
            LIMIT 1`,
           [userId]

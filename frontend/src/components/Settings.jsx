@@ -29,6 +29,12 @@ function Settings() {
   const [incomeSuccess, setIncomeSuccess] = useState('');
   const [calculatingIncome, setCalculatingIncome] = useState(false);
   const [calculationData, setCalculationData] = useState(null);
+  
+  // Family Settings state
+  const [familySize, setFamilySize] = useState(1);
+  const [location, setLocation] = useState('Spain');
+  const [savingFamilySettings, setSavingFamilySettings] = useState(false);
+  const [familySettingsSuccess, setFamilySettingsSuccess] = useState('');
 
   useEffect(() => {
     fetchAccounts();
@@ -240,6 +246,8 @@ function Settings() {
     try {
       const data = await getSettings();
       setExpectedIncome(data.expectedMonthlyIncome || 0);
+      setFamilySize(data.familySize || 1);
+      setLocation(data.location || 'Spain');
     } catch (err) {
       console.error('Failed to load settings:', err);
     }
@@ -449,6 +457,95 @@ function Settings() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Family Settings Section */}
+      <div className="card bg-white dark:bg-slate-800">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Building2 className="w-6 h-6 text-blue-600" />
+              Family & Location Settings
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Configure your family size and location for personalized budget insights
+            </p>
+          </div>
+        </div>
+
+        {/* Success Message */}
+        {familySettingsSuccess && (
+          <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            {familySettingsSuccess}
+          </div>
+        )}
+
+        {/* Family Settings Form */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Family Size (adults + children)
+            </label>
+            <input
+              type="number"
+              value={familySize}
+              onChange={(e) => setFamilySize(parseInt(e.target.value) || 1)}
+              min="1"
+              max="20"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
+              placeholder="e.g. 4"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Used to compare your spending with average family spending benchmarks
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-gray-100"
+              placeholder="e.g. Spain, Madrid, Barcelona"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Used for regional spending benchmarks and insights
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <button
+            onClick={async () => {
+              try {
+                setSavingFamilySettings(true);
+                setFamilySettingsSuccess('');
+                await updateSettings({ familySize, location });
+                setFamilySettingsSuccess('Family settings saved successfully!');
+                setTimeout(() => setFamilySettingsSuccess(''), 3000);
+              } catch (err) {
+                setError('Failed to save family settings');
+              } finally {
+                setSavingFamilySettings(false);
+              }
+            }}
+            disabled={savingFamilySettings}
+            className="btn-primary flex items-center gap-2"
+          >
+            {savingFamilySettings ? (
+              <Loader className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>Save Family Settings</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Expected Monthly Income Section */}

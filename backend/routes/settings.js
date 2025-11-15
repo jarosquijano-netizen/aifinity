@@ -27,12 +27,17 @@ router.get('/', optionalAuth, async (req, res) => {
     // If no settings exist, return defaults
     if (result.rows.length === 0) {
       return res.json({
-        expectedMonthlyIncome: 0
+        expectedMonthlyIncome: 0,
+        familySize: 1,
+        location: 'Spain'
       });
     }
     
+    const settings = result.rows[0];
     res.json({
-      expectedMonthlyIncome: parseFloat(result.rows[0].expected_monthly_income || 0)
+      expectedMonthlyIncome: parseFloat(settings.expected_monthly_income || 0),
+      familySize: parseInt(settings.family_size || 1),
+      location: settings.location || 'Spain'
     });
   } catch (error) {
     console.error('Get settings error:', error);
@@ -44,24 +49,52 @@ router.get('/', optionalAuth, async (req, res) => {
 router.post('/', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || 0;
-    const { expectedMonthlyIncome } = req.body;
+    const { expectedMonthlyIncome, familySize, location } = req.body;
     
-    if (expectedMonthlyIncome === undefined || expectedMonthlyIncome < 0) {
+    // Validate inputs
+    if (expectedMonthlyIncome !== undefined && expectedMonthlyIncome < 0) {
       return res.status(400).json({ error: 'Invalid expected monthly income' });
     }
     
+    if (familySize !== undefined && (familySize < 1 || familySize > 20)) {
+      return res.status(400).json({ error: 'Family size must be between 1 and 20' });
+    }
+    
+    if (location !== undefined && (!location || location.trim().length === 0)) {
+      return res.status(400).json({ error: 'Location cannot be empty' });
+    }
+    
+    // Get current settings to preserve values not being updated
+    const currentSettings = await pool.query(
+      'SELECT * FROM user_settings WHERE user_id = $1',
+      [userId]
+    );
+    
+    const current = currentSettings.rows[0] || {};
+    
+    // Use provided values or keep current values
+    const finalExpectedIncome = expectedMonthlyIncome !== undefined ? expectedMonthlyIncome : (current.expected_monthly_income || 0);
+    const finalFamilySize = familySize !== undefined ? familySize : (current.family_size || 1);
+    const finalLocation = location !== undefined ? location.trim() : (current.location || 'Spain');
+    
     const result = await pool.query(
-      `INSERT INTO user_settings (user_id, expected_monthly_income, updated_at)
-       VALUES ($1, $2, NOW())
+      `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
        ON CONFLICT (user_id) 
-       DO UPDATE SET expected_monthly_income = $2, updated_at = NOW()
+       DO UPDATE SET 
+         expected_monthly_income = COALESCE($2, user_settings.expected_monthly_income),
+         family_size = COALESCE($3, user_settings.family_size),
+         location = COALESCE($4, user_settings.location),
+         updated_at = NOW()
        RETURNING *`,
-      [userId, expectedMonthlyIncome]
+      [userId, finalExpectedIncome, finalFamilySize, finalLocation]
     );
     
     res.json({
       message: 'Settings updated successfully',
-      expectedMonthlyIncome: parseFloat(result.rows[0].expected_monthly_income)
+      expectedMonthlyIncome: parseFloat(result.rows[0].expected_monthly_income || 0),
+      familySize: parseInt(result.rows[0].family_size || 1),
+      location: result.rows[0].location || 'Spain'
     });
   } catch (error) {
     console.error('Update settings error:', error);
