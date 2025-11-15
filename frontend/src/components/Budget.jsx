@@ -287,64 +287,64 @@ function Budget({ onNavigateToTransactions }) {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Budget</h2>
-            <p className="text-gray-600 dark:text-gray-400">Track your spending against budgeted amounts</p>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">Budget</h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400">Track your spending against budgeted amounts</p>
           </div>
           
           {/* Month Selector */}
-          <div className="flex items-center space-x-2">
-            <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          <div className="flex items-center space-x-3">
+            <Calendar className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             <input
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+              className="px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-base"
             />
           </div>
         </div>
       </div>
 
       {/* Summary Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Budget</span>
-            <TrendingUp className="w-4 h-4 text-primary" />
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Total Budget</span>
+            <TrendingUp className="w-5 h-5 text-primary" />
           </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(data?.totals?.budget || 0)}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(data?.totals?.budget || 0)}</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Spent</span>
-            <TrendingUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Total Spent</span>
+            <TrendingUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(data?.totals?.spent || 0)}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(data?.totals?.spent || 0)}</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Spent / Budget</span>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Spent / Budget</span>
             {data?.totals?.percentage >= 100 ? (
-              <AlertCircle className="w-4 h-4 text-danger" />
+              <AlertCircle className="w-5 h-5 text-danger" />
             ) : data?.totals?.percentage >= 90 ? (
-              <AlertCircle className="w-4 h-4 text-orange-500" />
+              <AlertCircle className="w-5 h-5 text-orange-500" />
             ) : (
-              <CheckCircle className="w-4 h-4 text-success" />
+              <CheckCircle className="w-5 h-5 text-success" />
             )}
           </div>
-          <div className="space-y-1">
-            <p className={`text-xl font-bold ${
+          <div className="space-y-2">
+            <p className={`text-2xl font-bold ${
               data?.totals?.percentage >= 100 ? 'text-danger' :
               data?.totals?.percentage >= 90 ? 'text-orange-500' :
               'text-success'
             }`}>
               {formatCurrency(data?.totals?.spent || 0)} / {formatCurrency(data?.totals?.budget || 0)}
             </p>
-            <p className={`text-xs font-medium ${
+            <p className={`text-sm font-medium ${
               data?.totals?.percentage >= 100 ? 'text-danger' :
               data?.totals?.percentage >= 90 ? 'text-orange-500' :
               'text-success'
@@ -357,21 +357,21 @@ function Budget({ onNavigateToTransactions }) {
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Remaining</span>
-            <TrendingUp className="w-4 h-4 text-success" />
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Remaining</span>
+            <TrendingUp className="w-5 h-5 text-success" />
           </div>
-          <p className={`text-2xl font-bold ${data?.totals?.remaining >= 0 ? 'text-success' : 'text-danger'}`}>
+          <p className={`text-3xl font-bold ${data?.totals?.remaining >= 0 ? 'text-success' : 'text-danger'}`}>
             {formatCurrency(data?.totals?.remaining || 0)}
           </p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Usage</span>
-            <TrendingUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Usage</span>
+            <TrendingUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </div>
-          <p className={`text-2xl font-bold ${
+          <p className={`text-3xl font-bold ${
             data?.totals?.percentage >= 100 ? 'text-danger' :
             data?.totals?.percentage >= 90 ? 'text-orange-500' :
             'text-success'
@@ -383,80 +383,80 @@ function Budget({ onNavigateToTransactions }) {
 
       {/* Quick Stats Alert Cards */}
       {summaryStats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {summaryStats.over > 0 && (
-            <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🔴</span>
+            <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🔴</span>
                 <div>
-                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">Over Budget</p>
-                  <p className="text-lg font-bold text-red-700 dark:text-red-300">{summaryStats.over}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 font-medium">Over Budget</p>
+                  <p className="text-xl font-bold text-red-700 dark:text-red-300">{summaryStats.over}</p>
                 </div>
               </div>
             </div>
           )}
           {summaryStats.closeToLimit > 0 && (
-            <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚠️</span>
+            <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">⚠️</span>
                 <div>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Close to Limit</p>
-                  <p className="text-lg font-bold text-orange-700 dark:text-orange-300">{summaryStats.closeToLimit}</p>
+                  <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Close to Limit</p>
+                  <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{summaryStats.closeToLimit}</p>
                 </div>
               </div>
             </div>
           )}
           {summaryStats.watch > 0 && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚡</span>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">⚡</span>
                 <div>
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">Watch</p>
-                  <p className="text-lg font-bold text-yellow-700 dark:text-yellow-300">{summaryStats.watch}</p>
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">Watch</p>
+                  <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">{summaryStats.watch}</p>
                 </div>
               </div>
             </div>
           )}
           {summaryStats.noBudget > 0 && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚠️</span>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">⚠️</span>
                 <div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">No Budget</p>
-                  <p className="text-lg font-bold text-amber-700 dark:text-amber-300">{summaryStats.noBudget}</p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No Budget</p>
+                  <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{summaryStats.noBudget}</p>
                 </div>
               </div>
             </div>
           )}
           {summaryStats.onTrack > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📊</span>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📊</span>
                 <div>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">On Track</p>
-                  <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{summaryStats.onTrack}</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">On Track</p>
+                  <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{summaryStats.onTrack}</p>
                 </div>
               </div>
             </div>
           )}
           {summaryStats.safe > 0 && (
-            <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">✅</span>
+            <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">✅</span>
                 <div>
-                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">Safe</p>
-                  <p className="text-lg font-bold text-green-700 dark:text-green-300">{summaryStats.safe}</p>
+                  <p className="text-sm text-green-600 dark:text-green-400 font-medium">Safe</p>
+                  <p className="text-xl font-bold text-green-700 dark:text-green-300">{summaryStats.safe}</p>
                 </div>
               </div>
             </div>
           )}
           {groupedCategories.transfer.length > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🔄</span>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🔄</span>
                 <div>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Transfers</p>
-                  <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{groupedCategories.transfer.length}</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Transfers</p>
+                  <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{groupedCategories.transfer.length}</p>
                 </div>
               </div>
             </div>
@@ -465,35 +465,35 @@ function Budget({ onNavigateToTransactions }) {
       )}
 
       {/* Filters & Controls */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
           {/* Search */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search categories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+              className="w-full pl-12 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-base"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             )}
           </div>
 
           {/* Filter Toggle */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
-            <div className="flex bg-gray-100 dark:bg-slate-700 rounded-lg p-1">
+          <div className="flex items-center gap-3">
+            <Filter className="w-5 h-5 text-gray-400" />
+            <div className="flex bg-gray-100 dark:bg-slate-700 rounded-lg p-1.5">
               <button
                 onClick={() => setFilterMode('all')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-base font-medium transition-colors ${
                   filterMode === 'all'
                     ? 'bg-white dark:bg-slate-600 text-gray-900 dark:text-gray-100 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
@@ -503,7 +503,7 @@ function Budget({ onNavigateToTransactions }) {
               </button>
               <button
                 onClick={() => setFilterMode('problems')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-base font-medium transition-colors ${
                   filterMode === 'problems'
                     ? 'bg-white dark:bg-slate-600 text-gray-900 dark:text-gray-100 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
@@ -513,7 +513,7 @@ function Budget({ onNavigateToTransactions }) {
               </button>
               <button
                 onClick={() => setFilterMode('attention')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-base font-medium transition-colors ${
                   filterMode === 'attention'
                     ? 'bg-white dark:bg-slate-600 text-gray-900 dark:text-gray-100 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
@@ -525,20 +525,20 @@ function Budget({ onNavigateToTransactions }) {
           </div>
 
           {/* Hide Zero Spending Toggle */}
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={hideZeroSpending}
               onChange={(e) => setHideZeroSpending(e.target.checked)}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+              className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
             />
-            <span className="text-sm text-gray-600 dark:text-gray-400">Hide zero spending</span>
+            <span className="text-base text-gray-600 dark:text-gray-400 font-medium">Hide zero spending</span>
           </label>
         </div>
       </div>
 
       {/* Categories by Status Groups */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {statusGroups.map((group) => {
           if (group.categories.length === 0) return null;
           
@@ -554,21 +554,21 @@ function Budget({ onNavigateToTransactions }) {
               {/* Section Header */}
               <button
                 onClick={() => toggleSection(group.key)}
-                className={`w-full p-4 flex items-center justify-between ${config.bgColor} hover:opacity-90 transition-opacity`}
+                className={`w-full px-6 py-5 flex items-center justify-between ${config.bgColor} hover:opacity-90 transition-opacity`}
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{config.icon}</span>
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl">{config.icon}</span>
                   <div className="text-left">
-                    <h3 className={`font-bold ${config.textColor}`}>{group.label}</h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                    <h3 className={`text-lg font-bold ${config.textColor}`}>{group.label}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       {group.categories.length} categor{group.categories.length === 1 ? 'y' : 'ies'}
                     </p>
                   </div>
                 </div>
                 {isExpanded ? (
-                  <ChevronUp className={`w-5 h-5 ${config.textColor}`} />
+                  <ChevronUp className={`w-6 h-6 ${config.textColor}`} />
                 ) : (
-                  <ChevronDown className={`w-5 h-5 ${config.textColor}`} />
+                  <ChevronDown className={`w-6 h-6 ${config.textColor}`} />
                 )}
               </button>
 
@@ -586,22 +586,22 @@ function Budget({ onNavigateToTransactions }) {
                           isOverBudget ? 'font-semibold' : ''
                         }`}
                       >
-                        <div className="p-4">
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="px-6 py-5">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                             {/* Category Info */}
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryConfig.badgeColor}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${categoryConfig.badgeColor}`}>
                                   {categoryConfig.icon} {categoryConfig.label}
                                 </span>
                                 {category.isTransfer && (
-                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                  <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                                     🔄 Transfer
                                   </span>
                                 )}
                               </div>
                               
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                                 {category.transactionCount > 0 && onNavigateToTransactions ? (
                                   <button
                                     onClick={() => onNavigateToTransactions({ category: category.name })}
@@ -610,31 +610,31 @@ function Budget({ onNavigateToTransactions }) {
                                     {(() => {
                                       const parsed = parseCategory(category.name);
                                       return parsed.group ? (
-                                        <span className="flex items-center gap-2">
-                                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                        <span className="flex items-center gap-3">
+                                          <span className="text-sm px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium">
                                             {parsed.group}
                                           </span>
-                                          <span className={`font-medium ${isOverBudget ? 'text-lg' : ''} ${categoryConfig.textColor}`}>
+                                          <span className={`text-base font-semibold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
                                             {parsed.category}
                                           </span>
                                         </span>
                                       ) : (
-                                        <span className={`font-medium ${isOverBudget ? 'text-lg' : ''} ${categoryConfig.textColor}`}>
+                                        <span className={`text-base font-semibold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
                                           {category.name}
                                         </span>
                                       );
                                     })()}
                                   </button>
                                 ) : (
-                                  <span className={`font-medium ${isOverBudget ? 'text-lg' : ''} ${categoryConfig.textColor}`}>
+                                  <span className={`text-base font-semibold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
                                     {(() => {
                                       const parsed = parseCategory(category.name);
                                       return parsed.group ? (
-                                        <span className="flex items-center gap-2">
-                                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                        <span className="flex items-center gap-3">
+                                          <span className="text-sm px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium">
                                             {parsed.group}
                                           </span>
-                                          <span>{parsed.category}</span>
+                                          <span className="text-base font-semibold">{parsed.category}</span>
                                         </span>
                                       ) : (
                                         category.name
@@ -643,23 +643,23 @@ function Budget({ onNavigateToTransactions }) {
                                   </span>
                                 )}
                                 {category.transactionCount > 0 && (
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                                     ({category.transactionCount} trans.)
                                   </span>
                                 )}
                               </div>
                               
                               {category.isTransfer && category.note && (
-                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
                                   ⚠️ {category.note}
                                 </p>
                               )}
                             </div>
 
                             {/* Budget/Spent/Remaining */}
-                            <div className="grid grid-cols-3 md:grid-cols-4 gap-4 text-sm">
+                            <div className="grid grid-cols-3 md:grid-cols-4 gap-6 text-base">
                               <div className="text-right">
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Budget</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Budget</p>
                                 {editingId === (category.id || category.name) ? (
                                   <input
                                     type="number"
@@ -670,26 +670,26 @@ function Budget({ onNavigateToTransactions }) {
                                     onKeyPress={(e) => {
                                       if (e.key === 'Enter') handleSaveBudget(category.id, category.name);
                                     }}
-                                    className="w-20 px-2 py-1 border border-primary rounded focus:ring-2 focus:ring-primary text-sm"
+                                    className="w-full max-w-32 px-3 py-2 border border-primary rounded-lg focus:ring-2 focus:ring-primary text-base"
                                     autoFocus
                                   />
                                 ) : (
-                                  <p className={`font-semibold ${categoryConfig.textColor}`}>
+                                  <p className={`text-base font-bold ${categoryConfig.textColor}`}>
                                     {category.budget > 0 ? formatCurrency(category.budget) : '—'}
                                   </p>
                                 )}
                               </div>
                               
                               <div className="text-right">
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Spent</p>
-                                <p className={`font-semibold ${isOverBudget ? 'text-lg' : ''} ${categoryConfig.textColor}`}>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Spent</p>
+                                <p className={`text-base font-bold ${isOverBudget ? 'text-xl' : ''} ${categoryConfig.textColor}`}>
                                   {formatCurrency(category.spent)}
                                 </p>
                               </div>
                               
                               <div className="text-right">
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Remaining</p>
-                                <p className={`font-semibold ${
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Remaining</p>
+                                <p className={`text-base font-bold ${
                                   category.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                 }`}>
                                   {formatCurrency(category.remaining)}
@@ -698,14 +698,14 @@ function Budget({ onNavigateToTransactions }) {
 
                               {/* Progress Bar */}
                               <div className="hidden md:block">
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Progress</p>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Progress</p>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-1">
                                   <div
-                                    className={`h-2 rounded-full transition-all ${categoryConfig.progressColor}`}
+                                    className={`h-3 rounded-full transition-all ${categoryConfig.progressColor}`}
                                     style={{ width: `${Math.min(category.percentage || 0, 100)}%` }}
                                   />
                                 </div>
-                                <p className="text-xs text-center mt-1 text-gray-600 dark:text-gray-400">
+                                <p className="text-sm text-center text-gray-600 dark:text-gray-400 font-medium">
                                   {category.percentage?.toFixed(0) || 0}%
                                 </p>
                               </div>
@@ -715,24 +715,24 @@ function Budget({ onNavigateToTransactions }) {
                             <div className="flex items-center justify-end md:justify-center">
                               <button
                                 onClick={() => handleEditBudget(category)}
-                                className={`p-2 rounded-lg transition-colors ${categoryConfig.textColor} hover:opacity-80`}
+                                className={`p-3 rounded-lg transition-colors ${categoryConfig.textColor} hover:opacity-80 hover:bg-white/50 dark:hover:bg-slate-700/50`}
                                 aria-label="Edit budget"
                                 title="Edit budget"
                               >
-                                <Edit2 className="w-4 h-4" />
+                                <Edit2 className="w-5 h-5" />
                               </button>
                             </div>
                           </div>
 
                           {/* Mobile Progress Bar */}
-                          <div className="md:hidden mt-3">
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="md:hidden mt-4">
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
                               <div
-                                className={`h-2 rounded-full transition-all ${categoryConfig.progressColor}`}
+                                className={`h-3 rounded-full transition-all ${categoryConfig.progressColor}`}
                                 style={{ width: `${Math.min(category.percentage || 0, 100)}%` }}
                               />
                             </div>
-                            <p className="text-xs text-center mt-1 text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-center text-gray-600 dark:text-gray-400 font-medium">
                               {category.percentage?.toFixed(0) || 0}%
                             </p>
                           </div>
