@@ -117,9 +117,9 @@ function SetupBudget({ onBudgetSaved }) {
       setErrors(prev => ({ ...prev, [categoryName]: 'Failed to save budget' }));
     } finally {
       setSaving(prev => {
-        const new = { ...prev };
-        delete new[categoryName];
-        return new;
+        const updated = { ...prev };
+        delete updated[categoryName];
+        return updated;
       });
     }
   };
