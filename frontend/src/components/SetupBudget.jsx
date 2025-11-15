@@ -5,6 +5,8 @@ import { parseCategory } from '../utils/categoryFormat';
 import { getCategoryIcon } from '../utils/categoryIcons';
 import { getCategoryColor } from '../utils/categoryColors';
 
+// Setup Budget component with AI-powered income-adaptive suggestions
+
 function SetupBudget({ onBudgetSaved }) {
   const [categories, setCategories] = useState([]);
   const [suggestions, setSuggestions] = useState({});
