@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Save, Sparkles, TrendingUp, AlertCircle, CheckCircle, Search, DollarSign, Users, MapPin } from 'lucide-react';
+import { Loader, Save, Sparkles, TrendingUp, AlertCircle, CheckCircle, Search, DollarSign, Users, MapPin, RefreshCw } from 'lucide-react';
 import { getTransactionCategories, getBudgetSuggestions, updateCategoryBudget } from '../utils/api';
 import { parseCategory } from '../utils/categoryFormat';
 import { getCategoryIcon } from '../utils/categoryIcons';
@@ -20,14 +20,19 @@ function SetupBudget({ onBudgetSaved }) {
   const [successMessages, setSuccessMessages] = useState({});
   const [overallInsights, setOverallInsights] = useState(null);
   const [metadata, setMetadata] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       
       // Fetch suggestions (which includes transaction categories)
       const suggestionsData = await getBudgetSuggestions();
@@ -73,7 +78,12 @@ function SetupBudget({ onBudgetSaved }) {
       setError('Failed to load budget data. Please refresh the page.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefreshAnalysis = async () => {
+    await fetchData(true);
   };
 
   const handleBudgetChange = (categoryName, value) => {
@@ -190,6 +200,15 @@ function SetupBudget({ onBudgetSaved }) {
             <Sparkles className="w-6 h-6 text-blue-600" />
             AI Budget Setup
           </h2>
+          <button
+            onClick={handleRefreshAnalysis}
+            disabled={refreshing || loading}
+            className="px-4 py-2 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            title="Refresh AI analysis based on latest transactions"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Updating...' : 'Update Analysis'}
+          </button>
         </div>
         
         {userProfile && (
@@ -458,34 +477,6 @@ function SetupBudget({ onBudgetSaved }) {
         </div>
       </div>
 
-      {/* Summary */}
-      {filteredCategories.length > 0 && (
-        <div className="bg-blue-50 dark:bg-slate-700 rounded-2xl p-6 border border-blue-200 dark:border-slate-600">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-            Budget Summary
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Total Budget Set</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {Object.values(budgets).reduce((sum, budget) => sum + (budget || 0), 0).toLocaleString('es-ES')}€
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Categories with Budget</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {Object.values(budgets).filter(b => b > 0).length}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Suggested Total</div>
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {Object.values(suggestions).reduce((sum, s) => sum + (s.suggestedBudget || 0), 0).toLocaleString('es-ES')}€
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
