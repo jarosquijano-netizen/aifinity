@@ -741,6 +741,57 @@ router.get('/overview', optionalAuth, async (req, res) => {
       );
     }
     
+    // Get income for the month (for display purposes)
+    let incomeResult;
+    if (userId) {
+      incomeResult = await pool.query(
+        `SELECT 
+           COALESCE(t.category, 'Finanzas > Ingresos') as category,
+           SUM(t.amount) as total_income,
+           COUNT(*) as transaction_count
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id = $1
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND TO_CHAR(t.date, 'YYYY-MM') = $2
+           AND t.type = 'income'
+           AND t.computable = true
+           AND t.amount > 0
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
+         GROUP BY COALESCE(t.category, 'Finanzas > Ingresos')`,
+        [userId, targetMonth]
+      );
+    } else {
+      incomeResult = await pool.query(
+        `SELECT 
+           COALESCE(t.category, 'Finanzas > Ingresos') as category,
+           SUM(t.amount) as total_income,
+           COUNT(*) as transaction_count
+         FROM (
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
+             t.category, t.amount
+           FROM transactions t
+           LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+           WHERE t.user_id IS NULL
+           AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+           AND TO_CHAR(t.date, 'YYYY-MM') = $1
+           AND t.type = 'income'
+           AND t.computable = true
+           AND t.amount > 0
+           ORDER BY t.date, t.description, t.amount, t.type, t.id
+         ) t
+         GROUP BY COALESCE(t.category, 'Finanzas > Ingresos')`,
+        [targetMonth]
+      );
+    }
+    
+    // Calculate total income
+    const totalIncome = incomeResult.rows.reduce((sum, row) => sum + parseFloat(row.total_income || 0), 0);
+    
     // Get transfers separately (not counted in total but shown for review)
     // Include both old "Transferencias" and new "Finanzas > Transferencias"
     let transfersResult;
@@ -820,17 +871,22 @@ router.get('/overview', optionalAuth, async (req, res) => {
     });
     
     // Combine ALL categories (transaction + budget) with actual spending
+    // CRITICAL: Ensure we match spending correctly even after deduplication
     const overview = Object.values(allCategoriesMap).map(categoryInfo => {
       const categoryName = categoryInfo.name;
       
-      // Find spending for this category or its duplicate
+      // Find spending for this category - check exact match first, then duplicates
       let spending = spendingMap[categoryName] || { spent: 0, count: 0 };
       
-      // If no spending found, check for duplicate category names
-      if (spending.spent === 0 && spending.count === 0) {
+      // If no exact match found, check for duplicate category names in spendingMap
+      if ((spending.spent === 0 && spending.count === 0) || !spendingMap[categoryName]) {
         for (const key in spendingMap) {
           if (isDuplicateCategory(categoryName, key)) {
-            spending = spendingMap[key];
+            // Found matching spending data
+            spending = {
+              spent: spendingMap[key].spent || 0,
+              count: spendingMap[key].count || 0
+            };
             break;
           }
         }
@@ -950,8 +1006,10 @@ router.get('/overview', optionalAuth, async (req, res) => {
         budget: totalBudget,
         spent: totalSpent,
         remaining: totalRemaining,
-        percentage: totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
-      }
+        percentage: totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0,
+        income: totalIncome
+      },
+      income: totalIncome
     });
   } catch (error) {
     console.error('Budget overview error:', error);
