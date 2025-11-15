@@ -435,18 +435,21 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
           suggestedBudget = Math.round(userProfile.monthlyIncome * 0.5 / 10) * 10;
         }
         
+        // Ensure benchmark ranges are family-size specific
+        const familyBenchmark = getBenchmark(categoryName, userProfile.familySize);
+        
         return {
           category: categoryName,
           currentBudget: currentBudget,
           suggestedBudget: suggestedBudget,
           benchmark: {
-            min: benchmark.min || 0,
-            avg: benchmark.avg || 0,
-            max: benchmark.max || 0
+            min: familyBenchmark.min || 0,
+            avg: familyBenchmark.avg || 0,
+            max: familyBenchmark.max || 0
           },
           reason: categoryTransactions.length > 0 
             ? `Based on your average spending of ${(categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / categoryTransactions.length).toFixed(0)}€ per transaction over ${categoryTransactions.length} transactions.`
-            : generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark),
+            : generateBudgetReason(categoryName, suggestedBudget, userProfile, familyBenchmark),
           confidence: categoryTransactions.length > 0 ? 'high' : 'medium'
         };
       });
