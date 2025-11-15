@@ -557,7 +557,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                 </th>
                 <th className="px-1 py-3 w-20 text-base font-semibold">{t('date')}</th>
                 <th className="px-1 py-3 w-[400px] text-base font-semibold">{t('description')}</th>
-                <th className="px-1 py-3 w-24 text-base font-semibold">{t('category')}</th>
+                <th className="px-1 py-3 w-48 text-base font-semibold">{t('category')}</th>
                 <th className="px-1 py-3 w-48 text-base font-semibold">{t('bank')}</th>
                 <th className="px-2 py-3 text-right w-28 text-base font-semibold">{t('amount')}</th>
                 <th className="px-2 py-3 w-20 text-center text-base font-semibold text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700">Actions</th>
@@ -621,13 +621,13 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                     <td className="px-1 py-3">
                       <button
                         onClick={() => handleCategoryClick(transaction)}
-                        className={`${getCategoryColor(transaction.category)} hover:scale-105 transform transition-transform cursor-pointer hover:shadow-lg flex items-center gap-1`}
+                        className={`${getCategoryColor(transaction.category)} hover:scale-105 transform transition-transform cursor-pointer hover:shadow-lg flex items-center gap-1.5 w-full`}
                         title={t('clickToReassign') || 'Click para reasignar categoría'}
                       >
                         {React.createElement(getCategoryIcon(transaction.category), {
-                          className: "w-4 h-4"
+                          className: "w-4 h-4 flex-shrink-0"
                         })}
-                        <span className="text-xs truncate max-w-[80px]">
+                        <span className="text-xs whitespace-nowrap">
                           {(() => {
                             const parsed = parseCategory(transaction.category);
                             return parsed.category || parsed.displayName || transaction.category;
