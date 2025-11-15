@@ -37,6 +37,14 @@ function SetupBudget({ onBudgetSaved }) {
       });
       setSuggestions(suggestionsMap);
       
+      // Store overall insights and metadata if available
+      if (suggestionsData.overallInsights) {
+        setOverallInsights(suggestionsData.overallInsights);
+      }
+      if (suggestionsData.metadata) {
+        setMetadata(suggestionsData.metadata);
+      }
+      
       // Initialize budgets from suggestions (which include currentBudget)
       const budgetsMap = {};
       const originalBudgetsMap = {};
@@ -292,6 +300,17 @@ function SetupBudget({ onBudgetSaved }) {
                                 {suggestion.suggestedBudget.toLocaleString('es-ES')}€
                               </span>
                             </span>
+                            {suggestion.confidence && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                suggestion.confidence === 'high' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                                suggestion.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                              }`}>
+                                {suggestion.confidence === 'high' ? '✓ High confidence' :
+                                 suggestion.confidence === 'medium' ? '~ Medium confidence' :
+                                 '? Low confidence'}
+                              </span>
+                            )}
                             <span className="text-xs text-gray-500 dark:text-gray-500">
                               (Range: {suggestion.benchmark.min}-{suggestion.benchmark.max}€)
                             </span>
@@ -299,6 +318,22 @@ function SetupBudget({ onBudgetSaved }) {
                           <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">
                             {suggestion.reason}
                           </p>
+                          {suggestion.insights && suggestion.insights.length > 0 && (
+                            <div className="ml-6 space-y-1">
+                              {suggestion.insights.map((insight, idx) => (
+                                <p key={idx} className="text-xs text-blue-600 dark:text-blue-400">
+                                  💡 {insight}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          {suggestion.comparison && (
+                            <div className="ml-6 text-xs text-gray-500 dark:text-gray-400">
+                              {suggestion.comparison.variance === 'above' && '📈 Above average'}
+                              {suggestion.comparison.variance === 'below' && '📉 Below average'}
+                              {suggestion.comparison.variance === 'on-track' && '✅ On track'}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
