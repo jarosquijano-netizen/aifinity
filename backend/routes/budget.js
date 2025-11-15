@@ -23,13 +23,64 @@ router.get('/categories', optionalAuth, async (req, res) => {
   }
 });
 
-// Update category budget
+// Update or create category budget
 router.put('/categories/:id', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
-    const { budget_amount } = req.body;
+    const { budget_amount, category_name } = req.body;
 
+    // If id is null or 'new', create a new category budget
+    if (!id || id === 'new' || id === 'null') {
+      if (!category_name) {
+        return res.status(400).json({ error: 'Category name is required' });
+      }
+
+      // Check if category already exists
+      let checkResult;
+      if (userId) {
+        checkResult = await pool.query(
+          `SELECT * FROM categories 
+           WHERE name = $1 AND user_id = $2`,
+          [category_name, userId]
+        );
+      } else {
+        checkResult = await pool.query(
+          `SELECT * FROM categories 
+           WHERE name = $1 AND user_id IS NULL`,
+          [category_name]
+        );
+      }
+
+      if (checkResult.rows.length > 0) {
+        // Update existing category
+        const updateResult = await pool.query(
+          `UPDATE categories 
+           SET budget_amount = $1
+           WHERE id = $2 AND (user_id IS NULL OR user_id = $3)
+           RETURNING *`,
+          [budget_amount, checkResult.rows[0].id, userId]
+        );
+        return res.json({ 
+          message: 'Budget updated successfully',
+          category: updateResult.rows[0] 
+        });
+      } else {
+        // Create new category budget
+        const createResult = await pool.query(
+          `INSERT INTO categories (name, budget_amount, user_id)
+           VALUES ($1, $2, $3)
+           RETURNING *`,
+          [category_name, budget_amount, userId || null]
+        );
+        return res.json({ 
+          message: 'Budget created successfully',
+          category: createResult.rows[0] 
+        });
+      }
+    }
+
+    // Update existing category budget
     const result = await pool.query(
       `UPDATE categories 
        SET budget_amount = $1
@@ -61,6 +112,33 @@ router.get('/overview', optionalAuth, async (req, res) => {
     // Get current month if not specified
     const targetMonth = month || new Date().toISOString().slice(0, 7);
     
+    // Get ALL transaction categories (not just budget categories)
+    let allTransactionCategories;
+    if (userId) {
+      allTransactionCategories = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id = $1
+         AND category IS NOT NULL
+         AND category != ''
+         AND category != 'NC'
+         AND category != 'nc'
+         ORDER BY category ASC`,
+        [userId]
+      );
+    } else {
+      allTransactionCategories = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id IS NULL
+         AND category IS NOT NULL
+         AND category != ''
+         AND category != 'NC'
+         AND category != 'nc'
+         ORDER BY category ASC`
+      );
+    }
+    
     // Get categories with budgets
     let categoriesResult;
     if (userId) {
@@ -79,6 +157,42 @@ router.get('/overview', optionalAuth, async (req, res) => {
          ORDER BY name ASC`
       );
     }
+    
+    // Create a map of budget categories by name
+    const budgetMap = {};
+    categoriesResult.rows.forEach(cat => {
+      budgetMap[cat.name] = cat;
+    });
+    
+    // Merge all transaction categories with budget categories
+    // This ensures we show ALL transaction categories, even if they don't have budgets
+    const allCategoriesMap = {};
+    
+    // Add all transaction categories
+    allTransactionCategories.rows.forEach(row => {
+      const categoryName = row.category;
+      if (!allCategoriesMap[categoryName]) {
+        allCategoriesMap[categoryName] = {
+          name: categoryName,
+          hasBudget: false,
+          budgetData: null
+        };
+      }
+    });
+    
+    // Add/update with budget data if exists
+    categoriesResult.rows.forEach(cat => {
+      if (!allCategoriesMap[cat.name]) {
+        allCategoriesMap[cat.name] = {
+          name: cat.name,
+          hasBudget: true,
+          budgetData: cat
+        };
+      } else {
+        allCategoriesMap[cat.name].hasBudget = true;
+        allCategoriesMap[cat.name].budgetData = cat;
+      }
+    });
     
     // Get actual spending for the month (exclude transfers, deduplicate, exclude NC category)
     let spendingResult;
@@ -177,25 +291,27 @@ router.get('/overview', optionalAuth, async (req, res) => {
       };
     });
     
-    // Combine budgets with actual spending
-    const overview = categoriesResult.rows.map(category => {
-      const spent = spendingMap[category.name]?.spent || 0;
-      const budget = parseFloat(category.budget_amount);
+    // Combine ALL categories (transaction + budget) with actual spending
+    const overview = Object.values(allCategoriesMap).map(categoryInfo => {
+      const categoryName = categoryInfo.name;
+      const spent = spendingMap[categoryName]?.spent || 0;
+      const budget = categoryInfo.hasBudget ? parseFloat(categoryInfo.budgetData.budget_amount) : 0;
       const remaining = budget - spent;
       const percentage = budget > 0 ? (spent / budget) * 100 : 0;
       
       return {
-        id: category.id,
-        name: category.name,
+        id: categoryInfo.hasBudget ? categoryInfo.budgetData.id : null,
+        name: categoryName,
         budget: budget,
         spent: spent,
         remaining: remaining,
         percentage: percentage,
-        transactionCount: spendingMap[category.name]?.count || 0,
+        transactionCount: spendingMap[categoryName]?.count || 0,
         status: budget === 0 ? 'no_budget' : 
                 spent > budget ? 'over' : 
                 percentage > 90 ? 'warning' : 
-                'ok'
+                'ok',
+        hasBudget: categoryInfo.hasBudget
       };
     }).sort((a, b) => {
       // Sort by status priority: over > warning > ok > no_budget

@@ -28,13 +28,13 @@ function Budget({ onNavigateToTransactions }) {
   };
 
   const handleEditBudget = (category) => {
-    setEditingId(category.id);
-    setEditValue(category.budget.toString());
+    setEditingId(category.id || category.name);
+    setEditValue(category.budget > 0 ? category.budget.toString() : '');
   };
 
-  const handleSaveBudget = async (categoryId) => {
+  const handleSaveBudget = async (categoryId, categoryName) => {
     try {
-      await updateCategoryBudget(categoryId, parseFloat(editValue));
+      await updateCategoryBudget(categoryId, parseFloat(editValue), categoryName);
       setEditingId(null);
       fetchData();
     } catch (err) {
@@ -57,7 +57,7 @@ function Budget({ onNavigateToTransactions }) {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status, hasBudget) => {
     switch (status) {
       case 'over':
         return <AlertCircle className="w-5 h-5 text-danger" />;
@@ -65,6 +65,11 @@ function Budget({ onNavigateToTransactions }) {
         return <AlertCircle className="w-5 h-5 text-orange-500" />;
       case 'ok':
         return <CheckCircle className="w-5 h-5 text-success" />;
+      case 'no_budget':
+        if (!hasBudget) {
+          return <AlertCircle className="w-5 h-5 text-amber-500" />;
+        }
+        return null;
       default:
         return null;
     }
@@ -174,7 +179,6 @@ function Budget({ onNavigateToTransactions }) {
             </thead>
             <tbody>
               {data?.categories
-                ?.filter(cat => cat.budget > 0 || cat.spent > 0)
                 ?.sort((a, b) => {
                   // Categories that should always go to the bottom
                   const bottomCategories = [
@@ -222,8 +226,9 @@ function Budget({ onNavigateToTransactions }) {
                   return a.name.localeCompare(b.name);
                 })
                 ?.map((category) => (
-                <tr key={category.id} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700 ${
-                  category.isTransfer ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                <tr key={category.id || category.name} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700 ${
+                  category.isTransfer ? 'bg-blue-50 dark:bg-blue-900/20' : 
+                  category.status === 'no_budget' && !category.hasBudget ? 'bg-amber-50 dark:bg-amber-900/10 border-l-4 border-l-amber-400' : ''
                 }`}>
                   <td className="py-3 px-4 text-sm font-medium">
                     {category.transactionCount > 0 && onNavigateToTransactions ? (
@@ -233,6 +238,9 @@ function Budget({ onNavigateToTransactions }) {
                         title={`Ver ${category.transactionCount} transacciones de ${category.name}`}
                       >
                         {category.isTransfer && <span className="mr-2">🔄</span>}
+                        {category.status === 'no_budget' && !category.hasBudget && (
+                          <span className="mr-2 text-amber-600 dark:text-amber-400" title="No budget assigned">⚠️</span>
+                        )}
                         {category.name}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                           ({category.transactionCount} transacciones →)
@@ -246,26 +254,33 @@ function Budget({ onNavigateToTransactions }) {
                     ) : (
                       <span className="text-gray-900 dark:text-gray-100">
                         {category.isTransfer && <span className="mr-2">🔄</span>}
+                        {category.status === 'no_budget' && !category.hasBudget && (
+                          <span className="mr-2 text-amber-600 dark:text-amber-400" title="No budget assigned">⚠️</span>
+                        )}
                         {category.name}
                       </span>
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm text-right text-gray-900 dark:text-gray-100">
-                    {editingId === category.id ? (
+                    {editingId === (category.id || category.name) ? (
                       <input
                         type="number"
                         step="0.01"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => handleSaveBudget(category.id)}
+                        onBlur={() => handleSaveBudget(category.id, category.name)}
                         onKeyPress={(e) => {
-                          if (e.key === 'Enter') handleSaveBudget(category.id);
+                          if (e.key === 'Enter') handleSaveBudget(category.id, category.name);
                         }}
                         className="w-24 px-2 py-1 border border-primary rounded focus:ring-2 focus:ring-primary"
                         autoFocus
                       />
                     ) : (
-                      formatCurrency(category.budget)
+                      <span className={category.status === 'no_budget' && !category.hasBudget ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}>
+                        {category.budget > 0 ? formatCurrency(category.budget) : 
+                         category.status === 'no_budget' && !category.hasBudget ? '—' : 
+                         formatCurrency(category.budget)}
+                      </span>
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm text-right text-gray-900 dark:text-gray-100">
@@ -279,30 +294,43 @@ function Budget({ onNavigateToTransactions }) {
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-center">
                       <div className="w-full max-w-xs">
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              category.status === 'over' ? 'bg-danger' :
-                              category.status === 'warning' ? 'bg-orange-500' :
-                              'bg-success'
-                            }`}
-                            style={{ width: `${Math.min(category.percentage, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-center mt-1 text-gray-600 dark:text-gray-400">
-                          {category.percentage.toFixed(0)}%
-                        </p>
+                        {category.status === 'no_budget' && !category.hasBudget ? (
+                          <div className="text-center">
+                            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">No budget</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all ${
+                                  category.status === 'over' ? 'bg-danger' :
+                                  category.status === 'warning' ? 'bg-orange-500' :
+                                  'bg-success'
+                                }`}
+                                style={{ width: `${Math.min(category.percentage, 100)}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-center mt-1 text-gray-600 dark:text-gray-400">
+                              {category.percentage.toFixed(0)}%
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    {getStatusIcon(category.status)}
+                    {getStatusIcon(category.status, category.hasBudget)}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <button
                       onClick={() => handleEditBudget(category)}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                      aria-label="Edit budget"
+                      className={`p-2 rounded-lg transition-colors ${
+                        category.status === 'no_budget' && !category.hasBudget
+                          ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/20'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-slate-700'
+                      }`}
+                      aria-label={category.status === 'no_budget' && !category.hasBudget ? "Add budget" : "Edit budget"}
+                      title={category.status === 'no_budget' && !category.hasBudget ? "Add budget for this category" : "Edit budget"}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -331,8 +359,8 @@ function Budget({ onNavigateToTransactions }) {
             <span className="text-sm text-gray-700 dark:text-gray-300">Over budget (&gt;100%)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            <span className="text-sm text-gray-700 dark:text-gray-300">No budget set</span>
+            <AlertCircle className="w-5 h-5 text-amber-500" />
+            <span className="text-sm text-gray-700 dark:text-gray-300">No budget assigned</span>
           </div>
         </div>
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700">

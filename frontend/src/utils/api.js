@@ -163,8 +163,11 @@ export const getBudgetOverview = async (month) => {
   return response.data;
 };
 
-export const updateCategoryBudget = async (categoryId, budgetAmount) => {
-  const response = await api.put(`/budget/categories/${categoryId}`, { budget_amount: budgetAmount });
+export const updateCategoryBudget = async (categoryId, budgetAmount, categoryName = null) => {
+  const response = await api.put(`/budget/categories/${categoryId || 'new'}`, { 
+    budget_amount: budgetAmount,
+    category_name: categoryName
+  });
   return response.data;
 };
 
