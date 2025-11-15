@@ -90,6 +90,7 @@ class AIBudgetSuggestionService {
         locationBenchmarks,
         incomeAllocations,
         spendingPatterns,
+        monthlyIncome,
       });
 
       return budgetSuggestions;
