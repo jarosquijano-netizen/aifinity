@@ -194,30 +194,35 @@ router.get('/overview', optionalAuth, async (req, res) => {
       const categoryName = row.category;
       
       // Check if this category is a duplicate of an existing one
-      let isDuplicate = false;
       let existingKey = null;
       
       for (const key in allCategoriesMap) {
         if (isDuplicateCategory(categoryName, key)) {
-          isDuplicate = true;
-          // Prefer hierarchical format
+          // Found a duplicate - prefer hierarchical format
           if (categoryName.includes(' > ')) {
+            // New category is hierarchical, replace old format
             existingKey = key;
             break;
           } else if (key.includes(' > ')) {
+            // Existing category is hierarchical, skip adding this one
+            existingKey = key;
+            break;
+          } else {
+            // Both are old format, use first one encountered
             existingKey = key;
             break;
           }
         }
       }
       
-      if (!isDuplicate) {
+      if (!existingKey) {
+        // No duplicate found, add the category
         allCategoriesMap[categoryName] = {
           name: categoryName,
           hasBudget: false,
           budgetData: null
         };
-      } else if (existingKey && categoryName.includes(' > ')) {
+      } else if (categoryName.includes(' > ')) {
         // Replace old format with hierarchical format
         delete allCategoriesMap[existingKey];
         allCategoriesMap[categoryName] = {
@@ -226,29 +231,35 @@ router.get('/overview', optionalAuth, async (req, res) => {
           budgetData: null
         };
       }
+      // If existingKey exists and new category is NOT hierarchical, skip it (keep existing)
     });
     
     // Add/update with budget data if exists
     categoriesResult.rows.forEach(cat => {
       // Check if this category is a duplicate
-      let isDuplicate = false;
       let existingKey = null;
       
       for (const key in allCategoriesMap) {
         if (isDuplicateCategory(cat.name, key)) {
-          isDuplicate = true;
-          // Prefer hierarchical format
+          // Found a duplicate - prefer hierarchical format
           if (cat.name.includes(' > ')) {
+            // Budget category is hierarchical, replace old format
             existingKey = key;
             break;
           } else if (key.includes(' > ')) {
+            // Existing category is hierarchical, update budget on existing
+            existingKey = key;
+            break;
+          } else {
+            // Both are old format, use existing key
             existingKey = key;
             break;
           }
         }
       }
       
-      if (!isDuplicate) {
+      if (!existingKey) {
+        // No duplicate found, add or update the category
         if (!allCategoriesMap[cat.name]) {
           allCategoriesMap[cat.name] = {
             name: cat.name,
@@ -259,10 +270,10 @@ router.get('/overview', optionalAuth, async (req, res) => {
           allCategoriesMap[cat.name].hasBudget = true;
           allCategoriesMap[cat.name].budgetData = cat;
         }
-      } else if (existingKey) {
-        // Prefer hierarchical format
+      } else {
+        // Found duplicate - prefer hierarchical format
         if (cat.name.includes(' > ')) {
-          // Replace old format with hierarchical
+          // Budget category is hierarchical, replace old format
           if (allCategoriesMap[existingKey]) {
             allCategoriesMap[cat.name] = {
               ...allCategoriesMap[existingKey],
@@ -279,7 +290,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
             };
           }
         } else {
-          // Keep existing hierarchical format, just update budget
+          // Budget category is old format, update existing hierarchical format
           if (allCategoriesMap[existingKey]) {
             allCategoriesMap[existingKey].hasBudget = true;
             allCategoriesMap[existingKey].budgetData = cat;
