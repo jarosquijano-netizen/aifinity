@@ -659,58 +659,12 @@ router.get('/overview', optionalAuth, async (req, res) => {
     };
     
     // Merge all transaction categories with budget categories
-    // This ensures we show ALL transaction categories, even if they don't have budgets
+    // CRITICAL: Start with ALL budget categories first, then add transaction categories
+    // This ensures we show ALL categories with budgets, even if they have no transactions
     // Deduplicate: prefer hierarchical format over old format
     const allCategoriesMap = {};
     
-    // Add all transaction categories
-    allTransactionCategories.rows.forEach(row => {
-      const categoryName = row.category;
-      
-      // Check if this category is a duplicate of an existing one
-      let existingKey = null;
-      
-      for (const key in allCategoriesMap) {
-        if (isDuplicateCategory(categoryName, key)) {
-          // Found a duplicate - prefer hierarchical format
-          if (categoryName.includes(' > ')) {
-            // New category is hierarchical, replace old format
-            existingKey = key;
-            break;
-          } else if (key.includes(' > ')) {
-            // Existing category is hierarchical, skip adding this one
-            existingKey = key;
-            break;
-          } else {
-            // Both are old format, use first one encountered
-            existingKey = key;
-            break;
-          }
-        }
-      }
-      
-      if (!existingKey) {
-        // No duplicate found, add the category
-        allCategoriesMap[categoryName] = {
-          name: categoryName,
-          hasBudget: false,
-          budgetData: null
-        };
-      } else if (categoryName.includes(' > ')) {
-        // Replace old format with hierarchical format
-        // Preserve budget data if it exists
-        const existingData = allCategoriesMap[existingKey];
-        delete allCategoriesMap[existingKey];
-        allCategoriesMap[categoryName] = {
-          name: categoryName,
-          hasBudget: existingData?.hasBudget || false,
-          budgetData: existingData?.budgetData || null
-        };
-      }
-      // If existingKey exists and new category is NOT hierarchical, skip it (keep existing)
-    });
-    
-    // Add/update with budget data if exists
+    // FIRST: Add all budget categories (ensures categories with budgets but no transactions are included)
     categoriesResult.rows.forEach(cat => {
       // Check if this category is a duplicate
       let existingKey = null;
