@@ -354,7 +354,14 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       
       // Calculate total suggested and scale to match total budget set (if available)
       const totalSuggested = finalSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
-      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => sum + parseFloat(cat.budget_amount || 0), 0);
+      // Calculate total budget set excluding transfers and NC categories (same logic as Overview)
+      const excludedCategories = ['Finanzas > Transferencias', 'Transferencias', 'NC', 'nc'];
+      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => {
+        if (excludedCategories.includes(cat.name)) {
+          return sum;
+        }
+        return sum + parseFloat(cat.budget_amount || 0);
+      }, 0);
       
       // If total suggested is significantly different from total budget set, scale suggestions proportionally
       // But only if total budget set is reasonable (not 0 or too low)
@@ -456,7 +463,14 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       
       // Calculate total suggested and scale to match total budget set (if available)
       const totalSuggested = fallbackSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
-      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => sum + parseFloat(cat.budget_amount || 0), 0);
+      // Calculate total budget set excluding transfers and NC categories (same logic as Overview)
+      const excludedCategories = ['Finanzas > Transferencias', 'Transferencias', 'NC', 'nc'];
+      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => {
+        if (excludedCategories.includes(cat.name)) {
+          return sum;
+        }
+        return sum + parseFloat(cat.budget_amount || 0);
+      }, 0);
       const maxAllowedBudget = userProfile.monthlyIncome * 0.85;
       
       // Priority 1: Scale to match total budget set if it's reasonable
