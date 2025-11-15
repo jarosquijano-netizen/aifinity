@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import runCategoryMappingMigration from '../migrations/category-mapping-migration.js';
 import cleanupUnusedBudgetCategories from '../migrations/cleanup-unused-budget-categories.js';
+import finalizeCategoryCleanup from '../migrations/finalize-category-cleanup.js';
 
 const router = express.Router();
 
@@ -155,6 +156,28 @@ router.post('/unused-budgets', async (req, res) => {
     console.error('❌ Error during budget cleanup:', error);
     res.status(500).json({
       error: 'Failed to cleanup unused budget categories',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Finalize category cleanup
+ * POST /api/cleanup/finalize
+ */
+router.post('/finalize', async (req, res) => {
+  try {
+    console.log('🚀 Running final category cleanup...');
+    const result = await finalizeCategoryCleanup();
+    res.json({
+      success: true,
+      message: 'Final category cleanup completed',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error during final cleanup:', error);
+    res.status(500).json({
+      error: 'Failed to finalize category cleanup',
       details: error.message
     });
   }

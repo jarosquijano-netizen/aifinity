@@ -182,6 +182,11 @@ export const cleanupUnusedBudgetCategories = async () => {
   return response.data;
 };
 
+export const finalizeCategoryCleanup = async () => {
+  const response = await api.post('/cleanup/finalize');
+  return response.data;
+};
+
 // AI endpoints
 export const getAIConfig = async () => {
   const response = await api.get('/ai/config');
