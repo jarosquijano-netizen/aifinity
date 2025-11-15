@@ -16,6 +16,8 @@ function SetupBudget({ onBudgetSaved }) {
   const [originalBudgets, setOriginalBudgets] = useState({}); // Track original values for comparison
   const [errors, setErrors] = useState({});
   const [successMessages, setSuccessMessages] = useState({});
+  const [overallInsights, setOverallInsights] = useState(null);
+  const [metadata, setMetadata] = useState(null);
 
   useEffect(() => {
     fetchData();
