@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, Edit2, AlertCircle, CheckCircle, TrendingUp, Calendar } from 'lucide-react';
 import { getBudgetOverview, updateCategoryBudget } from '../utils/api';
+import { parseCategory } from '../utils/categoryFormat';
 
 function Budget({ onNavigateToTransactions }) {
   const [data, setData] = useState(null);
@@ -276,7 +277,19 @@ function Budget({ onNavigateToTransactions }) {
                         {category.status === 'no_budget' && !category.hasBudget && (
                           <span className="mr-2 text-amber-600 dark:text-amber-400" title="No budget assigned">⚠️</span>
                         )}
-                        {category.name}
+                        {(() => {
+                          const parsed = parseCategory(category.name);
+                          return parsed.group ? (
+                            <span className="flex items-center gap-2">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                {parsed.group}
+                              </span>
+                              <span>{parsed.category}</span>
+                            </span>
+                          ) : (
+                            <span>{category.name}</span>
+                          );
+                        })()}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                           ({category.transactionCount} transacciones →)
                         </span>
@@ -292,7 +305,19 @@ function Budget({ onNavigateToTransactions }) {
                         {category.status === 'no_budget' && !category.hasBudget && (
                           <span className="mr-2 text-amber-600 dark:text-amber-400" title="No budget assigned">⚠️</span>
                         )}
-                        {category.name}
+                        {(() => {
+                          const parsed = parseCategory(category.name);
+                          return parsed.group ? (
+                            <span className="flex items-center gap-2">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                {parsed.group}
+                              </span>
+                              <span>{parsed.category}</span>
+                            </span>
+                          ) : (
+                            <span>{category.name}</span>
+                          );
+                        })()}
                       </span>
                     )}
                   </td>

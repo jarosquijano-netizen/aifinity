@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
+import runCategoryMappingMigration from '../migrations/category-mapping-migration.js';
+import cleanupUnusedBudgetCategories from '../migrations/cleanup-unused-budget-categories.js';
 
 const router = express.Router();
 
@@ -111,6 +113,50 @@ router.get('/categories', async (req, res) => {
     });
   } finally {
     client.release();
+  }
+});
+
+/**
+ * Run category mapping migration
+ * POST /api/cleanup/category-mapping
+ */
+router.post('/category-mapping', async (req, res) => {
+  try {
+    console.log('🚀 Running category mapping migration...');
+    const result = await runCategoryMappingMigration();
+    res.json({
+      success: true,
+      message: 'Category mapping migration completed',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error during category mapping migration:', error);
+    res.status(500).json({
+      error: 'Failed to run category mapping migration',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Cleanup unused budget categories
+ * POST /api/cleanup/unused-budgets
+ */
+router.post('/unused-budgets', async (req, res) => {
+  try {
+    console.log('🧹 Running budget category cleanup...');
+    const result = await cleanupUnusedBudgetCategories();
+    res.json({
+      success: true,
+      message: 'Budget category cleanup completed',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error during budget cleanup:', error);
+    res.status(500).json({
+      error: 'Failed to cleanup unused budget categories',
+      details: error.message
+    });
   }
 });
 

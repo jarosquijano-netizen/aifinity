@@ -171,6 +171,17 @@ export const updateCategoryBudget = async (categoryId, budgetAmount, categoryNam
   return response.data;
 };
 
+// Cleanup/Migration endpoints
+export const runCategoryMappingMigration = async () => {
+  const response = await api.post('/cleanup/category-mapping');
+  return response.data;
+};
+
+export const cleanupUnusedBudgetCategories = async () => {
+  const response = await api.post('/cleanup/unused-budgets');
+  return response.data;
+};
+
 // AI endpoints
 export const getAIConfig = async () => {
   const response = await api.get('/ai/config');
