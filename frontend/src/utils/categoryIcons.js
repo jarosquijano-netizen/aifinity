@@ -116,7 +116,6 @@ export const getCategoryIcon = (category) => {
     // Ocio y entretenimiento
     'Entretenimiento': Film,
     'Espectáculos': Ticket,
-    'Vacation': VacationIcon,
     'Ocio > Vacation': VacationIcon,
     'Otros ocio': Music,
     'Loterías': DollarSign,
@@ -224,7 +223,6 @@ export const getAllCategoriesWithIcons = () => {
     // Ocio y entretenimiento
     { name: 'Entretenimiento', icon: Film, group: 'Ocio' },
     { name: 'Espectáculos', icon: Ticket, group: 'Ocio' },
-    { name: 'Vacation', icon: VacationIcon, group: 'Ocio' },
     { name: 'Ocio > Vacation', icon: VacationIcon, group: 'Ocio' },
     { name: 'Otros ocio', icon: Music, group: 'Ocio' },
     { name: 'Loterías', icon: DollarSign, group: 'Ocio' },

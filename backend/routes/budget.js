@@ -166,14 +166,60 @@ router.get('/overview', optionalAuth, async (req, res) => {
       budgetMap[cat.name] = cat;
     });
     
+    // Helper function to check if two categories are duplicates
+    // (e.g., "Mantenimiento hogar" and "Vivienda > Mantenimiento hogar")
+    const isDuplicateCategory = (name1, name2) => {
+      if (name1 === name2) return true;
+      
+      // Check if one is hierarchical and the other is the subcategory
+      if (name1.includes(' > ')) {
+        const subcategory = name1.split(' > ')[1];
+        if (subcategory === name2) return true;
+      }
+      if (name2.includes(' > ')) {
+        const subcategory = name2.split(' > ')[1];
+        if (subcategory === name1) return true;
+      }
+      
+      return false;
+    };
+    
     // Merge all transaction categories with budget categories
     // This ensures we show ALL transaction categories, even if they don't have budgets
+    // Deduplicate: prefer hierarchical format over old format
     const allCategoriesMap = {};
     
     // Add all transaction categories
     allTransactionCategories.rows.forEach(row => {
       const categoryName = row.category;
-      if (!allCategoriesMap[categoryName]) {
+      
+      // Check if this category is a duplicate of an existing one
+      let isDuplicate = false;
+      let existingKey = null;
+      
+      for (const key in allCategoriesMap) {
+        if (isDuplicateCategory(categoryName, key)) {
+          isDuplicate = true;
+          // Prefer hierarchical format
+          if (categoryName.includes(' > ')) {
+            existingKey = key;
+            break;
+          } else if (key.includes(' > ')) {
+            existingKey = key;
+            break;
+          }
+        }
+      }
+      
+      if (!isDuplicate) {
+        allCategoriesMap[categoryName] = {
+          name: categoryName,
+          hasBudget: false,
+          budgetData: null
+        };
+      } else if (existingKey && categoryName.includes(' > ')) {
+        // Replace old format with hierarchical format
+        delete allCategoriesMap[existingKey];
         allCategoriesMap[categoryName] = {
           name: categoryName,
           hasBudget: false,
@@ -184,15 +230,61 @@ router.get('/overview', optionalAuth, async (req, res) => {
     
     // Add/update with budget data if exists
     categoriesResult.rows.forEach(cat => {
-      if (!allCategoriesMap[cat.name]) {
-        allCategoriesMap[cat.name] = {
-          name: cat.name,
-          hasBudget: true,
-          budgetData: cat
-        };
-      } else {
-        allCategoriesMap[cat.name].hasBudget = true;
-        allCategoriesMap[cat.name].budgetData = cat;
+      // Check if this category is a duplicate
+      let isDuplicate = false;
+      let existingKey = null;
+      
+      for (const key in allCategoriesMap) {
+        if (isDuplicateCategory(cat.name, key)) {
+          isDuplicate = true;
+          // Prefer hierarchical format
+          if (cat.name.includes(' > ')) {
+            existingKey = key;
+            break;
+          } else if (key.includes(' > ')) {
+            existingKey = key;
+            break;
+          }
+        }
+      }
+      
+      if (!isDuplicate) {
+        if (!allCategoriesMap[cat.name]) {
+          allCategoriesMap[cat.name] = {
+            name: cat.name,
+            hasBudget: true,
+            budgetData: cat
+          };
+        } else {
+          allCategoriesMap[cat.name].hasBudget = true;
+          allCategoriesMap[cat.name].budgetData = cat;
+        }
+      } else if (existingKey) {
+        // Prefer hierarchical format
+        if (cat.name.includes(' > ')) {
+          // Replace old format with hierarchical
+          if (allCategoriesMap[existingKey]) {
+            allCategoriesMap[cat.name] = {
+              ...allCategoriesMap[existingKey],
+              name: cat.name,
+              hasBudget: true,
+              budgetData: cat
+            };
+            delete allCategoriesMap[existingKey];
+          } else {
+            allCategoriesMap[cat.name] = {
+              name: cat.name,
+              hasBudget: true,
+              budgetData: cat
+            };
+          }
+        } else {
+          // Keep existing hierarchical format, just update budget
+          if (allCategoriesMap[existingKey]) {
+            allCategoriesMap[existingKey].hasBudget = true;
+            allCategoriesMap[existingKey].budgetData = cat;
+          }
+        }
       }
     });
     
