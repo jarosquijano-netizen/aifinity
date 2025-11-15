@@ -237,18 +237,18 @@ async function runCategoryMappingMigration() {
         
         if (newBudgetCheck.rows.length > 0) {
           // Merge budgets: add old budget to new category
-          const oldBudget = budgetCheck.rows[0];
-          const newBudget = newBudgetCheck.rows[0];
+          const oldBudgetCategory = budgetCheck.rows[0];
+          const newBudgetCategory = newBudgetCheck.rows[0];
           
           await client.query(
             `UPDATE categories 
              SET budget_amount = budget_amount + $1 
              WHERE id = $2`,
-            [oldBudget.budget_amount || 0, newBudget.id]
+            [oldBudgetCategory.budget_amount || 0, newBudgetCategory.id]
           );
           
           // Delete old category
-          await client.query(`DELETE FROM categories WHERE id = $1`, [oldBudget.id]);
+          await client.query(`DELETE FROM categories WHERE id = $1`, [oldBudgetCategory.id]);
           
           budgetUpdates.push({
             merged: oldCategory,
@@ -257,9 +257,10 @@ async function runCategoryMappingMigration() {
           console.log(`   ✅ Merged budget: "${oldCategory}" → "${newCategory}"`);
         } else {
           // Rename category
+          const oldBudgetCategory = budgetCheck.rows[0];
           await client.query(
             `UPDATE categories SET name = $1 WHERE id = $2`,
-            [newCategory, oldBudget.id]
+            [newCategory, oldBudgetCategory.id]
           );
           
           budgetUpdates.push({
