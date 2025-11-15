@@ -4,6 +4,7 @@ import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bul
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon } from '../utils/categoryIcons';
+import { parseCategory } from '../utils/categoryFormat';
 import CategoryModal from './CategoryModal';
 
 function Transactions({ initialFilters = {}, onFiltersCleared }) {
@@ -408,7 +409,10 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
               Filtro aplicado desde Budget: 
               {initialFilters.category && (
                 <span className="ml-2 px-2 py-1 bg-blue-200 dark:bg-blue-800 rounded text-xs font-bold">
-                  {initialFilters.category}
+                  {(() => {
+                    const parsed = parseCategory(initialFilters.category);
+                    return parsed.category || parsed.displayName || initialFilters.category;
+                  })()}
                 </span>
               )}
             </span>
@@ -623,7 +627,12 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         {React.createElement(getCategoryIcon(transaction.category), {
                           className: "w-4 h-4"
                         })}
-                        <span className="text-xs truncate max-w-[80px]">{transaction.category}</span>
+                        <span className="text-xs truncate max-w-[80px]">
+                          {(() => {
+                            const parsed = parseCategory(transaction.category);
+                            return parsed.category || parsed.displayName || transaction.category;
+                          })()}
+                        </span>
                       </button>
                     </td>
                     <td className="px-1 py-3">

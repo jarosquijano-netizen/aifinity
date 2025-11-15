@@ -3,6 +3,7 @@ import { X, Tag, AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-rea
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon, getAllCategoriesWithIcons } from '../utils/categoryIcons';
+import { parseCategory } from '../utils/categoryFormat';
 
 function CategoryModal({ transaction, categories, onClose, onUpdate }) {
   const [selectedCategory, setSelectedCategory] = useState(transaction?.category || '');
@@ -197,7 +198,10 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
                           >
                             <IconComponent className="w-4 h-4 flex-shrink-0 text-gray-600 dark:text-gray-400" />
                             <span className={`${getCategoryColor(cat.name)} text-[10px] leading-tight flex-1 line-clamp-2`}>
-                              {cat.name}
+                              {(() => {
+                                const parsed = parseCategory(cat.name);
+                                return parsed.category || parsed.displayName || cat.name;
+                              })()}
                             </span>
                           </button>
                         );
