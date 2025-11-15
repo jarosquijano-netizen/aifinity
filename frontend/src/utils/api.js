@@ -164,9 +164,21 @@ export const getBudgetOverview = async (month) => {
 };
 
 export const getBudgetInsights = async (month, useAI = true) => {
-  const response = await api.get('/budget/insights', { 
-    params: { month, useAI: useAI.toString() } 
+  const response = await api.get('/budget/insights', {
+    params: { month, useAI: useAI.toString() }
   });
+  return response.data;
+};
+
+// Get all transaction categories
+export const getTransactionCategories = async () => {
+  const response = await api.get('/budget/categories');
+  return response.data;
+};
+
+// Get AI budget suggestions
+export const getBudgetSuggestions = async () => {
+  const response = await api.get('/budget/suggestions');
   return response.data;
 };
 

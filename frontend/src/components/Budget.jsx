@@ -3,8 +3,11 @@ import { Loader, Edit2, AlertCircle, CheckCircle, TrendingUp, Calendar, Search, 
 import { getBudgetOverview, updateCategoryBudget, getBudgetInsights } from '../utils/api';
 import { parseCategory } from '../utils/categoryFormat';
 import BudgetInsight from './BudgetInsight';
+import SetupBudget from './SetupBudget';
+import Tabs from './Tabs';
 
 function Budget({ onNavigateToTransactions }) {
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' or 'setup'
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -312,28 +315,48 @@ function Budget({ onNavigateToTransactions }) {
     { key: 'transfer', label: '🔄 Transfers', categories: sortCategoriesInGroup(groupedCategories.transfer) }
   ];
 
+  // Tab configuration
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'setup', label: 'Setup Budget' }
+  ];
+
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Header */}
+      {/* Header with Tabs */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">Budget</h2>
             <p className="text-lg text-gray-600 dark:text-gray-400">Track your spending against budgeted amounts</p>
           </div>
           
-          {/* Month Selector */}
-          <div className="flex items-center space-x-3">
-            <Calendar className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-base"
-            />
-          </div>
+          {/* Month Selector - only show on overview tab */}
+          {activeTab === 'overview' && (
+            <div className="flex items-center space-x-3">
+              <Calendar className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-base"
+              />
+            </div>
+          )}
         </div>
+        
+        {/* Tabs */}
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
       </div>
+
+      {/* Tab Content */}
+      {activeTab === 'setup' ? (
+        <SetupBudget onBudgetSaved={() => {
+          // Refresh overview data when budgets are saved
+          fetchData();
+        }} />
+      ) : (
+        <>
 
       {/* Summary Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -803,6 +826,8 @@ function Budget({ onNavigateToTransactions }) {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

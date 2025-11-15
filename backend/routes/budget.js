@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { optionalAuth } from '../middleware/auth.js';
 import aiInsightService from '../services/aiInsightService.js';
+import { getCategoryBenchmark, getBenchmark } from '../data/benchmarks.js';
 
 const router = express.Router();
 
@@ -24,6 +25,188 @@ router.get('/categories', optionalAuth, async (req, res) => {
   }
 });
 
+// Get AI budget suggestions for all transaction categories
+router.get('/suggestions', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    
+    // Get user profile (family size, income, location, ages)
+    let userProfile = {
+      familySize: 1,
+      monthlyIncome: 3000,
+      location: 'Spain',
+      ages: [],
+      userId: userId
+    };
+    
+    if (userId) {
+      try {
+        const settingsResult = await pool.query(
+          `SELECT family_size, expected_monthly_income, location, ages 
+           FROM user_settings 
+           WHERE user_id = $1 
+           LIMIT 1`,
+          [userId]
+        );
+        
+        if (settingsResult.rows.length > 0) {
+          const settings = settingsResult.rows[0];
+          userProfile.familySize = settings.family_size || 1;
+          userProfile.monthlyIncome = settings.expected_monthly_income || 3000;
+          userProfile.location = settings.location || 'Spain';
+          const ages = settings.ages || [];
+          userProfile.ages = Array.isArray(ages) ? ages : (typeof ages === 'string' ? JSON.parse(ages) : []);
+        }
+      } catch (error) {
+        console.error('Error fetching user settings:', error);
+      }
+    }
+    
+    // Get all transaction categories
+    let transactionCategories;
+    if (userId) {
+      transactionCategories = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id = $1
+         AND category IS NOT NULL
+         AND category != ''
+         AND category != 'NC'
+         AND category != 'nc'
+         AND type = 'expense'
+         ORDER BY category ASC`,
+        [userId]
+      );
+    } else {
+      transactionCategories = await pool.query(
+        `SELECT DISTINCT category 
+         FROM transactions 
+         WHERE user_id IS NULL
+         AND category IS NOT NULL
+         AND category != ''
+         AND category != 'NC'
+         AND category != 'nc'
+         AND type = 'expense'
+         ORDER BY category ASC`
+      );
+    }
+    
+    // Get current budgets
+    let currentBudgets;
+    if (userId) {
+      currentBudgets = await pool.query(
+        `SELECT name, budget_amount 
+         FROM categories 
+         WHERE user_id = $1 OR user_id IS NULL`,
+        [userId]
+      );
+    } else {
+      currentBudgets = await pool.query(
+        `SELECT name, budget_amount 
+         FROM categories 
+         WHERE user_id IS NULL`
+      );
+    }
+    
+    const budgetMap = {};
+    currentBudgets.rows.forEach(cat => {
+      budgetMap[cat.name] = parseFloat(cat.budget_amount || 0);
+    });
+    
+    // Generate suggestions for each category
+    const suggestions = transactionCategories.rows.map(row => {
+      const categoryName = row.category;
+      const benchmark = getBenchmark(categoryName, userProfile.familySize);
+      const currentBudget = budgetMap[categoryName] || 0;
+      
+      // Calculate suggested budget based on benchmark
+      let suggestedBudget = benchmark.avg || 0;
+      
+      // Adjust based on income if available
+      if (userProfile.monthlyIncome > 0) {
+        // Try to get percentage of income recommendation
+        const categoryBenchmark = getCategoryBenchmark(categoryName, userProfile);
+        if (categoryBenchmark.includes('%')) {
+          // Extract percentage from benchmark text
+          const percentMatch = categoryBenchmark.match(/(\d+)%/);
+          if (percentMatch) {
+            const percent = parseInt(percentMatch[1]);
+            suggestedBudget = (userProfile.monthlyIncome * percent) / 100;
+          }
+        }
+      }
+      
+      // Round to nearest 10
+      suggestedBudget = Math.round(suggestedBudget / 10) * 10;
+      
+      return {
+        category: categoryName,
+        currentBudget: currentBudget,
+        suggestedBudget: suggestedBudget,
+        benchmark: {
+          min: benchmark.min || 0,
+          avg: benchmark.avg || 0,
+          max: benchmark.max || 0
+        },
+        reason: generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark)
+      };
+    });
+    
+    res.json({
+      success: true,
+      suggestions: suggestions,
+      userProfile: userProfile
+    });
+  } catch (error) {
+    console.error('Error generating budget suggestions:', error);
+    res.status(500).json({
+      error: 'Failed to generate budget suggestions',
+      details: error.message
+    });
+  }
+});
+
+// Helper function to generate budget reason
+function generateBudgetReason(categoryName, suggestedBudget, userProfile, benchmark) {
+  const parsed = categoryName.includes(' > ') ? categoryName.split(' > ') : [null, categoryName];
+  const subcategory = parsed[1] || categoryName;
+  
+  let reason = '';
+  
+  if (benchmark.avg > 0) {
+    if (userProfile.familySize > 1) {
+      reason = `Based on average spending for a family of ${userProfile.familySize} in ${userProfile.location}. `;
+    } else {
+      reason = `Based on average spending for individuals in ${userProfile.location}. `;
+    }
+    
+    if (suggestedBudget > benchmark.avg * 1.2) {
+      reason += `Your suggested budget (${suggestedBudget}€) is above average (${benchmark.avg}€), which may be appropriate for your income level.`;
+    } else if (suggestedBudget < benchmark.avg * 0.8) {
+      reason += `Your suggested budget (${suggestedBudget}€) is below average (${benchmark.avg}€), helping you save money.`;
+    } else {
+      reason += `Your suggested budget (${suggestedBudget}€) aligns with the average (${benchmark.avg}€).`;
+    }
+  } else {
+    reason = `Suggested budget based on your income and family size. Adjust based on your spending patterns.`;
+  }
+  
+  // Add age-specific insights if applicable
+  if (userProfile.ages && userProfile.ages.length > 0) {
+    const children = userProfile.ages.filter(age => age < 18);
+    if (children.length > 0 && (subcategory.includes('Ropa') || subcategory.includes('Educación') || subcategory.includes('Ocio'))) {
+      const avgChildAge = children.reduce((a, b) => a + b, 0) / children.length;
+      if (avgChildAge < 6) {
+        reason += ` Note: With ${children.length} young child(ren), expenses may be lower.`;
+      } else if (avgChildAge >= 13) {
+        reason += ` Note: With ${children.length} teenager(s), expenses may be higher.`;
+      }
+    }
+  }
+  
+  return reason;
+}
+
 // Update or create category budget
 router.put('/categories/:id', optionalAuth, async (req, res) => {
   try {
@@ -42,7 +225,7 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
       if (userId) {
         checkResult = await pool.query(
           `SELECT * FROM categories 
-           WHERE name = $1 AND user_id = $2`,
+           WHERE name = $1 AND (user_id = $2 OR user_id IS NULL)`,
           [category_name, userId]
         );
       } else {
@@ -54,13 +237,14 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
       }
 
       if (checkResult.rows.length > 0) {
-        // Update existing category
+        // Update existing category (prefer user-specific over shared)
+        const existing = checkResult.rows.find(c => c.user_id === userId) || checkResult.rows[0];
         const updateResult = await pool.query(
           `UPDATE categories 
            SET budget_amount = $1
            WHERE id = $2 AND (user_id IS NULL OR user_id = $3)
            RETURNING *`,
-          [budget_amount, checkResult.rows[0].id, userId]
+          [budget_amount, existing.id, userId]
         );
         return res.json({ 
           message: 'Budget updated successfully',
@@ -574,10 +758,10 @@ router.get('/overview', optionalAuth, async (req, res) => {
       code: error.code,
       detail: error.detail
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch budget overview',
       message: error.message,
-      details: error.detail || error.hint || 'Check server logs'
+      detail: error.detail || error.hint || 'Check server logs'
     });
   }
 });
@@ -657,7 +841,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
     if (userId) {
       categoriesResult = await pool.query(
         `SELECT * FROM categories 
-         WHERE user_id = $1
+         WHERE user_id = $1 OR user_id IS NULL
          ORDER BY name ASC`,
         [userId]
       );
@@ -717,7 +901,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
            AND t.type = 'expense'
            AND t.computable = true
            AND t.amount > 0
-           AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
+           AND (t.category IS NULL OR (t.category != 'NC' && t.category != 'nc'))
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
          GROUP BY t.category`,
@@ -729,90 +913,52 @@ router.get('/insights', optionalAuth, async (req, res) => {
     const spendingMap = {};
     spendingResult.rows.forEach(row => {
       spendingMap[row.category] = {
-        spent: parseFloat(row.total_spent) || 0,
-        transactionCount: parseInt(row.transaction_count) || 0
+        spent: parseFloat(row.total_spent),
+        count: parseInt(row.transaction_count)
       };
     });
     
-    // Build categories list for insights
-    const categories = [];
-    allTransactionCategories.rows.forEach(row => {
-      const categoryName = row.category;
-      const budget = budgetMap[categoryName]?.budget_amount || 0;
-      const spending = spendingMap[categoryName] || { spent: 0, transactionCount: 0 };
-      
-      categories.push({
-        name: categoryName,
-        budget: budget,
-        spent: spending.spent,
-        percentage: budget > 0 ? (spending.spent / budget) * 100 : 0,
-        transactionCount: spending.transactionCount
-      });
-    });
-    
     // Generate insights for each category
-    const insightsPromises = categories.map(async (category) => {
-      try {
-        const categoryData = {
-          category: category.name,
-          budget: category.budget || 0,
-          spent: category.spent || 0,
-          percentage: category.percentage || 0,
-          transactionCount: category.transactionCount || 0,
-          previousMonth: 0 // Could be enhanced later
-        };
-        
-        const insight = await aiInsightService.generateInsight(
-          categoryData,
-          userProfile,
-          useAI === 'true'
-        );
-        
-        return {
-          category: category.name,
-          insight: insight,
-          priority: categoryData.percentage >= 100 ? 1 : 
-                    categoryData.percentage >= 90 ? 2 : 
-                    categoryData.percentage >= 75 ? 3 : 4
-        };
-      } catch (error) {
-        console.error(`Error generating insight for ${category.name}:`, error);
-        return {
-          category: category.name,
-          insight: null,
-          priority: 5,
-          error: error.message
-        };
-      }
+    const insightsPromises = allTransactionCategories.rows.map(async (row) => {
+      const categoryName = row.category;
+      const budgetData = budgetMap[categoryName];
+      const spending = spendingMap[categoryName] || { spent: 0, count: 0 };
+      
+      const categoryData = {
+        category: categoryName,
+        budget: budgetData ? parseFloat(budgetData.budget_amount) : 0,
+        spent: spending.spent,
+        percentage: budgetData && budgetData.budget_amount > 0 
+          ? (spending.spent / parseFloat(budgetData.budget_amount)) * 100 
+          : 0,
+        transactionCount: spending.count,
+        previousMonth: 0 // Could be enhanced to get previous month
+      };
+      
+      const insight = await aiInsightService.generateInsight(categoryData, userProfile, useAI === 'true');
+      
+      return {
+        category: categoryName,
+        insight: insight,
+        priority: categoryData.percentage >= 100 ? 1 : categoryData.percentage >= 90 ? 2 : 3
+      };
     });
     
     const insights = await Promise.all(insightsPromises);
-    
-    // Filter out null insights and sort by priority
-    const validInsights = insights
-      .filter(i => i.insight !== null)
-      .sort((a, b) => a.priority - b.priority);
+    const validInsights = insights.filter(i => i.insight && i.insight.trim().length > 0);
     
     res.json({
       success: true,
       insights: validInsights,
       month: targetMonth
     });
-    
   } catch (error) {
     console.error('Error generating insights:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate insights',
-      message: error.message 
+      details: error.message
     });
   }
 });
 
 export default router;
-
-
-
-
-
-
-
