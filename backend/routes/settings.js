@@ -77,18 +77,53 @@ router.post('/', optionalAuth, async (req, res) => {
     const finalFamilySize = familySize !== undefined ? parseInt(familySize) : (parseInt(current.family_size) || 1);
     const finalLocation = location !== undefined ? location.trim() : (current.location || 'Spain');
     
-    const result = await pool.query(
-      `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, updated_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (user_id) 
-       DO UPDATE SET 
-         expected_monthly_income = $2,
-         family_size = $3,
-         location = $4,
-         updated_at = NOW()
-       RETURNING *`,
-      [userId, finalExpectedIncome, finalFamilySize, finalLocation]
-    );
+    // Check if family_size and location columns exist
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'user_settings' 
+      AND column_name IN ('family_size', 'location')
+    `);
+    
+    const hasFamilySize = columnCheck.rows.some(r => r.column_name === 'family_size');
+    const hasLocation = columnCheck.rows.some(r => r.column_name === 'location');
+    
+    // Build dynamic query based on which columns exist
+    let query, params;
+    if (hasFamilySize && hasLocation) {
+      // All columns exist - use full query
+      query = `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, updated_at)
+               VALUES ($1, $2, $3, $4, NOW())
+               ON CONFLICT (user_id) 
+               DO UPDATE SET 
+                 expected_monthly_income = $2,
+                 family_size = $3,
+                 location = $4,
+                 updated_at = NOW()
+               RETURNING *`;
+      params = [userId, finalExpectedIncome, finalFamilySize, finalLocation];
+    } else {
+      // Some columns don't exist - add them first
+      if (!hasFamilySize) {
+        await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS family_size INTEGER DEFAULT 1`);
+      }
+      if (!hasLocation) {
+        await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT 'Spain'`);
+      }
+      // Now use full query
+      query = `INSERT INTO user_settings (user_id, expected_monthly_income, family_size, location, updated_at)
+               VALUES ($1, $2, $3, $4, NOW())
+               ON CONFLICT (user_id) 
+               DO UPDATE SET 
+                 expected_monthly_income = $2,
+                 family_size = $3,
+                 location = $4,
+                 updated_at = NOW()
+               RETURNING *`;
+      params = [userId, finalExpectedIncome, finalFamilySize, finalLocation];
+    }
+    
+    const result = await pool.query(query, params);
     
     res.json({
       message: 'Settings updated successfully',
@@ -98,7 +133,18 @@ router.post('/', optionalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Update settings error:', error);
-    res.status(500).json({ error: 'Failed to update settings' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to update settings',
+      details: error.message,
+      code: error.code
+    });
   }
 });
 
