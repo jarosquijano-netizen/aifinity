@@ -128,6 +128,7 @@ function SetupBudget({ onBudgetSaved }) {
       const category = categories.find(c => c.name === categoryName);
       const categoryId = category?.id || null;
       
+      // Get the current budget amount from state (use the latest value)
       const budgetAmount = budgets[categoryName] || 0;
       
       await updateCategoryBudget(categoryId, budgetAmount, categoryName);
@@ -167,6 +168,7 @@ function SetupBudget({ onBudgetSaved }) {
     } catch (err) {
       console.error('Failed to save budget:', err);
       setErrors(prev => ({ ...prev, [categoryName]: 'Failed to save budget' }));
+      throw err; // Re-throw so caller can handle it
     } finally {
       setSaving(prev => {
         const updated = { ...prev };
@@ -176,17 +178,22 @@ function SetupBudget({ onBudgetSaved }) {
     }
   };
 
-  const handleUseSuggestion = (categoryName) => {
+  const handleUseSuggestion = async (categoryName) => {
     const suggestion = suggestions[categoryName];
     if (suggestion) {
+      // Set the budget value first
       setBudgets(prev => ({
         ...prev,
         [categoryName]: suggestion.suggestedBudget
       }));
-      // Auto-save when using suggestion
-      setTimeout(() => {
-        handleSaveBudget(categoryName);
-      }, 100);
+      
+      // Immediately save the budget (don't wait for timeout)
+      try {
+        await handleSaveBudget(categoryName);
+      } catch (err) {
+        console.error('Failed to save budget when using suggestion:', err);
+        setErrors(prev => ({ ...prev, [categoryName]: 'Failed to save suggestion' }));
+      }
     }
   };
 
