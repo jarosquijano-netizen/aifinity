@@ -442,7 +442,11 @@ ${JSON.stringify(userPreferences, null, 2)}
 
 ---
 
-**CRITICAL: Budget recommendations MUST be appropriate for ${incomeLevel} (€${monthlyIncome}/month).**
+**CRITICAL CONSTRAINTS:**
+1. Budget recommendations MUST be appropriate for ${incomeLevel} (€${monthlyIncome}/month)
+2. **TOTAL of all suggested budgets MUST NOT exceed €${monthlyIncome}**
+3. Follow the 50/30/20 rule: ~50% needs, ~30% wants, ~20% savings
+4. Total suggested budgets should be approximately €${(monthlyIncome * 0.8).toFixed(0)} (80% of income) to allow for savings
 
 Consider:
 
@@ -455,6 +459,7 @@ Consider:
 7. **Income Level**: Reasonable allocations given €${monthlyIncome} income (${incomeLevel})
 8. **Optimization Opportunities**: Where can they save or reallocate?
 9. **Income-Appropriate Quality**: Recommendations should match ${incomeLevel} standards
+10. **TOTAL BUDGET CONSTRAINT**: Ensure sum of all category budgets ≤ €${monthlyIncome}
 
 Respond with a JSON object in this EXACT format (no markdown code blocks, just JSON):
 
@@ -496,10 +501,11 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
       locationBenchmarks,
       incomeAllocations,
       spendingPatterns,
+      monthlyIncome,
     } = data;
 
     // Combine AI recommendations with statistical analysis
-    const suggestions = aiRecommendations.categories.map((category) => {
+    let suggestions = aiRecommendations.categories.map((category) => {
       const historical = spendingAnalysis[category.name];
       const pattern = spendingPatterns.recurring.find(
         (p) => p.category === category.name
@@ -530,6 +536,39 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
       };
     });
 
+    // CRITICAL: Ensure total suggested budgets don't exceed income
+    const totalSuggested = suggestions.reduce((sum, cat) => sum + (cat.suggestedBudget || 0), 0);
+    const maxAllowedBudget = monthlyIncome * 0.85; // 85% max to leave room for savings and unexpected expenses
+    
+    if (totalSuggested > maxAllowedBudget && monthlyIncome > 0) {
+      // Scale down all suggestions proportionally to fit within income
+      const scaleFactor = maxAllowedBudget / totalSuggested;
+      console.log(`⚠️ Total suggested budget (€${totalSuggested.toFixed(2)}) exceeds income (€${monthlyIncome}). Scaling down by ${(scaleFactor * 100).toFixed(1)}%`);
+      
+      suggestions = suggestions.map(cat => ({
+        ...cat,
+        suggestedBudget: Math.round(cat.suggestedBudget * scaleFactor),
+        rangeMin: Math.round((cat.rangeMin || 0) * scaleFactor),
+        rangeMax: Math.round((cat.rangeMax || 0) * scaleFactor),
+        reasoning: cat.reasoning ? `${cat.reasoning} (Scaled to fit within income constraints.)` : 'Scaled to fit within income constraints.',
+        metadata: {
+          ...cat.metadata,
+          scaled: true,
+          originalSuggestedBudget: cat.suggestedBudget,
+          scaleFactor: scaleFactor
+        }
+      }));
+
+      // Update overall insights to reflect the scaling
+      if (aiRecommendations.overallInsights) {
+        aiRecommendations.overallInsights.totalSuggested = Math.round(totalSuggested * scaleFactor);
+        aiRecommendations.overallInsights.warnings = [
+          ...(aiRecommendations.overallInsights.warnings || []),
+          `Total suggested budgets were scaled down to fit within your €${monthlyIncome}/month income (85% max for expenses).`
+        ];
+      }
+    }
+
     return {
       suggestions,
       overallInsights: aiRecommendations.overallInsights,
@@ -540,6 +579,9 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
           0
         ),
         analysisDepth: 'comprehensive',
+        totalSuggested: suggestions.reduce((sum, cat) => sum + (cat.suggestedBudget || 0), 0),
+        maxAllowedBudget: maxAllowedBudget,
+        income: monthlyIncome
       },
     };
   }
