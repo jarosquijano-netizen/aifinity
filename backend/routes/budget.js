@@ -719,7 +719,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
       // Not logged in - get only shared spending
       spendingResult = await pool.query(
         `SELECT 
-           t.category,
+           COALESCE(t.category, 'Otros > Sin categoría') as category,
            SUM(t.amount) as total_spent,
            COUNT(*) as transaction_count
          FROM (
@@ -736,7 +736,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
            AND (t.category IS NULL OR (t.category != 'NC' AND t.category != 'nc'))
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
-         GROUP BY t.category`,
+         GROUP BY COALESCE(t.category, 'Otros > Sin categoría')`,
         [targetMonth]
       );
     }
