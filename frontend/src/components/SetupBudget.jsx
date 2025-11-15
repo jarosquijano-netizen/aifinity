@@ -175,6 +175,12 @@ function SetupBudget({ onBudgetSaved }) {
       });
       setAllCategoryBudgets(allBudgetsMap);
       
+      // Also update budgets state to reflect saved value (keeps UI in sync)
+      setBudgets(prev => ({
+        ...prev,
+        [categoryName]: budgetAmount
+      }));
+      
       // Update original budget to reflect saved value
       setOriginalBudgets(prev => ({
         ...prev,
