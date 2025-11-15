@@ -142,12 +142,13 @@ router.get('/overview', optionalAuth, async (req, res) => {
     }
     
     // Get categories with budgets
+    // IMPORTANT: Get BOTH user-specific AND shared categories (user_id IS NULL)
     let categoriesResult;
     if (userId) {
-      // User is logged in - get their categories
+      // User is logged in - get their categories AND shared categories
       categoriesResult = await pool.query(
         `SELECT * FROM categories 
-         WHERE user_id = $1
+         WHERE user_id = $1 OR user_id IS NULL
          ORDER BY name ASC`,
         [userId]
       );
