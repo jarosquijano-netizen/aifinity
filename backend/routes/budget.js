@@ -697,12 +697,6 @@ router.get('/overview', optionalAuth, async (req, res) => {
       );
     }
     
-    // Create a map of budget categories by name
-    const budgetMap = {};
-    categoriesResult.rows.forEach(cat => {
-      budgetMap[cat.name] = cat;
-    });
-    
     // Helper function to check if two categories are duplicates
     // (e.g., "Mantenimiento hogar" and "Vivienda > Mantenimiento hogar")
     const isDuplicateCategory = (name1, name2) => {
@@ -720,6 +714,55 @@ router.get('/overview', optionalAuth, async (req, res) => {
       
       return false;
     };
+    
+    // Create a map of budget categories by name
+    // IMPORTANT: Deduplicate to avoid double-counting budgets
+    // Prefer hierarchical format over old format
+    const budgetMap = {};
+    
+    categoriesResult.rows.forEach(cat => {
+      // Check if this category is a duplicate
+      let isDuplicate = false;
+      let existingKey = null;
+      
+      for (const key in budgetMap) {
+        if (isDuplicateCategory(cat.name, key)) {
+          isDuplicate = true;
+          // Prefer hierarchical format
+          if (cat.name.includes(' > ')) {
+            // New category is hierarchical, replace old format
+            existingKey = key;
+            break;
+          } else if (key.includes(' > ')) {
+            // Existing category is hierarchical, keep it and merge budget
+            existingKey = key;
+            break;
+          } else {
+            // Both are old format, use existing
+            existingKey = key;
+            break;
+          }
+        }
+      }
+      
+      if (!isDuplicate) {
+        // No duplicate found, add the category
+        budgetMap[cat.name] = cat;
+      } else if (existingKey && cat.name.includes(' > ')) {
+        // Duplicate found and new category is hierarchical - replace old format
+        const oldBudget = parseFloat(budgetMap[existingKey]?.budget_amount || 0);
+        const newBudget = parseFloat(cat.budget_amount || 0);
+        // Merge budgets if both exist
+        cat.budget_amount = (oldBudget + newBudget).toString();
+        delete budgetMap[existingKey];
+        budgetMap[cat.name] = cat;
+      } else if (existingKey && existingKey.includes(' > ')) {
+        // Duplicate found and existing category is hierarchical - merge budget into existing
+        const existingBudget = parseFloat(budgetMap[existingKey]?.budget_amount || 0);
+        const newBudget = parseFloat(cat.budget_amount || 0);
+        budgetMap[existingKey].budget_amount = (existingBudget + newBudget).toString();
+      }
+    });
     
     // Merge all transaction categories with budget categories
     // CRITICAL: Start with ALL budget categories first, then add transaction categories

@@ -71,8 +71,23 @@ function SetupBudget({ onBudgetSaved }) {
         const categoriesData = await getTransactionCategories();
         setCategories(categoriesData.categories || []);
         
+        // Helper function to check if two categories are duplicates
+        const isDuplicateCategory = (name1, name2) => {
+          if (name1 === name2) return true;
+          if (name1.includes(' > ')) {
+            const subcategory = name1.split(' > ')[1];
+            if (subcategory === name2) return true;
+          }
+          if (name2.includes(' > ')) {
+            const subcategory = name2.split(' > ')[1];
+            if (subcategory === name1) return true;
+          }
+          return false;
+        };
+        
         // Create a map of ALL category budgets from database (for accurate totals)
         // Exclude transfers and NC categories (same logic as Overview)
+        // IMPORTANT: Deduplicate to avoid double-counting budgets
         const excludedCategories = [
           'Finanzas > Transferencias',
           'Transferencias',
@@ -80,11 +95,53 @@ function SetupBudget({ onBudgetSaved }) {
           'nc'
         ];
         const allBudgetsMap = {};
+        
+        // Deduplicate categories: prefer hierarchical format over old format
         (categoriesData.categories || []).forEach(cat => {
           if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
             // Exclude transfers and NC categories
-            if (!excludedCategories.includes(cat.name)) {
+            if (excludedCategories.includes(cat.name)) {
+              return;
+            }
+            
+            // Check if this category is a duplicate
+            let isDuplicate = false;
+            let existingKey = null;
+            
+            for (const key in allBudgetsMap) {
+              if (isDuplicateCategory(cat.name, key)) {
+                isDuplicate = true;
+                // Prefer hierarchical format
+                if (cat.name.includes(' > ')) {
+                  // New category is hierarchical, replace old format
+                  existingKey = key;
+                  break;
+                } else if (key.includes(' > ')) {
+                  // Existing category is hierarchical, keep it and merge budget
+                  existingKey = key;
+                  break;
+                } else {
+                  // Both are old format, use existing
+                  existingKey = key;
+                  break;
+                }
+              }
+            }
+            
+            if (!isDuplicate) {
+              // No duplicate found, add the category
               allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+            } else if (existingKey && cat.name.includes(' > ')) {
+              // Duplicate found and new category is hierarchical - replace old format
+              const oldBudget = allBudgetsMap[existingKey] || 0;
+              const newBudget = parseFloat(cat.budget_amount);
+              delete allBudgetsMap[existingKey];
+              allBudgetsMap[cat.name] = oldBudget + newBudget;
+            } else if (existingKey && existingKey.includes(' > ')) {
+              // Duplicate found and existing category is hierarchical - merge budget into existing
+              const existingBudget = allBudgetsMap[existingKey] || 0;
+              const newBudget = parseFloat(cat.budget_amount);
+              allBudgetsMap[existingKey] = existingBudget + newBudget;
             }
           }
         });
@@ -158,18 +215,74 @@ function SetupBudget({ onBudgetSaved }) {
       
       // Rebuild allCategoryBudgets map from refreshed categories (ensures accurate totals)
       // Exclude transfers and NC categories (same logic as Overview)
+      // IMPORTANT: Deduplicate to avoid double-counting budgets
       const excludedCategories = [
         'Finanzas > Transferencias',
         'Transferencias',
         'NC',
         'nc'
       ];
+      
+      // Helper function to check if two categories are duplicates
+      const isDuplicateCategory = (name1, name2) => {
+        if (name1 === name2) return true;
+        if (name1.includes(' > ')) {
+          const subcategory = name1.split(' > ')[1];
+          if (subcategory === name2) return true;
+        }
+        if (name2.includes(' > ')) {
+          const subcategory = name2.split(' > ')[1];
+          if (subcategory === name1) return true;
+        }
+        return false;
+      };
+      
       const allBudgetsMap = {};
       (updatedCategories.categories || []).forEach(cat => {
         if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
           // Exclude transfers and NC categories
-          if (!excludedCategories.includes(cat.name)) {
+          if (excludedCategories.includes(cat.name)) {
+            return;
+          }
+          
+          // Check if this category is a duplicate
+          let isDuplicate = false;
+          let existingKey = null;
+          
+          for (const key in allBudgetsMap) {
+            if (isDuplicateCategory(cat.name, key)) {
+              isDuplicate = true;
+              // Prefer hierarchical format
+              if (cat.name.includes(' > ')) {
+                // New category is hierarchical, replace old format
+                existingKey = key;
+                break;
+              } else if (key.includes(' > ')) {
+                // Existing category is hierarchical, keep it and merge budget
+                existingKey = key;
+                break;
+              } else {
+                // Both are old format, use existing
+                existingKey = key;
+                break;
+              }
+            }
+          }
+          
+          if (!isDuplicate) {
+            // No duplicate found, add the category
             allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+          } else if (existingKey && cat.name.includes(' > ')) {
+            // Duplicate found and new category is hierarchical - replace old format
+            const oldBudget = allBudgetsMap[existingKey] || 0;
+            const newBudget = parseFloat(cat.budget_amount);
+            delete allBudgetsMap[existingKey];
+            allBudgetsMap[cat.name] = oldBudget + newBudget;
+          } else if (existingKey && existingKey.includes(' > ')) {
+            // Duplicate found and existing category is hierarchical - merge budget into existing
+            const existingBudget = allBudgetsMap[existingKey] || 0;
+            const newBudget = parseFloat(cat.budget_amount);
+            allBudgetsMap[existingKey] = existingBudget + newBudget;
           }
         }
       });
