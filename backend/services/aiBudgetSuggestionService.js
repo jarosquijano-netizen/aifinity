@@ -310,7 +310,93 @@ class AIBudgetSuggestionService {
   }
 
   /**
-   * Build comprehensive prompt for Claude AI analysis
+   * Determine income level classification for Spain
+   */
+  determineIncomeLevel(perPerson, location) {
+    // Based on Spanish median income data
+    if (perPerson <= 800) return "Very Low Income";
+    if (perPerson <= 1200) return "Low Income";
+    if (perPerson <= 1800) return "Lower-Middle Income";
+    if (perPerson <= 2500) return "Middle Income";
+    if (perPerson <= 3500) return "Upper-Middle Income";
+    if (perPerson <= 5000) return "High Income";
+    return "Very High Income";
+  }
+
+  /**
+   * Get income-specific guidance for the prompt
+   */
+  getIncomeSpecificGuidance(level, income, familySize) {
+    const guides = {
+      "Very Low Income": `
+**Income Context: Very Low (Bottom 20%)**
+- PRIORITY: Essential needs only
+- Savings: 5-10% if possible
+- Focus: Survival budgeting with dignity
+- Avoid: Suggesting expensive items or luxury categories
+- Reality: Don't suggest >90% of income for basics`,
+
+      "Low Income": `
+**Income Context: Low (20-40% percentile)**
+- PRIORITY: Essentials first, minimal discretionary
+- Savings: 10-15% target
+- Focus: High-impact cost savings
+- Tone: Encouraging but realistic
+- Reality: Don't suggest >80% for basics`,
+
+      "Lower-Middle Income": `
+**Income Context: Lower-Middle (40-55% percentile)**
+- PRIORITY: Comfortable essentials + moderate discretionary
+- Savings: 15-20% target (€${(income * 0.175).toFixed(0)})
+- Focus: Building emergency fund
+- Tone: Balanced savings + quality of life
+- Reality: Sustainable balance`,
+
+      "Middle Income": `
+**Income Context: Middle (55-70% percentile)**
+- PRIORITY: Quality living + wealth building
+- Savings: 20-25% target (€${(income * 0.225).toFixed(0)})
+- Budget: 50% needs / 30% wants / 20% savings
+- Focus: 6-month emergency fund + retirement
+- Quality: Can afford good groceries, regular dining out
+- Tone: Growth mindset, financial planning
+- Reality: Should live comfortably AND save significantly
+
+**For €${income}/month:**
+- Essentials budget: ~€${(income * 0.5).toFixed(0)} (quality options)
+- Discretionary: ~€${(income * 0.3).toFixed(0)} (enjoy life!)
+- Savings: ~€${(income * 0.2).toFixed(0)} (build wealth)`,
+
+      "Upper-Middle Income": `
+**Income Context: Upper-Middle (70-85% percentile)**
+- PRIORITY: Quality lifestyle + aggressive saving
+- Savings: 25-35% target (€${(income * 0.30).toFixed(0)})
+- Focus: Max retirement, investments, education funds
+- Quality: Premium options without guilt
+- Reality: Should save 25%+ while living well`,
+
+      "High Income": `
+**Income Context: High (85-95% percentile)**
+- PRIORITY: Premium living + wealth accumulation
+- Savings: 35-45% target (€${(income * 0.40).toFixed(0)})
+- Focus: Tax optimization, multiple income streams
+- Quality: Premium/luxury appropriate
+- Reality: Should save 35%+ easily`,
+
+      "Very High Income": `
+**Income Context: Very High (Top 5%)**
+- PRIORITY: Luxury living + sophisticated wealth management
+- Savings: 40-50% target (€${(income * 0.45).toFixed(0)})
+- Focus: Portfolio diversification, legacy planning
+- Quality: Unrestricted premium options
+- Reality: Should save 40%+ with top-tier lifestyle`
+    };
+
+    return guides[level] || guides["Middle Income"];
+  }
+
+  /**
+   * Build comprehensive income-adaptive prompt for Claude AI analysis
    */
   buildAIPrompt(data) {
     const {
@@ -324,12 +410,20 @@ class AIBudgetSuggestionService {
       userPreferences,
     } = data;
 
-    return `You are a financial advisor AI. Analyze the following data and provide personalized budget recommendations.
+    // Calculate income level
+    const incomePerPerson = monthlyIncome / familySize;
+    const incomeLevel = this.determineIncomeLevel(incomePerPerson, location);
+    const incomeGuidance = this.getIncomeSpecificGuidance(incomeLevel, monthlyIncome, familySize);
+
+    return `You are a financial advisor AI. Analyze the following data and provide personalized budget recommendations **specifically adapted to this user's ${incomeLevel} income level**.
 
 **User Profile:**
 - Family Size: ${familySize} people
 - Monthly Income: €${monthlyIncome}
-- Location: ${location}
+- Income Per Person: €${incomePerPerson.toFixed(0)}/month
+- Income Level: ${incomeLevel}
+
+${incomeGuidance}
 
 **Historical Spending Analysis:**
 ${JSON.stringify(spendingAnalysis, null, 2)}
@@ -346,7 +440,11 @@ ${JSON.stringify(incomeAllocations, null, 2)}
 **User Preferences:**
 ${JSON.stringify(userPreferences, null, 2)}
 
-Based on this comprehensive analysis, provide budget recommendations for each spending category. Consider:
+---
+
+**CRITICAL: Budget recommendations MUST be appropriate for ${incomeLevel} (€${monthlyIncome}/month).**
+
+Consider:
 
 1. **Historical Behavior**: User's actual spending patterns over time
 2. **Trends**: Are they spending more or less in certain categories?
@@ -354,10 +452,11 @@ Based on this comprehensive analysis, provide budget recommendations for each sp
 4. **Seasonal Variations**: Monthly fluctuations in spending
 5. **Location Context**: Cost of living in ${location}
 6. **Family Size**: Appropriate budgets for ${familySize} people
-7. **Income Level**: Reasonable allocations given €${monthlyIncome} income
+7. **Income Level**: Reasonable allocations given €${monthlyIncome} income (${incomeLevel})
 8. **Optimization Opportunities**: Where can they save or reallocate?
+9. **Income-Appropriate Quality**: Recommendations should match ${incomeLevel} standards
 
-Respond with a JSON object in this EXACT format (no additional text):
+Respond with a JSON object in this EXACT format (no markdown code blocks, just JSON):
 
 {
   "categories": [
@@ -366,9 +465,9 @@ Respond with a JSON object in this EXACT format (no additional text):
       "suggestedBudget": 0,
       "rangeMin": 0,
       "rangeMax": 0,
-      "reasoning": "Brief explanation of why this amount",
+      "reasoning": "Why this amount for ${incomeLevel}",
       "confidence": "high|medium|low",
-      "insights": ["insight1", "insight2"],
+      "insights": ["income-appropriate tip"],
       "comparison": {
         "historical": 0,
         "benchmark": 0,
@@ -381,7 +480,8 @@ Respond with a JSON object in this EXACT format (no additional text):
     "savingsRate": 0,
     "topRecommendations": ["recommendation1", "recommendation2", "recommendation3"],
     "warnings": ["warning1 if any"],
-    "strengths": ["strength1", "strength2"]
+    "strengths": ["strength1", "strength2"],
+    "incomeSpecificAdvice": "Advice for ${incomeLevel}"
   }
 }`;
   }
