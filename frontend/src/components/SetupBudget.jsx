@@ -72,10 +72,20 @@ function SetupBudget({ onBudgetSaved }) {
         setCategories(categoriesData.categories || []);
         
         // Create a map of ALL category budgets from database (for accurate totals)
+        // Exclude transfers and NC categories (same logic as Overview)
+        const excludedCategories = [
+          'Finanzas > Transferencias',
+          'Transferencias',
+          'NC',
+          'nc'
+        ];
         const allBudgetsMap = {};
         (categoriesData.categories || []).forEach(cat => {
           if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
-            allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+            // Exclude transfers and NC categories
+            if (!excludedCategories.includes(cat.name)) {
+              allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+            }
           }
         });
         setAllCategoryBudgets(allBudgetsMap);
@@ -147,10 +157,20 @@ function SetupBudget({ onBudgetSaved }) {
       setCategories(updatedCategories.categories || []);
       
       // Rebuild allCategoryBudgets map from refreshed categories (ensures accurate totals)
+      // Exclude transfers and NC categories (same logic as Overview)
+      const excludedCategories = [
+        'Finanzas > Transferencias',
+        'Transferencias',
+        'NC',
+        'nc'
+      ];
       const allBudgetsMap = {};
       (updatedCategories.categories || []).forEach(cat => {
         if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
-          allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+          // Exclude transfers and NC categories
+          if (!excludedCategories.includes(cat.name)) {
+            allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+          }
         }
       });
       setAllCategoryBudgets(allBudgetsMap);
