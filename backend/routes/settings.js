@@ -73,8 +73,8 @@ router.post('/', optionalAuth, async (req, res) => {
     const current = currentSettings.rows[0] || {};
     
     // Use provided values or keep current values
-    const finalExpectedIncome = expectedMonthlyIncome !== undefined ? expectedMonthlyIncome : (current.expected_monthly_income || 0);
-    const finalFamilySize = familySize !== undefined ? familySize : (current.family_size || 1);
+    const finalExpectedIncome = expectedMonthlyIncome !== undefined ? parseFloat(expectedMonthlyIncome) : (parseFloat(current.expected_monthly_income) || 0);
+    const finalFamilySize = familySize !== undefined ? parseInt(familySize) : (parseInt(current.family_size) || 1);
     const finalLocation = location !== undefined ? location.trim() : (current.location || 'Spain');
     
     const result = await pool.query(
@@ -82,9 +82,9 @@ router.post('/', optionalAuth, async (req, res) => {
        VALUES ($1, $2, $3, $4, NOW())
        ON CONFLICT (user_id) 
        DO UPDATE SET 
-         expected_monthly_income = COALESCE($2, user_settings.expected_monthly_income),
-         family_size = COALESCE($3, user_settings.family_size),
-         location = COALESCE($4, user_settings.location),
+         expected_monthly_income = $2,
+         family_size = $3,
+         location = $4,
          updated_at = NOW()
        RETURNING *`,
       [userId, finalExpectedIncome, finalFamilySize, finalLocation]
