@@ -228,6 +228,51 @@ function SetupBudget({ onBudgetSaved }) {
           💡 Budget suggestions are personalized based on your family profile and location. 
           Review and adjust as needed, then save to activate budgets.
         </p>
+        
+        {/* Overall AI Insights */}
+        {overallInsights && (
+          <div className="mt-4 p-4 bg-white dark:bg-slate-700 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-blue-600" />
+              AI Budget Analysis
+            </h3>
+            {overallInsights.topRecommendations && overallInsights.topRecommendations.length > 0 && (
+              <div className="mb-2">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top Recommendations:</p>
+                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                  {overallInsights.topRecommendations.map((rec, idx) => (
+                    <li key={idx}>• {rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {overallInsights.warnings && overallInsights.warnings.length > 0 && (
+              <div className="mb-2">
+                <p className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">⚠️ Warnings:</p>
+                <ul className="text-xs text-orange-600 dark:text-orange-400 space-y-1">
+                  {overallInsights.warnings.map((warning, idx) => (
+                    <li key={idx}>• {warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {overallInsights.strengths && overallInsights.strengths.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Strengths:</p>
+                <ul className="text-xs text-green-600 dark:text-green-400 space-y-1">
+                  {overallInsights.strengths.map((strength, idx) => (
+                    <li key={idx}>• {strength}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {metadata && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Analysis based on {metadata.basedOnTransactions || 0} transactions
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Search */}
