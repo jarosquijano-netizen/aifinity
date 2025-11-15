@@ -21,6 +21,9 @@ function Insights() {
   const chatInputRef = useRef(null);
   const chatWasOpenRef = useRef(false); // Track if chat was previously open
 
+  // Minimum payment calculator state
+  const [customMinimumPayments, setCustomMinimumPayments] = useState({});
+
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -203,6 +206,85 @@ function Insights() {
   }, 0);
   const monthlyInterestCost = totalDebt * (0.20 / 12);
   const annualInterestCost = totalDebt * 0.20;
+
+  // Calculate payoff time and interest for a single card
+  const calculateCardPayoff = (card, customPayment) => {
+    const debt = Math.abs(parseFloat(card.balance || 0));
+    const apr = 0.20; // 20% APR
+    const monthlyRate = apr / 12;
+    
+    if (debt === 0) {
+      return { months: 0, totalInterest: 0, totalPaid: 0 };
+    }
+
+    const payment = customPayment || Math.max(debt * 0.02, 25);
+    
+    // Simulate month by month to calculate accurately
+    let remainingDebt = debt;
+    let totalInterest = 0;
+    let months = 0;
+    const maxMonths = 600; // Cap at 50 years to prevent infinite loops
+    
+    while (remainingDebt > 0.01 && months < maxMonths) {
+      const interest = remainingDebt * monthlyRate;
+      totalInterest += interest;
+      
+      // Check if payment covers at least some principal
+      if (payment <= interest) {
+        // Payment doesn't cover interest, debt will grow
+        return { months: Infinity, totalInterest: Infinity, totalPaid: Infinity };
+      }
+      
+      const principalPayment = payment - interest;
+      remainingDebt = Math.max(0, remainingDebt - principalPayment);
+      months++;
+      
+      // Safety check: if debt is increasing, it will never pay off
+      if (months > 1 && remainingDebt >= debt) {
+        return { months: Infinity, totalInterest: Infinity, totalPaid: Infinity };
+      }
+    }
+    
+    const totalPaid = debt + totalInterest;
+    
+    return { months, totalInterest, totalPaid };
+  };
+
+  // Calculate aggregated results for all cards with custom payments
+  const calculateAggregatedResults = () => {
+    let totalMonths = 0;
+    let totalInterest = 0;
+    let totalPaid = 0;
+    const cardResults = [];
+
+    creditCards.forEach((card) => {
+      const customPayment = customMinimumPayments[card.id];
+      const result = calculateCardPayoff(card, customPayment);
+      
+      if (result.months !== Infinity) {
+        cardResults.push({
+          card,
+          ...result,
+          customPayment: customPayment || Math.max(Math.abs(parseFloat(card.balance || 0)) * 0.02, 25)
+        });
+        totalMonths = Math.max(totalMonths, result.months);
+        totalInterest += result.totalInterest;
+        totalPaid += result.totalPaid;
+      } else {
+        cardResults.push({
+          card,
+          months: Infinity,
+          totalInterest: Infinity,
+          totalPaid: Infinity,
+          customPayment: customPayment || Math.max(Math.abs(parseFloat(card.balance || 0)) * 0.02, 25)
+        });
+      }
+    });
+
+    return { totalMonths, totalInterest, totalPaid, cardResults };
+  };
+
+  const aggregatedResults = creditCards.length > 0 ? calculateAggregatedResults() : null;
 
   const balanceDisponible = totalAccountsBalance;
   // Calculate pending expected income: remaining expected income for the month
@@ -618,6 +700,175 @@ function Insights() {
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{t('perMonth')}</p>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Minimum Payment Calculator */}
+            {creditCards.length > 0 && aggregatedResults && (
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-blue-200 dark:border-blue-700">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-6">
+                    <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {language === 'es' ? 'Calculadora de Pago Mínimo' : 'Minimum Payment Calculator'}
+                    </h2>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      {language === 'es' 
+                        ? 'Establece pagos mínimos personalizados para cada tarjeta y ve cuándo terminarás de pagarlas y cuánto interés pagarás.'
+                        : 'Set custom minimum payments for each card and see when you\'ll finish paying them off and how much interest you\'ll pay.'}
+                    </p>
+                    
+                    <div className="space-y-4">
+                      {creditCards.map((card) => {
+                        const debt = Math.abs(parseFloat(card.balance || 0));
+                        const defaultMin = Math.max(debt * 0.02, 25);
+                        const customPayment = customMinimumPayments[card.id] || defaultMin;
+                        const result = calculateCardPayoff(card, customPayment);
+                        
+                        return (
+                          <div key={card.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-700/50 p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">{card.name}</span>
+                              <span className="text-sm text-red-600 dark:text-red-400 font-medium">
+                                {language === 'es' ? 'Deuda:' : 'Debt:'} €{debt.toFixed(2)}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 mb-3">
+                              <label className="text-sm text-gray-600 dark:text-gray-400 flex-shrink-0 min-w-[140px]">
+                                {language === 'es' ? 'Pago mensual:' : 'Monthly payment:'}
+                              </label>
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="text-gray-500 dark:text-gray-400">€</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={customMinimumPayments[card.id] !== undefined ? customMinimumPayments[card.id] : ''}
+                                  placeholder={defaultMin.toFixed(2)}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value);
+                                    if (!isNaN(value) && value > 0) {
+                                      setCustomMinimumPayments({
+                                        ...customMinimumPayments,
+                                        [card.id]: value
+                                      });
+                                    } else if (e.target.value === '') {
+                                      const newPayments = { ...customMinimumPayments };
+                                      delete newPayments[card.id];
+                                      setCustomMinimumPayments(newPayments);
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newPayments = { ...customMinimumPayments };
+                                    delete newPayments[card.id];
+                                    setCustomMinimumPayments(newPayments);
+                                  }}
+                                  className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                                >
+                                  {language === 'es' ? 'Restablecer' : 'Reset'}
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {result.months !== Infinity ? (
+                              <div className="grid grid-cols-3 gap-3 text-sm">
+                                <div className="text-center">
+                                  <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">
+                                    {language === 'es' ? 'Meses para pagar' : 'Months to pay'}
+                                  </p>
+                                  <p className="font-bold text-blue-600 dark:text-blue-400 text-lg">
+                                    {result.months}
+                                  </p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">
+                                    {language === 'es' ? 'Interés total' : 'Total interest'}
+                                  </p>
+                                  <p className="font-bold text-amber-600 dark:text-amber-400 text-lg">
+                                    €{result.totalInterest.toFixed(2)}
+                                  </p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">
+                                    {language === 'es' ? 'Total pagado' : 'Total paid'}
+                                  </p>
+                                  <p className="font-bold text-gray-900 dark:text-gray-100 text-lg">
+                                    €{result.totalPaid.toFixed(2)}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-2">
+                                <p className="text-red-600 dark:text-red-400 text-sm font-semibold">
+                                  {language === 'es' 
+                                    ? '⚠️ El pago es muy bajo. No podrás pagar esta tarjeta con este monto.'
+                                    : '⚠️ Payment too low. You won\'t be able to pay off this card with this amount.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Summary Results */}
+                  {aggregatedResults.totalMonths !== Infinity && (
+                    <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 p-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                        {language === 'es' ? 'Resumen Total' : 'Total Summary'}
+                      </h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            {language === 'es' ? 'Tiempo máximo' : 'Max time'}
+                          </p>
+                          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                            {aggregatedResults.totalMonths} {language === 'es' ? 'meses' : 'months'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {language === 'es' 
+                              ? `Aprox. ${Math.floor(aggregatedResults.totalMonths / 12)} años ${aggregatedResults.totalMonths % 12} meses`
+                              : `Approx. ${Math.floor(aggregatedResults.totalMonths / 12)} years ${aggregatedResults.totalMonths % 12} months`}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            {language === 'es' ? 'Interés total' : 'Total interest'}
+                          </p>
+                          <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                            €{aggregatedResults.totalInterest.toFixed(2)}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {language === 'es' 
+                              ? `€${(aggregatedResults.totalInterest / aggregatedResults.totalMonths).toFixed(2)}/mes`
+                              : `€${(aggregatedResults.totalInterest / aggregatedResults.totalMonths).toFixed(2)}/month`}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            {language === 'es' ? 'Total a pagar' : 'Total to pay'}
+                          </p>
+                          <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                            €{aggregatedResults.totalPaid.toFixed(2)}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {language === 'es' 
+                              ? `Deuda: €${totalDebt.toFixed(2)}`
+                              : `Debt: €${totalDebt.toFixed(2)}`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
