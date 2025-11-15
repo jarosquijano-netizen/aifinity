@@ -453,7 +453,67 @@ router.get('/categories', optionalAuth, async (req, res) => {
       );
     }
 
-    res.json({ categories: result.rows.map(r => r.category) });
+    // Helper function to check if two categories are duplicates
+    const isDuplicateCategory = (name1, name2) => {
+      if (name1 === name2) return true;
+      if (name1.includes(' > ')) {
+        const subcategory = name1.split(' > ')[1];
+        if (subcategory === name2) return true;
+      }
+      if (name2.includes(' > ')) {
+        const subcategory = name2.split(' > ')[1];
+        if (subcategory === name1) return true;
+      }
+      return false;
+    };
+    
+    // Deduplicate: prefer hierarchical format over old format
+    const categories = result.rows.map(r => r.category);
+    const deduplicated = [];
+    const seen = new Set();
+    
+    categories.forEach(cat => {
+      if (seen.has(cat)) return;
+      
+      let isDuplicate = false;
+      let duplicateOf = null;
+      
+      for (const existing of deduplicated) {
+        if (isDuplicateCategory(cat, existing)) {
+          isDuplicate = true;
+          if (cat.includes(' > ')) {
+            duplicateOf = existing;
+            break;
+          } else if (existing.includes(' > ')) {
+            seen.add(cat);
+            return;
+          }
+        }
+      }
+      
+      if (isDuplicate && duplicateOf) {
+        const index = deduplicated.indexOf(duplicateOf);
+        deduplicated[index] = cat;
+        seen.delete(duplicateOf);
+        seen.add(cat);
+      } else if (!isDuplicate) {
+        deduplicated.push(cat);
+        seen.add(cat);
+      }
+    });
+    
+    // Fix "Ocio > Hotel" to "Ocio > Vacation"
+    const fixedCategories = deduplicated.map(cat => {
+      if (cat === 'Ocio > Hotel' || cat === 'Hotel') {
+        return 'Ocio > Vacation';
+      }
+      return cat;
+    });
+    
+    // Remove duplicates after fixing
+    const finalCategories = [...new Set(fixedCategories)].sort();
+
+    res.json({ categories: finalCategories });
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });

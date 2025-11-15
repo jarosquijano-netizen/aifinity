@@ -113,9 +113,85 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       budgetMap[cat.name] = parseFloat(cat.budget_amount || 0);
     });
     
-    // Generate suggestions for each category
-    const suggestions = transactionCategories.rows.map(row => {
+    // Helper function to check if two categories are duplicates
+    const isDuplicateCategory = (name1, name2) => {
+      if (name1 === name2) return true;
+      
+      // Check if one is hierarchical and the other is the subcategory
+      if (name1.includes(' > ')) {
+        const subcategory = name1.split(' > ')[1];
+        if (subcategory === name2) return true;
+      }
+      if (name2.includes(' > ')) {
+        const subcategory = name2.split(' > ')[1];
+        if (subcategory === name1) return true;
+      }
+      
+      return false;
+    };
+    
+    // Deduplicate transaction categories: prefer hierarchical format over old format
+    const deduplicatedCategories = [];
+    const seenCategories = new Set();
+    
+    transactionCategories.rows.forEach(row => {
       const categoryName = row.category;
+      
+      // Skip if already processed as a duplicate
+      if (seenCategories.has(categoryName)) return;
+      
+      // Check if this category is a duplicate of an already processed category
+      let isDuplicate = false;
+      let duplicateOf = null;
+      
+      for (const existing of deduplicatedCategories) {
+        if (isDuplicateCategory(categoryName, existing)) {
+          isDuplicate = true;
+          // Prefer hierarchical format
+          if (categoryName.includes(' > ')) {
+            // New category is hierarchical, replace old format
+            duplicateOf = existing;
+            break;
+          } else if (existing.includes(' > ')) {
+            // Existing is hierarchical, skip this old format
+            seenCategories.add(categoryName);
+            return;
+          }
+        }
+      }
+      
+      if (isDuplicate && duplicateOf) {
+        // Replace old format with hierarchical format
+        const index = deduplicatedCategories.indexOf(duplicateOf);
+        deduplicatedCategories[index] = categoryName;
+        seenCategories.delete(duplicateOf);
+        seenCategories.add(categoryName);
+      } else if (!isDuplicate) {
+        deduplicatedCategories.push(categoryName);
+        seenCategories.add(categoryName);
+      }
+    });
+    
+    // Also fix "Ocio > Hotel" to "Ocio > Vacation" if present
+    const fixedCategories = deduplicatedCategories.map(cat => {
+      if (cat === 'Ocio > Hotel' || cat === 'Hotel') {
+        return 'Ocio > Vacation';
+      }
+      return cat;
+    });
+    
+    // Remove duplicates after fixing Hotel -> Vacation
+    const finalCategories = [];
+    const finalSeen = new Set();
+    fixedCategories.forEach(cat => {
+      if (!finalSeen.has(cat)) {
+        finalCategories.push(cat);
+        finalSeen.add(cat);
+      }
+    });
+    
+    // Generate suggestions for each deduplicated category
+    const suggestions = finalCategories.map(categoryName => {
       const benchmark = getBenchmark(categoryName, userProfile.familySize);
       const currentBudget = budgetMap[categoryName] || 0;
       
