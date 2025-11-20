@@ -254,6 +254,10 @@ router.post('/chat', async (req, res) => {
         return res.status(500).json({ 
           error: 'API rate limit exceeded. Please try again in a moment.' 
         });
+      } else if (errorMessage.includes('529') || errorMessage.includes('overloaded')) {
+        return res.status(500).json({ 
+          error: 'Claude API is currently overloaded. Please try again in a few moments.' 
+        });
       } else if (errorMessage.includes('insufficient_quota')) {
         return res.status(500).json({ 
           error: 'API quota exceeded. Please check your API account credits.' 

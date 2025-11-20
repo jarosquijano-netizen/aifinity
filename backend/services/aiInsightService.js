@@ -71,9 +71,12 @@ class AIInsightService {
   }
 
   /**
-   * Generate insight using Claude API
+   * Generate insight using Claude API with retry logic for 529 errors
    */
-  async generateCategoryInsight(categoryData, userProfile) {
+  async generateCategoryInsight(categoryData, userProfile, retryCount = 0) {
+    const maxRetries = 3;
+    const baseDelay = 1000; // Start with 1 second
+
     try {
       // Get user's Claude API key
       const userId = userProfile?.userId;
@@ -113,12 +116,32 @@ class AIInsightService {
       });
 
       if (!response.ok) {
+        // Retry logic for 529 (Overloaded) errors
+        if (response.status === 529 && retryCount < maxRetries) {
+          const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff: 1s, 2s, 4s
+          console.log(`⚠️ Claude API overloaded (529) for insight generation. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.generateCategoryInsight(categoryData, userProfile, retryCount + 1);
+        }
+        
+        // For other errors, throw immediately
+        if (response.status === 529) {
+          throw new Error('Claude API is currently overloaded. Using template insight instead.');
+        }
         throw new Error(`Claude API error: ${response.status}`);
       }
 
       const data = await response.json();
       return data.content[0].text.trim();
     } catch (error) {
+      // If it's a 529 error and we haven't exhausted retries, retry
+      if (error.message.includes('529') && !error.message.includes('overloaded') && retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        console.log(`⚠️ Claude API overloaded (529) for insight generation. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.generateCategoryInsight(categoryData, userProfile, retryCount + 1);
+      }
+      
       console.error('Error generating AI insight:', error);
       // Fallback to template
       const status = this.getStatus(categoryData);

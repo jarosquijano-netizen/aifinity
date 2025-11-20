@@ -84,54 +84,78 @@ export class EnhancedAIService {
   }
 
   /**
-   * Call Claude API with enhanced error handling
+   * Call Claude API with enhanced error handling and retry logic for 529 errors
    */
-  async callClaudeAPI(systemPrompt, userPrompt) {
-    const response = await fetch(CLAUDE_CONFIG.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': CLAUDE_CONFIG.apiVersion
-      },
-      body: JSON.stringify({
-        model: CLAUDE_CONFIG.model,
-        max_tokens: CLAUDE_CONFIG.maxTokens,
-        temperature: CLAUDE_CONFIG.temperature,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt
-          }
-        ]
-      })
-    });
+  async callClaudeAPI(systemPrompt, userPrompt, retryCount = 0) {
+    const maxRetries = 3;
+    const baseDelay = 1000; // Start with 1 second
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      const errorMsg = errorData.error?.message || response.statusText;
+    try {
+      const response = await fetch(CLAUDE_CONFIG.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': CLAUDE_CONFIG.apiVersion
+        },
+        body: JSON.stringify({
+          model: CLAUDE_CONFIG.model,
+          max_tokens: CLAUDE_CONFIG.maxTokens,
+          temperature: CLAUDE_CONFIG.temperature,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: response.statusText } }));
+        const errorMsg = errorData.error?.message || response.statusText;
+        
+        // Retry logic for 529 (Overloaded) errors
+        if (response.status === 529 && retryCount < maxRetries) {
+          const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff: 1s, 2s, 4s
+          console.log(`⚠️ Claude API overloaded (529). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.callClaudeAPI(systemPrompt, userPrompt, retryCount + 1);
+        }
+        
+        // Provide more specific error messages
+        if (response.status === 401) {
+          throw new Error('Invalid API key. Please check your API key in Settings.');
+        } else if (response.status === 429) {
+          throw new Error('API rate limit exceeded. Please try again in a moment.');
+        } else if (response.status === 529) {
+          throw new Error('Claude API is currently overloaded. Please try again in a few moments.');
+        } else if (errorMsg.includes('insufficient_quota')) {
+          throw new Error('API quota exceeded. Please check your API account credits.');
+        }
+        
+        throw new Error(`Claude API Error: ${response.status} - ${errorMsg}`);
+      }
+
+      const data = await response.json();
       
-      // Provide more specific error messages
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your API key in Settings.');
-      } else if (response.status === 429) {
-        throw new Error('API rate limit exceeded. Please try again in a moment.');
-      } else if (errorMsg.includes('insufficient_quota')) {
-        throw new Error('API quota exceeded. Please check your API account credits.');
+      if (!data.content || !data.content[0] || !data.content[0].text) {
+        console.error('Invalid Claude API response structure:', data);
+        throw new Error('Invalid response format from Claude API');
       }
       
-      throw new Error(`Claude API Error: ${response.status} - ${errorMsg}`);
+      return data.content[0].text;
+    } catch (error) {
+      // If it's a 529 error and we haven't exhausted retries, retry
+      if (error.message.includes('529') && retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        console.log(`⚠️ Claude API overloaded (529). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.callClaudeAPI(systemPrompt, userPrompt, retryCount + 1);
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    
-    if (!data.content || !data.content[0] || !data.content[0].text) {
-      console.error('Invalid Claude API response structure:', data);
-      throw new Error('Invalid response format from Claude API');
-    }
-    
-    return data.content[0].text;
   }
 
   /**
