@@ -2552,12 +2552,16 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
       }
       
       // Try to parse transaction line
-      // Format can be:
+      // Format examples:
       // 1. Single line: "17/11	VUELING AIRLINES	PRAT DE LLOBR		277,98 €"
-      // 2. Multi-line:
+      // 2. Multi-line format:
+      //    17/11	VUELING AIRLINES
+      //    Referencia única BS:
+      //    20251117000001807815494
+      //    PRAT DE LLOBR		277,98 €
+      // 3. Simple multi-line:
       //    17/11
       //    VUELING AIRLINES
-      //    Referencia única BS: ...
       //    PRAT DE LLOBR		277,98 €
       
       // Check if line starts with date (DD/MM)
@@ -2569,64 +2573,90 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
         let amount = null;
         let skipLines = 0;
         
-        // Check if it's single-line format (has tabs and amount on same line)
-        if (line.includes('\t') && /[\d.,]+\s*[€EUR]/.test(line)) {
-          // Single-line format with tabs
-          const parts = line.split(/\t+/);
-          concept = parts[1]?.trim() || '';
-          location = parts[2]?.trim() || '';
+        // Check if first line has both date and concept (tab-separated)
+        const parts = line.split(/\t+/);
+        if (parts.length >= 2 && parts[1].trim()) {
+          // First line has date and concept
+          concept = parts[1].trim();
           
-          // Find amount (last field with EUR/€)
-          for (let j = parts.length - 1; j >= 0; j--) {
-            const part = parts[j].trim();
-            const amountMatch = part.match(/([\d.,]+)\s*[€EUR]/);
-            if (amountMatch) {
-              amount = parseAmount(amountMatch[1]);
-              break;
+          // Check if amount is also on this line
+          if (/[\d.,]+\s*[€EUR]/.test(line)) {
+            // Single-line format - find amount
+            for (let j = parts.length - 1; j >= 0; j--) {
+              const part = parts[j].trim();
+              const amountMatch = part.match(/([\d.,]+)\s*[€EUR]/);
+              if (amountMatch) {
+                amount = parseAmount(amountMatch[1]);
+                // Location might be before amount
+                if (j > 1) {
+                  location = parts[j - 1]?.trim() || '';
+                }
+                break;
+              }
+            }
+          } else {
+            // Multi-line format - look ahead for amount
+            // Skip reference lines if present
+            let nextIdx = i + 1;
+            while (nextIdx < lines.length && nextIdx < i + 5) {
+              const nextLine = lines[nextIdx]?.trim() || '';
+              
+              // Skip reference lines
+              if (nextLine.includes('Referencia única') || nextLine.match(/^\d{20,}$/)) {
+                nextIdx++;
+                continue;
+              }
+              
+              // Check if this line has amount
+              const amountMatch = nextLine.match(/([\d.,]+)\s*[€EUR]/);
+              if (amountMatch) {
+                amount = parseAmount(amountMatch[1]);
+                // Location might be before amount in same line
+                if (nextLine.includes('\t')) {
+                  const nextParts = nextLine.split(/\t+/);
+                  location = nextParts[0]?.trim() || '';
+                } else if (nextIdx > i + 1) {
+                  // Location might be on previous line
+                  location = lines[nextIdx - 1]?.trim() || '';
+                }
+                skipLines = nextIdx - i + 1;
+                break;
+              }
+              
+              nextIdx++;
             }
           }
         } else {
-          // Multi-line format - look ahead
-          // Line i: date (DD/MM)
-          // Line i+1: concept (merchant name)
-          // Line i+2: might be "Referencia única BS:" or location
-          // Line i+3 or i+2: location and amount
-          
+          // Date only on first line, concept on next line
           if (i + 1 < lines.length) {
-            const nextLine = lines[i + 1].trim();
+            concept = lines[i + 1].trim();
             
             // Skip reference lines
-            if (nextLine.includes('Referencia única') || nextLine.match(/^\d{20,}$/)) {
-              concept = lines[i + 2]?.trim() || '';
-              location = lines[i + 3]?.trim() || '';
-              const amountLine = lines[i + 4]?.trim() || lines[i + 3]?.trim() || '';
-              skipLines = 4;
+            let nextIdx = i + 2;
+            while (nextIdx < lines.length && nextIdx < i + 5) {
+              const nextLine = lines[nextIdx]?.trim() || '';
               
-              const amountMatch = amountLine.match(/([\d.,]+)\s*[€EUR]/);
+              if (nextLine.includes('Referencia única') || nextLine.match(/^\d{20,}$/)) {
+                nextIdx++;
+                continue;
+              }
+              
+              // Check if this line has amount
+              const amountMatch = nextLine.match(/([\d.,]+)\s*[€EUR]/);
               if (amountMatch) {
                 amount = parseAmount(amountMatch[1]);
-                // Location might be before amount in same line
-                if (!location && amountLine.includes('\t')) {
-                  const parts = amountLine.split(/\t+/);
-                  location = parts[0]?.trim() || '';
+                // Location might be before amount or on previous line
+                if (nextLine.includes('\t')) {
+                  const nextParts = nextLine.split(/\t+/);
+                  location = nextParts[0]?.trim() || '';
+                } else if (nextIdx > i + 2) {
+                  location = lines[nextIdx - 1]?.trim() || '';
                 }
+                skipLines = nextIdx - i + 1;
+                break;
               }
-            } else {
-              // No reference line, concept is next
-              concept = nextLine;
-              location = lines[i + 2]?.trim() || '';
-              const amountLine = lines[i + 3]?.trim() || lines[i + 2]?.trim() || '';
-              skipLines = 3;
               
-              const amountMatch = amountLine.match(/([\d.,]+)\s*[€EUR]/);
-              if (amountMatch) {
-                amount = parseAmount(amountMatch[1]);
-                // Location might be before amount in same line
-                if (!location && amountLine.includes('\t')) {
-                  const parts = amountLine.split(/\t+/);
-                  location = parts[0]?.trim() || '';
-                }
-              }
+              nextIdx++;
             }
           }
         }
