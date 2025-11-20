@@ -711,7 +711,14 @@ export async function parseCSVTransactions(file) {
     console.error(`📄 CSV file: ${file.name}, ${lines.length} lines`);
     console.error(`📄 First 5 lines with indices:`, lines.slice(0, 5).map((l, i) => `[${i}] ${l.substring(0, 80)}`));
     
-    // Check if it's a credit card statement
+    // Check if it's a credit card TEXT format (copy-paste) FIRST
+    const isCreditCardText = detectSabadellCreditCardTextFormat(text, lines);
+    if (isCreditCardText) {
+      console.log('💳 Detected: Sabadell Credit Card TEXT format (copy-paste)');
+      return parseSabadellCreditCardTextFormat(lines, text);
+    }
+    
+    // Check if it's a credit card statement (CSV format)
     const isCreditCard = detectSabadellCreditCardFormat(text);
     
     if (isCreditCard) {
@@ -2389,6 +2396,276 @@ function parseSabadellCreditCard(lines, fullText) {
   result.creditCard.name = last4 ? `${cardName} ${last4}` : cardName;
   
   console.log('🏦 Credit Card Detected:', result.creditCard.name);
+  console.log('💳 Credit Limit:', result.creditCard.creditLimit);
+  console.log('💰 Current Debt:', result.creditCard.currentDebt);
+  console.log('📊 Available Credit:', result.creditCard.availableCredit);
+  console.log('📝 Transactions:', result.transactions.length);
+  
+  return result;
+}
+
+/**
+ * Detect Sabadell Credit Card TEXT format (copy-paste from website)
+ * Format has:
+ * - "Contrato:" followed by contract number
+ * - "Límite de crédito:" 
+ * - "Forma pago mensual:"
+ * - Transaction list with: Date (DD/MM), Concept, Location, Amount EUR
+ * - "Total operaciones pendientes"
+ * - "Disponible:" and "Gastado:"
+ */
+function detectSabadellCreditCardTextFormat(text, lines) {
+  // Check for credit card specific keywords
+  const hasContract = text.includes('Contrato:') || text.includes('Contrato');
+  const hasCreditLimit = text.includes('Límite de crédito:') || text.includes('Límite de crédito');
+  const hasMonthlyPayment = text.includes('Forma pago mensual:') || text.includes('Fijo mensual de');
+  const hasPendingOps = text.includes('Total operaciones pendientes') || text.includes('operaciones pendientes');
+  const hasDisponible = text.includes('Disponible:') && text.includes('Gastado:');
+  
+  // Check for transaction pattern: Date (DD/MM), Concept, Location, Amount
+  const hasDatePattern = /\d{1,2}\/\d{1,2}/.test(text);
+  const hasEURAmounts = /[\d.,]+\s*€/.test(text) || /[\d.,]+\s*EUR/.test(text);
+  
+  // Must have credit card keywords AND transaction pattern
+  const isCreditCardText = (hasContract || hasCreditLimit) && 
+                           (hasMonthlyPayment || hasPendingOps) &&
+                           hasDatePattern && 
+                           hasEURAmounts;
+  
+  // But NOT regular bank account format (which has "Fecha	Descripción	Importe	Saldo" header)
+  const isRegularAccount = text.includes('Fecha') && text.includes('Descripción') && 
+                          text.includes('Importe') && text.includes('Saldo') &&
+                          !hasCreditLimit;
+  
+  return isCreditCardText && !isRegularAccount;
+}
+
+/**
+ * Parse Sabadell Credit Card TEXT format (copy-paste from website)
+ * Format example:
+ *   Contrato: 004014368330
+ *   Límite de crédito: 2.000,00 €
+ *   Forma pago mensual: Fijo mensual de 500,00 €
+ *   ...
+ *   Fecha 	Concepto	Población/País		Importe
+ *   17/11	VUELING AIRLINES	PRAT DE LLOBR		277,98 €
+ *   15/11	Aliexpress.com	INTERNET	 	7,87 €
+ */
+function parseSabadellCreditCardTextFormat(lines, fullText) {
+  const result = {
+    accountType: 'credit',
+    creditCard: {
+      bank: 'Sabadell'
+    },
+    transactions: []
+  };
+  
+  // Extract credit card info from text
+  const contractMatch = fullText.match(/Contrato[:\s]+([\d-]+)/);
+  if (contractMatch) {
+    result.creditCard.contractNumber = contractMatch[1].trim();
+  }
+  
+  const creditLimitMatch = fullText.match(/Límite de crédito[:\s]+([\d.,]+)\s*[€EUR]/);
+  if (creditLimitMatch) {
+    result.creditCard.creditLimit = parseAmount(creditLimitMatch[1]);
+  }
+  
+  const monthlyPaymentMatch = fullText.match(/Fijo mensual de ([\d.,]+)\s*[€EUR]/);
+  if (monthlyPaymentMatch) {
+    result.creditCard.monthlyPayment = parseAmount(monthlyPaymentMatch[1]);
+  }
+  
+  const disponibleMatch = fullText.match(/Disponible[:\s]+([\d.,]+)\s*[€EUR]/);
+  if (disponibleMatch) {
+    result.creditCard.availableCredit = parseAmount(disponibleMatch[1]);
+  }
+  
+  const gastadoMatch = fullText.match(/Gastado[:\s]+([\d.,]+)\s*[€EUR]/);
+  if (gastadoMatch) {
+    const gastado = parseAmount(gastadoMatch[1]);
+    result.creditCard.currentDebt = gastado;
+    result.creditCard.balance = -gastado; // Negative = debt
+  }
+  
+  // Extract card number (format: 4106__0012 or similar)
+  const cardNumberMatch = fullText.match(/(\d{4}[_\d]+\d{4})/);
+  if (cardNumberMatch) {
+    result.creditCard.cardNumber = cardNumberMatch[1];
+  }
+  
+  // Extract card name (e.g., "Joe Visa Credit card")
+  const cardNameMatch = fullText.match(/([A-Za-z\s]+Credit\s+card)/i);
+  if (cardNameMatch) {
+    result.creditCard.cardType = cardNameMatch[1].trim();
+  }
+  
+  // Find transaction section - look for header or start of transactions
+  let inTransactionSection = false;
+  let transactionStartIndex = -1;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Look for transaction header or first transaction
+    if (line.includes('Fecha') && (line.includes('Concepto') || line.includes('Concepto'))) {
+      transactionStartIndex = i + 1;
+      inTransactionSection = true;
+      break;
+    }
+    
+    // Or look for first date pattern (DD/MM) that might be a transaction
+    if (/^\d{1,2}\/\d{1,2}/.test(line) && !inTransactionSection) {
+      // Check if next lines have concept and amount
+      if (i + 2 < lines.length) {
+        const nextLine = lines[i + 1]?.trim();
+        const amountLine = lines[i + 2]?.trim() || lines[i + 1]?.trim();
+        if (nextLine && amountLine && /[\d.,]+\s*[€EUR]/.test(amountLine)) {
+          transactionStartIndex = i;
+          inTransactionSection = true;
+          break;
+        }
+      }
+    }
+  }
+  
+  // Parse transactions
+  if (transactionStartIndex >= 0) {
+    let i = transactionStartIndex;
+    const currentYear = new Date().getFullYear();
+    
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      
+      // Stop at summary sections
+      if (line.includes('OPERACIONES PERIODO ACTUAL') ||
+          line.includes('Saldo aplazado anterior') ||
+          line.includes('IMPORTE TOTAL A LIQUIDAR') ||
+          line.includes('Total operaciones')) {
+        break;
+      }
+      
+      // Skip empty lines and headers
+      if (!line || line.includes('Fecha') || line.includes('Concepto')) {
+        i++;
+        continue;
+      }
+      
+      // Try to parse transaction line
+      // Format can be:
+      // 1. Single line: "17/11	VUELING AIRLINES	PRAT DE LLOBR		277,98 €"
+      // 2. Multi-line:
+      //    17/11
+      //    VUELING AIRLINES
+      //    Referencia única BS: ...
+      //    PRAT DE LLOBR		277,98 €
+      
+      // Check if line starts with date (DD/MM)
+      const dateMatch = line.match(/^(\d{1,2})\/(\d{1,2})/);
+      if (dateMatch) {
+        const dateStr = dateMatch[0];
+        let concept = '';
+        let location = '';
+        let amount = null;
+        let skipLines = 0;
+        
+        // Check if it's single-line format (has tabs and amount on same line)
+        if (line.includes('\t') && /[\d.,]+\s*[€EUR]/.test(line)) {
+          // Single-line format with tabs
+          const parts = line.split(/\t+/);
+          concept = parts[1]?.trim() || '';
+          location = parts[2]?.trim() || '';
+          
+          // Find amount (last field with EUR/€)
+          for (let j = parts.length - 1; j >= 0; j--) {
+            const part = parts[j].trim();
+            const amountMatch = part.match(/([\d.,]+)\s*[€EUR]/);
+            if (amountMatch) {
+              amount = parseAmount(amountMatch[1]);
+              break;
+            }
+          }
+        } else {
+          // Multi-line format - look ahead
+          // Line i: date (DD/MM)
+          // Line i+1: concept (merchant name)
+          // Line i+2: might be "Referencia única BS:" or location
+          // Line i+3 or i+2: location and amount
+          
+          if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1].trim();
+            
+            // Skip reference lines
+            if (nextLine.includes('Referencia única') || nextLine.match(/^\d{20,}$/)) {
+              concept = lines[i + 2]?.trim() || '';
+              location = lines[i + 3]?.trim() || '';
+              const amountLine = lines[i + 4]?.trim() || lines[i + 3]?.trim() || '';
+              skipLines = 4;
+              
+              const amountMatch = amountLine.match(/([\d.,]+)\s*[€EUR]/);
+              if (amountMatch) {
+                amount = parseAmount(amountMatch[1]);
+                // Location might be before amount in same line
+                if (!location && amountLine.includes('\t')) {
+                  const parts = amountLine.split(/\t+/);
+                  location = parts[0]?.trim() || '';
+                }
+              }
+            } else {
+              // No reference line, concept is next
+              concept = nextLine;
+              location = lines[i + 2]?.trim() || '';
+              const amountLine = lines[i + 3]?.trim() || lines[i + 2]?.trim() || '';
+              skipLines = 3;
+              
+              const amountMatch = amountLine.match(/([\d.,]+)\s*[€EUR]/);
+              if (amountMatch) {
+                amount = parseAmount(amountMatch[1]);
+                // Location might be before amount in same line
+                if (!location && amountLine.includes('\t')) {
+                  const parts = amountLine.split(/\t+/);
+                  location = parts[0]?.trim() || '';
+                }
+              }
+            }
+          }
+        }
+        
+        if (concept && amount !== null && amount !== 0) {
+          const fullDate = parseCreditCardDate(dateStr, currentYear);
+          const isRefund = amount < 0;
+          
+          const transaction = {
+            bank: 'Sabadell',
+            date: fullDate,
+            description: location ? `${concept} - ${location}`.trim() : concept,
+            amount: Math.abs(amount),
+            type: isRefund ? 'income' : 'expense',
+            category: categorizeCreditCardTransaction(concept, isRefund),
+            isRefund: isRefund
+          };
+          
+          result.transactions.push(transaction);
+          
+          // Skip processed lines if multi-line format
+          if (skipLines > 0) {
+            i += skipLines;
+            continue;
+          }
+        }
+      }
+      
+      i++;
+    }
+  }
+  
+  // Generate credit card name
+  const cardName = result.creditCard.cardType || 'Credit Card';
+  const last4 = result.creditCard.cardNumber ? 
+    result.creditCard.cardNumber.replace(/.*(\d{4})$/, '*$1') : '';
+  result.creditCard.name = last4 ? `${cardName} ${last4}` : cardName;
+  
+  console.log('💳 Credit Card Text Format Detected:', result.creditCard.name);
   console.log('💳 Credit Limit:', result.creditCard.creditLimit);
   console.log('💰 Current Debt:', result.creditCard.currentDebt);
   console.log('📊 Available Credit:', result.creditCard.availableCredit);
