@@ -256,7 +256,26 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
     // Category filter
     if (filterCategory !== 'all') {
-      filtered = filtered.filter(t => t.category === filterCategory);
+      filtered = filtered.filter(t => {
+        // Exact match
+        if (t.category === filterCategory) return true;
+        
+        // Check for hierarchical category matches (e.g., "Servicio doméstico" matches "Vivienda > Servicio doméstico")
+        if (t.category && filterCategory) {
+          // If filter category is simple and transaction is hierarchical, check if subcategory matches
+          if (t.category.includes(' > ')) {
+            const subcategory = t.category.split(' > ')[1];
+            if (subcategory === filterCategory) return true;
+          }
+          // If filter category is hierarchical and transaction is simple, check if subcategory matches
+          if (filterCategory.includes(' > ')) {
+            const subcategory = filterCategory.split(' > ')[1];
+            if (subcategory === t.category) return true;
+          }
+        }
+        
+        return false;
+      });
     }
 
     // Bank filter
