@@ -88,10 +88,16 @@ router.post('/upload', optionalAuth, async (req, res) => {
       
       // Auto-exclude Transferencias and NC category from analytics
       let isComputable;
-      if (category === 'Transferencias' || category === 'NC' || category === 'nc') {
+      const categoryLower = (category || '').toLowerCase();
+      const isTransferCategory = category === 'Transferencias' || 
+                                 categoryLower.includes('transferencia') ||
+                                 categoryLower.includes('transferencias');
+      const isNCCategory = category === 'NC' || category === 'nc';
+      
+      if (isTransferCategory || isNCCategory) {
         isComputable = false;
-        if (category === 'Transferencias') {
-          console.log(`🔄 Auto-excluding transfer: "${description}"`);
+        if (isTransferCategory) {
+          console.log(`🔄 Auto-excluding transfer: "${description}" (category: ${category})`);
         } else {
           console.log(`🔄 Auto-excluding NC transaction: "${description}"`);
         }
@@ -338,12 +344,22 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     const transaction = transactionResult.rows[0];
     let updatedCount = 0;
 
-    // Auto-set computable = false for NC category unless explicitly overridden
+    // Auto-set computable = false for NC and Transferencias categories unless explicitly overridden
     let finalComputable = computable;
-    if (category === 'NC' || category === 'nc') {
+    const categoryLower = (category || '').toLowerCase();
+    const isTransferCategory = category === 'Transferencias' || 
+                               categoryLower.includes('transferencia') ||
+                               categoryLower.includes('transferencias');
+    const isNCCategory = category === 'NC' || category === 'nc';
+    
+    if (isNCCategory || isTransferCategory) {
       if (computable === undefined) {
         finalComputable = false;
-        console.log(`🔄 Auto-setting computable=false for NC category: "${transaction.description}"`);
+        if (isNCCategory) {
+          console.log(`🔄 Auto-setting computable=false for NC category: "${transaction.description}"`);
+        } else {
+          console.log(`🔄 Auto-setting computable=false for Transferencias category: "${transaction.description}"`);
+        }
       }
     }
 
@@ -696,12 +712,22 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Category is required' });
     }
 
-    // Auto-set computable = false for NC category unless explicitly overridden
+    // Auto-set computable = false for NC and Transferencias categories unless explicitly overridden
     let finalComputable = computable;
-    if (category === 'NC' || category === 'nc') {
+    const categoryLower = (category || '').toLowerCase();
+    const isTransferCategory = category === 'Transferencias' || 
+                               categoryLower.includes('transferencia') ||
+                               categoryLower.includes('transferencias');
+    const isNCCategory = category === 'NC' || category === 'nc';
+    
+    if (isNCCategory || isTransferCategory) {
       if (computable === undefined) {
         finalComputable = false;
-        console.log(`🔄 Auto-setting computable=false for NC category in bulk update`);
+        if (isNCCategory) {
+          console.log(`🔄 Auto-setting computable=false for NC category in bulk update`);
+        } else {
+          console.log(`🔄 Auto-setting computable=false for Transferencias category in bulk update`);
+        }
       }
     } else if (computable === undefined) {
       finalComputable = true;

@@ -33,11 +33,11 @@ async function fixNCComputable() {
       console.log('ℹ️  No NC transactions need fixing');
     }
 
-    // Also fix Transferencias category if needed
+    // Also fix Transferencias category if needed (including hierarchical format)
     const transferCheck = await client.query(`
       SELECT COUNT(*) as count
       FROM transactions
-      WHERE category = 'Transferencias'
+      WHERE (category = 'Transferencias' OR category LIKE '%Transferencias%' OR category LIKE '%Transferencia%')
       AND computable = true;
     `);
 
@@ -48,7 +48,7 @@ async function fixNCComputable() {
       const transferUpdateResult = await client.query(`
         UPDATE transactions
         SET computable = false
-        WHERE category = 'Transferencias'
+        WHERE (category = 'Transferencias' OR category LIKE '%Transferencias%' OR category LIKE '%Transferencia%')
         AND computable = true;
       `);
 
