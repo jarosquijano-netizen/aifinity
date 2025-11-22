@@ -86,11 +86,15 @@ router.post('/upload', optionalAuth, async (req, res) => {
         continue;
       }
       
-      // Auto-exclude Transferencias from analytics
+      // Auto-exclude Transferencias and NC category from analytics
       let isComputable;
-      if (category === 'Transferencias') {
+      if (category === 'Transferencias' || category === 'NC' || category === 'nc') {
         isComputable = false;
-        console.log(`🔄 Auto-excluding transfer: "${description}"`);
+        if (category === 'Transferencias') {
+          console.log(`🔄 Auto-excluding transfer: "${description}"`);
+        } else {
+          console.log(`🔄 Auto-excluding NC transaction: "${description}"`);
+        }
       } else {
         isComputable = computable !== undefined ? computable : true;
       }
@@ -334,6 +338,15 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     const transaction = transactionResult.rows[0];
     let updatedCount = 0;
 
+    // Auto-set computable = false for NC category unless explicitly overridden
+    let finalComputable = computable;
+    if (category === 'NC' || category === 'nc') {
+      if (computable === undefined) {
+        finalComputable = false;
+        console.log(`🔄 Auto-setting computable=false for NC category: "${transaction.description}"`);
+      }
+    }
+
     if (updateSimilar) {
       // Get all transactions from the same user
       const allTransactions = await client.query(
@@ -364,12 +377,12 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
         });
         console.log(`✅ Updating all to category: "${category}"\n`);
         
-        const updateQuery = computable !== undefined
+        const updateQuery = finalComputable !== undefined
           ? 'UPDATE transactions SET category = $1, computable = $3 WHERE id = ANY($2::int[]) AND user_id = $4'
           : 'UPDATE transactions SET category = $1 WHERE id = ANY($2::int[]) AND user_id = $3';
         
-        const updateParams = computable !== undefined
-          ? [category, similarIds, computable, userId]
+        const updateParams = finalComputable !== undefined
+          ? [category, similarIds, finalComputable, userId]
           : [category, similarIds, userId];
         
         await client.query(updateQuery, updateParams);
@@ -392,12 +405,12 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     }
 
     // Update the main transaction - ensure it belongs to the user
-    const updateQuery = computable !== undefined
+    const updateQuery = finalComputable !== undefined
       ? 'UPDATE transactions SET category = $1, computable = $2 WHERE id = $3 AND user_id = $4'
       : 'UPDATE transactions SET category = $1 WHERE id = $2 AND user_id = $3';
     
-    const updateParams = computable !== undefined
-      ? [category, computable, transactionId, userId]
+    const updateParams = finalComputable !== undefined
+      ? [category, finalComputable, transactionId, userId]
       : [category, transactionId, userId];
     
     const updateResult = await client.query(updateQuery, updateParams);
@@ -683,6 +696,17 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Category is required' });
     }
 
+    // Auto-set computable = false for NC category unless explicitly overridden
+    let finalComputable = computable;
+    if (category === 'NC' || category === 'nc') {
+      if (computable === undefined) {
+        finalComputable = false;
+        console.log(`🔄 Auto-setting computable=false for NC category in bulk update`);
+      }
+    } else if (computable === undefined) {
+      finalComputable = true;
+    }
+
     await client.query('BEGIN');
 
     // Update all selected transactions
@@ -696,7 +720,7 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
 
     const result = await client.query(updateQuery, [
       category,
-      computable !== undefined ? computable : true,
+      finalComputable,
       transactionIds,
       userId
     ]);
