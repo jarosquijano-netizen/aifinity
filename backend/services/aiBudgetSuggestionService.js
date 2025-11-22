@@ -110,7 +110,8 @@ class AIBudgetSuggestionService {
     // Group transactions by category
     transactions.forEach((transaction) => {
       const category = transaction.category || 'Uncategorized';
-      const month = new Date(transaction.date).getMonth();
+      const transactionDate = new Date(transaction.date);
+      const monthKey = transactionDate.toISOString().slice(0, 7); // YYYY-MM format
       const amount = Math.abs(transaction.amount);
 
       // Initialize category stats
@@ -119,19 +120,21 @@ class AIBudgetSuggestionService {
           total: 0,
           count: 0,
           amounts: [],
-          months: {},
+          months: {}, // Now stores YYYY-MM -> amount
+          monthKeys: new Set(), // Track unique months
         };
       }
 
       categoryStats[category].total += amount;
       categoryStats[category].count += 1;
       categoryStats[category].amounts.push(amount);
+      categoryStats[category].monthKeys.add(monthKey);
 
-      // Track monthly spending
-      if (!categoryStats[category].months[month]) {
-        categoryStats[category].months[month] = 0;
+      // Track monthly spending by actual month-year
+      if (!categoryStats[category].months[monthKey]) {
+        categoryStats[category].months[monthKey] = 0;
       }
-      categoryStats[category].months[month] += amount;
+      categoryStats[category].months[monthKey] += amount;
     });
 
     // Calculate statistics for each category
@@ -140,10 +143,22 @@ class AIBudgetSuggestionService {
       stats.average = stats.total / stats.count;
       stats.median = this.calculateMedian(stats.amounts);
       stats.stdDev = this.calculateStdDev(stats.amounts, stats.average);
-      stats.last3MonthsAvg = this.calculateRecentAverage(stats.months, 3);
-      stats.last6MonthsAvg = this.calculateRecentAverage(stats.months, 6);
-      stats.trend = this.calculateTrend(stats.months);
-      stats.seasonality = this.detectSeasonality(stats.months);
+      
+      // Calculate months of data available
+      stats.monthsOfData = stats.monthKeys.size;
+      
+      // Calculate monthly averages properly
+      const monthlyAmounts = Object.values(stats.months);
+      stats.monthlyAverage = monthlyAmounts.length > 0 
+        ? stats.total / monthlyAmounts.length 
+        : 0;
+      
+      // Calculate last 3 and 6 months averages using actual dates
+      stats.last3MonthsAvg = this.calculateRecentAverageByDate(stats.months, 3, currentMonth);
+      stats.last6MonthsAvg = this.calculateRecentAverageByDate(stats.months, 6, currentMonth);
+      
+      stats.trend = this.calculateTrendByDate(stats.months);
+      stats.seasonality = this.detectSeasonalityByDate(stats.months);
     });
 
     return categoryStats;
@@ -512,14 +527,48 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
         (p) => p.category === category.name
       );
 
+      // Calculate proper confidence based on data quality
+      const transactionCount = historical?.count || 0;
+      const monthsOfData = historical?.monthsOfData || 0;
+      const confidence = this.calculateConfidence(transactionCount, monthsOfData);
+
+      // Calculate proper monthly average (totalSpent / monthsOfData)
+      const monthlyAverage = historical?.monthlyAverage || 0;
+      const last3MonthsAvg = historical?.last3MonthsAvg || 0;
+      
+      // Use last 3 months average if available, otherwise use overall monthly average
+      const suggestedMonthlyAvg = last3MonthsAvg > 0 ? last3MonthsAvg : monthlyAverage;
+      
+      // If AI suggested budget exists, use it; otherwise use calculated monthly average
+      const suggestedBudget = category.suggestedBudget > 0 
+        ? category.suggestedBudget 
+        : Math.round(suggestedMonthlyAvg);
+
+      // Calculate proper range based on statistical data
+      const stdDev = historical?.stdDev || 0;
+      const range = this.calculateBudgetRange(
+        suggestedMonthlyAvg || suggestedBudget,
+        stdDev,
+        transactionCount,
+        monthsOfData,
+        suggestedBudget
+      );
+
       return {
         ...category,
+        suggestedBudget: suggestedBudget,
+        rangeMin: range.min,
+        rangeMax: range.max,
+        confidence: confidence,
         historical: historical
           ? {
               average: historical.average,
               median: historical.median,
               trend: historical.trend,
               last3MonthsAvg: historical.last3MonthsAvg,
+              monthlyAverage: historical.monthlyAverage,
+              monthsOfData: historical.monthsOfData,
+              transactionCount: historical.count,
             }
           : null,
         pattern: pattern
@@ -530,7 +579,7 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
             }
           : null,
         metadata: {
-          dataQuality: historical ? 'high' : 'low',
+          dataQuality: historical ? (confidence === 'high' ? 'high' : 'medium') : 'low',
           recommendationSource: 'ai_analysis',
           lastUpdated: new Date().toISOString(),
         },
@@ -607,19 +656,41 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
     return {
       categories: defaultCategories.map((cat) => {
         const historical = spendingAnalysis[cat.name];
-        const suggested = historical
-          ? historical.last3MonthsAvg || historical.average
+        
+        // Calculate proper monthly average
+        const monthlyAverage = historical?.monthlyAverage || 0;
+        const last3MonthsAvg = historical?.last3MonthsAvg || 0;
+        const suggestedMonthlyAvg = last3MonthsAvg > 0 ? last3MonthsAvg : monthlyAverage;
+        
+        // Use historical data if available, otherwise use percentage-based default
+        const suggested = suggestedMonthlyAvg > 0
+          ? suggestedMonthlyAvg
           : monthlyIncome * cat.percentage;
+
+        // Calculate proper confidence
+        const transactionCount = historical?.count || 0;
+        const monthsOfData = historical?.monthsOfData || 0;
+        const confidence = this.calculateConfidence(transactionCount, monthsOfData);
+
+        // Calculate proper range
+        const stdDev = historical?.stdDev || 0;
+        const range = this.calculateBudgetRange(
+          suggestedMonthlyAvg || suggested,
+          stdDev,
+          transactionCount,
+          monthsOfData,
+          suggested
+        );
 
         return {
           name: cat.name,
           suggestedBudget: Math.round(suggested),
-          rangeMin: Math.round(suggested * 0.7),
-          rangeMax: Math.round(suggested * 1.3),
+          rangeMin: range.min,
+          rangeMax: range.max,
           reasoning: historical
             ? 'Based on your recent spending patterns'
             : 'Based on typical allocations for your income level',
-          confidence: historical ? 'high' : 'medium',
+          confidence: confidence,
           insights: [],
           comparison: {
             historical: historical ? historical.average : 0,
@@ -676,12 +747,57 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
     return count > 0 ? sum / count : 0;
   }
 
+  /**
+   * Calculate recent average using actual YYYY-MM dates
+   */
+  calculateRecentAverageByDate(monthlyData, months, currentMonth) {
+    const monthKeys = Object.keys(monthlyData).sort().reverse(); // Most recent first
+    if (monthKeys.length === 0) return 0;
+    
+    const recentMonths = monthKeys.slice(0, months);
+    let sum = 0;
+    let count = 0;
+    
+    recentMonths.forEach(monthKey => {
+      sum += monthlyData[monthKey];
+      count++;
+    });
+    
+    return count > 0 ? sum / count : 0;
+  }
+
   calculateTrend(monthlyData) {
     const months = Object.keys(monthlyData).map(Number).sort((a, b) => a - b);
     if (months.length < 2) return 'stable';
 
     const recentMonths = months.slice(-3);
     const earlierMonths = months.slice(0, -3);
+
+    if (earlierMonths.length === 0) return 'stable';
+
+    const recentAvg =
+      recentMonths.reduce((sum, m) => sum + monthlyData[m], 0) / recentMonths.length;
+    const earlierAvg =
+      earlierMonths.reduce((sum, m) => sum + monthlyData[m], 0) / earlierMonths.length;
+
+    if (earlierAvg === 0) return 'stable';
+
+    const change = (recentAvg - earlierAvg) / earlierAvg;
+
+    if (change > 0.15) return 'increasing';
+    if (change < -0.15) return 'decreasing';
+    return 'stable';
+  }
+
+  /**
+   * Calculate trend using actual YYYY-MM dates
+   */
+  calculateTrendByDate(monthlyData) {
+    const monthKeys = Object.keys(monthlyData).sort(); // Oldest first
+    if (monthKeys.length < 2) return 'stable';
+
+    const recentMonths = monthKeys.slice(-3);
+    const earlierMonths = monthKeys.slice(0, -3);
 
     if (earlierMonths.length === 0) return 'stable';
 
@@ -711,6 +827,59 @@ Respond with a JSON object in this EXACT format (no markdown code blocks, just J
     const maxVariation = Math.max(...values.map((v) => Math.abs(v - avg) / avg));
 
     return maxVariation > 0.3 ? 'seasonal' : 'stable';
+  }
+
+  /**
+   * Detect seasonality using actual YYYY-MM dates
+   */
+  detectSeasonalityByDate(monthlyData) {
+    const monthKeys = Object.keys(monthlyData).sort();
+    if (monthKeys.length < 6) return 'insufficient_data';
+
+    const values = monthKeys.map((m) => monthlyData[m]);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    if (avg === 0) return 'stable';
+    
+    const maxVariation = Math.max(...values.map((v) => Math.abs(v - avg) / avg));
+
+    return maxVariation > 0.3 ? 'seasonal' : 'stable';
+  }
+
+  /**
+   * Calculate confidence level based on transaction count and months of data
+   */
+  calculateConfidence(transactionCount, monthsOfData) {
+    if (transactionCount >= 10 && monthsOfData >= 3) return 'high';
+    if (transactionCount >= 5 && monthsOfData >= 2) return 'medium';
+    if (transactionCount >= 3 && monthsOfData >= 1) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * Calculate budget range based on statistical data
+   */
+  calculateBudgetRange(monthlyAvg, stdDev, transactionCount, monthsOfData, suggestedBudget) {
+    // If not enough data, use income-based defaults
+    if (transactionCount < 3 || monthsOfData < 1) {
+      return {
+        min: Math.max(0, Math.round(suggestedBudget * 0.5)),
+        max: Math.round(suggestedBudget * 1.5)
+      };
+    }
+
+    // Use statistical range based on standard deviation
+    const min = Math.max(0, Math.round(monthlyAvg - stdDev));
+    const max = Math.round(monthlyAvg + stdDev);
+    
+    // Ensure range makes sense (min should be less than max, and both should be reasonable)
+    if (min >= max || min < 0) {
+      return {
+        min: Math.max(0, Math.round(suggestedBudget * 0.7)),
+        max: Math.round(suggestedBudget * 1.3)
+      };
+    }
+
+    return { min, max };
   }
 }
 

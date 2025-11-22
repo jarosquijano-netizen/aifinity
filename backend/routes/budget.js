@@ -114,6 +114,24 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       budgetMap[cat.name] = parseFloat(cat.budget_amount || 0);
     });
     
+    // Helper function to check if a category is a parent of any other category
+    // (to avoid double-counting parent + children budgets)
+    const isParentCategory = (categoryName, budgetMapToCheck) => {
+      // A category is a parent if it matches the group part of any hierarchical category
+      // e.g., "Alimentación" is a parent of "Alimentación > Supermercado"
+      if (!categoryName || categoryName.includes(' > ')) {
+        return false; // Hierarchical categories are not parents
+      }
+      
+      // Check if any category in budgetMap starts with this category name + " > "
+      for (const key in budgetMapToCheck) {
+        if (key.startsWith(categoryName + ' > ')) {
+          return true; // Found a child category
+        }
+      }
+      return false;
+    };
+    
     // Helper function to check if two categories are duplicates
     const isDuplicateCategory = (name1, name2) => {
       if (name1 === name2) return true;
@@ -329,22 +347,56 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
             suggestedBudget = Math.round(userProfile.monthlyIncome * 0.5 / 10) * 10;
           }
           
-          // Ensure benchmark ranges are family-size specific
+          // Calculate months of data available
+          const transactionDates = categoryTransactions.map(t => new Date(t.date).toISOString().slice(0, 7));
+          const uniqueMonths = new Set(transactionDates);
+          const monthsOfData = uniqueMonths.size;
+          
+          // Calculate confidence based on transaction count and months of data
+          const transactionCount = categoryTransactions.length;
+          let confidence = 'low';
+          if (transactionCount >= 10 && monthsOfData >= 3) confidence = 'high';
+          else if (transactionCount >= 5 && monthsOfData >= 2) confidence = 'medium';
+          else if (transactionCount >= 3 && monthsOfData >= 1) confidence = 'medium';
+          
+          // Calculate range based on data quality
           const familyBenchmark = getBenchmark(categoryName, userProfile.familySize);
+          let rangeMin = familyBenchmark.min || 0;
+          let rangeMax = familyBenchmark.max || 0;
+          
+          if (categoryTransactions.length >= 3 && monthsOfData >= 1) {
+            // Use statistical range
+            const amounts = categoryTransactions.map(t => Math.abs(t.amount));
+            const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
+            const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+            const stdDev = Math.sqrt(variance);
+            rangeMin = Math.max(0, Math.round(suggestedBudget - stdDev));
+            rangeMax = Math.round(suggestedBudget + stdDev);
+            
+            // Ensure range makes sense
+            if (rangeMin >= rangeMax || rangeMin < 0) {
+              rangeMin = Math.round(suggestedBudget * 0.7);
+              rangeMax = Math.round(suggestedBudget * 1.3);
+            }
+          } else {
+            // Use percentage-based range
+            rangeMin = Math.round(suggestedBudget * 0.7);
+            rangeMax = Math.round(suggestedBudget * 1.3);
+          }
           
           return {
             category: categoryName,
             currentBudget: currentBudget,
             suggestedBudget: suggestedBudget,
             benchmark: {
-              min: familyBenchmark.min || 0,
-              avg: familyBenchmark.avg || 0,
-              max: familyBenchmark.max || 0
+              min: rangeMin,
+              avg: suggestedBudget,
+              max: rangeMax
             },
             reason: categoryTransactions.length > 0 
-              ? `Based on your average spending of ${(categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / categoryTransactions.length).toFixed(0)}€ per transaction over ${categoryTransactions.length} transactions.`
+              ? `Based on your average monthly spending of ${suggestedBudget.toFixed(0)}€ over ${monthsOfData} month${monthsOfData !== 1 ? 's' : ''} (${transactionCount} transactions).`
               : generateBudgetReason(categoryName, suggestedBudget, userProfile, familyBenchmark),
-            confidence: categoryTransactions.length > 0 ? 'high' : 'medium'
+            confidence: confidence
           };
         }
       });
@@ -355,12 +407,17 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       // Calculate total suggested and scale to match total budget set (if available)
       const totalSuggested = finalSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
       // Calculate total budget set excluding transfers and NC categories (same logic as Overview)
+      // IMPORTANT: Exclude parent categories if they have children (to avoid double-counting)
       const excludedCategories = ['Finanzas > Transferencias', 'Transferencias', 'NC', 'nc'];
-      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => {
-        if (excludedCategories.includes(cat.name)) {
+      const totalBudgetSet = Object.entries(budgetMap).reduce((sum, [catName, budgetAmount]) => {
+        if (excludedCategories.includes(catName)) {
           return sum;
         }
-        return sum + parseFloat(cat.budget_amount || 0);
+        // Exclude parent categories that have children (to avoid double-counting)
+        if (isParentCategory(catName, budgetMap)) {
+          return sum; // Skip parent category, count only children
+        }
+        return sum + parseFloat(budgetAmount || 0);
       }, 0);
       
       // If total suggested is significantly different from total budget set, scale suggestions proportionally
@@ -399,10 +456,14 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
         let suggestedBudget = 0;
         
         if (categoryTransactions.length > 0) {
-          // Use average of last 3 months if available, otherwise use overall average
+          // Calculate months of data available
+          const transactionDates = categoryTransactions.map(t => new Date(t.date).toISOString().slice(0, 7));
+          const uniqueMonths = new Set(transactionDates);
+          const monthsOfData = Math.max(1, uniqueMonths.size); // At least 1 month
+          
+          // Calculate total spending
           const amounts = categoryTransactions.map(t => Math.abs(t.amount));
           const total = amounts.reduce((sum, amt) => sum + amt, 0);
-          const avgSpending = total / categoryTransactions.length;
           
           // Get last 3 months average
           const threeMonthsAgo = new Date();
@@ -410,12 +471,17 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
           const recentTransactions = categoryTransactions.filter(t => new Date(t.date) >= threeMonthsAgo);
           
           if (recentTransactions.length > 0) {
+            // Calculate unique months in recent period
+            const recentDates = recentTransactions.map(t => new Date(t.date).toISOString().slice(0, 7));
+            const recentUniqueMonths = new Set(recentDates);
+            const recentMonthsCount = Math.max(1, recentUniqueMonths.size); // At least 1 month
+            
             const recentAmounts = recentTransactions.map(t => Math.abs(t.amount));
             const recentTotal = recentAmounts.reduce((sum, amt) => sum + amt, 0);
-            suggestedBudget = recentTotal / 3; // Average per month over last 3 months
+            suggestedBudget = recentTotal / recentMonthsCount; // Average per month over recent months
           } else {
-            // Use overall average, but scale to monthly
-            suggestedBudget = avgSpending;
+            // Use overall monthly average (total / monthsOfData)
+            suggestedBudget = total / monthsOfData;
           }
         } else {
           // No historical data - use benchmark
@@ -442,34 +508,73 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
           suggestedBudget = Math.round(userProfile.monthlyIncome * 0.5 / 10) * 10;
         }
         
-        // Ensure benchmark ranges are family-size specific
+        // Calculate months of data available
+        const transactionDates = categoryTransactions.map(t => new Date(t.date).toISOString().slice(0, 7));
+        const uniqueMonths = new Set(transactionDates);
+        const monthsOfData = uniqueMonths.size;
+        
+        // Calculate confidence based on transaction count and months of data
+        const transactionCount = categoryTransactions.length;
+        let confidence = 'low';
+        if (transactionCount >= 10 && monthsOfData >= 3) confidence = 'high';
+        else if (transactionCount >= 5 && monthsOfData >= 2) confidence = 'medium';
+        else if (transactionCount >= 3 && monthsOfData >= 1) confidence = 'medium';
+        
+        // Calculate range based on data quality
         const familyBenchmark = getBenchmark(categoryName, userProfile.familySize);
+        let rangeMin = familyBenchmark.min || 0;
+        let rangeMax = familyBenchmark.max || 0;
+        
+        if (categoryTransactions.length >= 3 && monthsOfData >= 1) {
+          // Use statistical range
+          const amounts = categoryTransactions.map(t => Math.abs(t.amount));
+          const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
+          const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+          const stdDev = Math.sqrt(variance);
+          rangeMin = Math.max(0, Math.round(suggestedBudget - stdDev));
+          rangeMax = Math.round(suggestedBudget + stdDev);
+          
+          // Ensure range makes sense
+          if (rangeMin >= rangeMax || rangeMin < 0) {
+            rangeMin = Math.round(suggestedBudget * 0.7);
+            rangeMax = Math.round(suggestedBudget * 1.3);
+          }
+        } else {
+          // Use percentage-based range
+          rangeMin = Math.round(suggestedBudget * 0.7);
+          rangeMax = Math.round(suggestedBudget * 1.3);
+        }
         
         return {
           category: categoryName,
           currentBudget: currentBudget,
           suggestedBudget: suggestedBudget,
           benchmark: {
-            min: familyBenchmark.min || 0,
-            avg: familyBenchmark.avg || 0,
-            max: familyBenchmark.max || 0
+            min: rangeMin,
+            avg: suggestedBudget,
+            max: rangeMax
           },
           reason: categoryTransactions.length > 0 
-            ? `Based on your average spending of ${(categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / categoryTransactions.length).toFixed(0)}€ per transaction over ${categoryTransactions.length} transactions.`
+            ? `Based on your average monthly spending of ${suggestedBudget.toFixed(0)}€ over ${monthsOfData} month${monthsOfData !== 1 ? 's' : ''} (${transactionCount} transactions).`
             : generateBudgetReason(categoryName, suggestedBudget, userProfile, familyBenchmark),
-          confidence: categoryTransactions.length > 0 ? 'high' : 'medium'
+          confidence: confidence
         };
       });
       
       // Calculate total suggested and scale to match total budget set (if available)
       const totalSuggested = fallbackSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
       // Calculate total budget set excluding transfers and NC categories (same logic as Overview)
+      // IMPORTANT: Exclude parent categories if they have children (to avoid double-counting)
       const excludedCategories = ['Finanzas > Transferencias', 'Transferencias', 'NC', 'nc'];
-      const totalBudgetSet = Object.values(budgetMap).reduce((sum, cat) => {
-        if (excludedCategories.includes(cat.name)) {
+      const totalBudgetSet = Object.entries(budgetMap).reduce((sum, [catName, budgetAmount]) => {
+        if (excludedCategories.includes(catName)) {
           return sum;
         }
-        return sum + parseFloat(cat.budget_amount || 0);
+        // Exclude parent categories that have children (to avoid double-counting)
+        if (isParentCategory(catName, budgetMap)) {
+          return sum; // Skip parent category, count only children
+        }
+        return sum + parseFloat(budgetAmount || 0);
       }, 0);
       const maxAllowedBudget = userProfile.monthlyIncome * 0.85;
       
@@ -1197,12 +1302,38 @@ router.get('/overview', optionalAuth, async (req, res) => {
     // Calculate totals (excluding transfers and NC category)
     // CRITICAL: Calculate totals directly from spendingMap and budgetMap to avoid double-counting
     // Total Budget = sum of all budget amounts from categories table
+    // IMPORTANT: Exclude parent categories if they have children (to avoid double-counting)
+    
+    // Helper function to check if a category is a parent of any other category
+    const isParentCategory = (categoryName) => {
+      // A category is a parent if it matches the group part of any hierarchical category
+      // e.g., "Alimentación" is a parent of "Alimentación > Supermercado"
+      if (!categoryName || categoryName.includes(' > ')) {
+        return false; // Hierarchical categories are not parents
+      }
+      
+      // Check if any category in budgetMap starts with this category name + " > "
+      for (const key in budgetMap) {
+        if (key.startsWith(categoryName + ' > ')) {
+          return true; // Found a child category
+        }
+      }
+      return false;
+    };
+    
     const totalBudget = Object.values(budgetMap).reduce((sum, cat) => {
       // Exclude transfers and non-computable categories
       if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
           cat.name === 'NC' || cat.name === 'nc') {
         return sum;
       }
+      
+      // Exclude parent categories that have children (to avoid double-counting)
+      // Only count child categories (hierarchical format) or standalone categories without children
+      if (isParentCategory(cat.name)) {
+        return sum; // Skip parent category, count only children
+      }
+      
       return sum + parseFloat(cat.budget_amount || 0);
     }, 0);
     
