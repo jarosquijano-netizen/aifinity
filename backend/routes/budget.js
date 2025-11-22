@@ -1324,12 +1324,27 @@ router.get('/overview', optionalAuth, async (req, res) => {
     // Debug: Log all categories in budgetMap
     const allCategoryNames = Object.keys(budgetMap).sort();
     console.log('🔍 Backend Budget Overview - All categories:', allCategoryNames.length);
-    console.log('🔍 Backend Budget Overview - Category names:', allCategoryNames.slice(0, 10), '...');
+    console.log('🔍 Backend Budget Overview - Category names:', allCategoryNames);
+    
+    // Log raw categories from database BEFORE deduplication
+    console.log('🔍 Backend Budget Overview - Raw categories from DB:', categoriesResult.rows.length);
+    const rawCategoryNames = categoriesResult.rows.map(c => c.name).sort();
+    console.log('🔍 Backend Budget Overview - Raw category names:', rawCategoryNames);
     
     const excludedParents = [];
     const totalBeforeExclusion = Object.values(budgetMap).reduce((sum, cat) => {
       return sum + parseFloat(cat.budget_amount || 0);
     }, 0);
+    
+    // Also calculate total from raw categories (before deduplication)
+    const rawTotal = categoriesResult.rows.reduce((sum, cat) => {
+      if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
+          cat.name === 'NC' || cat.name === 'nc') {
+        return sum;
+      }
+      return sum + parseFloat(cat.budget_amount || 0);
+    }, 0);
+    console.log('🔍 Backend Budget Overview - Raw total (before deduplication): €' + rawTotal.toFixed(2));
     
     const totalBudget = Object.values(budgetMap).reduce((sum, cat) => {
       // Exclude transfers and non-computable categories
