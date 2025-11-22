@@ -166,11 +166,19 @@ function SetupBudget({ onBudgetSaved }) {
         
         // Remove parent categories that have children (to avoid double-counting)
         const finalBudgetsMap = {};
+        const excludedParents = [];
         for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
           // Exclude parent categories that have children
-          if (!isParentCategory(catName, allBudgetsMap)) {
-            finalBudgetsMap[catName] = budgetAmount;
+          if (isParentCategory(catName, allBudgetsMap)) {
+            excludedParents.push(catName);
+            continue; // Skip parent category
           }
+          finalBudgetsMap[catName] = budgetAmount;
+        }
+        
+        // Debug log (remove in production if needed)
+        if (excludedParents.length > 0) {
+          console.log('Excluded parent categories:', excludedParents);
         }
         
         setAllCategoryBudgets(finalBudgetsMap);
@@ -334,11 +342,19 @@ function SetupBudget({ onBudgetSaved }) {
       
       // Remove parent categories that have children (to avoid double-counting)
       const finalBudgetsMap = {};
+      const excludedParents = [];
       for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
         // Exclude parent categories that have children
-        if (!isParentCategory(catName, allBudgetsMap)) {
-          finalBudgetsMap[catName] = budgetAmount;
+        if (isParentCategory(catName, allBudgetsMap)) {
+          excludedParents.push(catName);
+          continue; // Skip parent category
         }
+        finalBudgetsMap[catName] = budgetAmount;
+      }
+      
+      // Debug log (remove in production if needed)
+      if (excludedParents.length > 0) {
+        console.log('Excluded parent categories:', excludedParents);
       }
       
       setAllCategoryBudgets(finalBudgetsMap);
