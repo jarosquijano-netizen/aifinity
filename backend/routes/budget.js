@@ -63,7 +63,7 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       }
     }
     
-    // Get all transaction categories
+    // Get all transaction categories (for filtering total calculation)
     let transactionCategories;
     if (userId) {
       transactionCategories = await pool.query(
@@ -92,7 +92,29 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       );
     }
     
-    // Get current budgets
+    // Get ALL categories from database (not just transaction categories)
+    // This ensures we show ALL categories in the setup budget page
+    let allCategories;
+    if (userId) {
+      allCategories = await pool.query(
+        `SELECT name, budget_amount 
+         FROM categories 
+         WHERE (user_id = $1 OR user_id IS NULL)
+         AND name NOT IN ('Finanzas > Transferencias', 'Transferencias', 'NC', 'nc')
+         ORDER BY name ASC`,
+        [userId]
+      );
+    } else {
+      allCategories = await pool.query(
+        `SELECT name, budget_amount 
+         FROM categories 
+         WHERE user_id IS NULL
+         AND name NOT IN ('Finanzas > Transferencias', 'Transferencias', 'NC', 'nc')
+         ORDER BY name ASC`
+      );
+    }
+    
+    // Get current budgets (for total calculation)
     let currentBudgets;
     if (userId) {
       currentBudgets = await pool.query(
@@ -113,6 +135,11 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
     currentBudgets.rows.forEach(cat => {
       budgetMap[cat.name] = parseFloat(cat.budget_amount || 0);
     });
+    
+    // Create set of transaction category names (for filtering total calculation)
+    const transactionCategoryNames = new Set(
+      transactionCategories.rows.map(row => row.category)
+    );
     
     // Helper function to check if a category is a parent of any other category
     // (to avoid double-counting parent + children budgets)
@@ -149,13 +176,25 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       return false;
     };
     
-    // Deduplicate transaction categories: prefer hierarchical format over old format
+    // Combine ALL categories from database with transaction categories
+    // This ensures we show ALL categories in the setup budget page
+    const allCategoryNamesSet = new Set();
+    
+    // First, add all categories from database
+    allCategories.rows.forEach(cat => {
+      allCategoryNamesSet.add(cat.name);
+    });
+    
+    // Then, add transaction categories (may include categories not in database yet)
+    transactionCategories.rows.forEach(row => {
+      allCategoryNamesSet.add(row.category);
+    });
+    
+    // Convert to array and deduplicate: prefer hierarchical format over old format
     const deduplicatedCategories = [];
     const seenCategories = new Set();
     
-    transactionCategories.rows.forEach(row => {
-      const categoryName = row.category;
-      
+    Array.from(allCategoryNamesSet).forEach(categoryName => {
       // Skip if already processed as a duplicate
       if (seenCategories.has(categoryName)) return;
       
@@ -564,11 +603,16 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
       // Calculate total suggested and scale to match total budget set (if available)
       const totalSuggested = fallbackSuggestions.reduce((sum, s) => sum + (s.suggestedBudget || 0), 0);
       // Calculate total budget set excluding transfers and NC categories (same logic as Overview)
-      // IMPORTANT: Exclude parent categories if they have children (to avoid double-counting)
+      // IMPORTANT: Only count categories that have transactions AND have budgets set
+      // This ensures the total matches what's displayed in the UI
       const excludedCategories = ['Finanzas > Transferencias', 'Transferencias', 'NC', 'nc'];
       const totalBudgetSet = Object.entries(budgetMap).reduce((sum, [catName, budgetAmount]) => {
         if (excludedCategories.includes(catName)) {
           return sum;
+        }
+        // Only count categories that have transactions (same filter as /overview)
+        if (!transactionCategoryNames.has(catName)) {
+          return sum; // Skip categories without transactions
         }
         // Exclude parent categories that have children (to avoid double-counting)
         if (isParentCategory(catName, budgetMap)) {
@@ -755,6 +799,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
     const targetMonth = month || new Date().toISOString().slice(0, 7);
     
     // Get ALL transaction categories (not just budget categories)
+    // IMPORTANT: Filter by type = 'expense' to match /suggestions endpoint
     // Include "Finanzas > Transferencias" even if computable = false (for review)
     let allTransactionCategories;
     if (userId) {
@@ -766,6 +811,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
          AND category != ''
          AND category != 'NC'
          AND category != 'nc'
+         AND type = 'expense'
          ORDER BY category ASC`,
         [userId]
       );
@@ -778,6 +824,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
          AND category != ''
          AND category != 'NC'
          AND category != 'nc'
+         AND type = 'expense'
          ORDER BY category ASC`
       );
     }
@@ -1332,11 +1379,18 @@ router.get('/overview', optionalAuth, async (req, res) => {
     console.log('🔍 Backend Budget Overview - Raw category names:', rawCategoryNames);
     
     const excludedParents = [];
+    const excludedNoTransactions = [];
     const totalBeforeExclusion = Object.values(budgetMap).reduce((sum, cat) => {
       return sum + parseFloat(cat.budget_amount || 0);
     }, 0);
     
     // Also calculate total from raw categories (before deduplication)
+    // Get list of transaction category names (same filter as /suggestions endpoint)
+    const transactionCategoryNames = new Set(
+      allTransactionCategories.rows.map(row => row.category)
+    );
+    console.log('🔍 Backend Budget Overview - Transaction categories:', transactionCategoryNames.size);
+    
     const rawTotal = categoriesResult.rows.reduce((sum, cat) => {
       if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
           cat.name === 'NC' || cat.name === 'nc') {
@@ -1346,11 +1400,21 @@ router.get('/overview', optionalAuth, async (req, res) => {
     }, 0);
     console.log('🔍 Backend Budget Overview - Raw total (before deduplication): €' + rawTotal.toFixed(2));
     
+    // Calculate total budget ONLY from categories that have transactions
+    // This matches what's shown in the UI (from /suggestions endpoint)
     const totalBudget = Object.values(budgetMap).reduce((sum, cat) => {
       // Exclude transfers and non-computable categories
       if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
           cat.name === 'NC' || cat.name === 'nc') {
         return sum;
+      }
+      
+      // IMPORTANT: Only count categories that have transactions (same as /suggestions)
+      // This ensures the total matches what's displayed in the UI
+      if (!transactionCategoryNames.has(cat.name)) {
+        excludedNoTransactions.push({ name: cat.name, amount: parseFloat(cat.budget_amount || 0) });
+        console.log(`🚫 Backend: Excluding category without transactions: ${cat.name} (€${parseFloat(cat.budget_amount || 0)})`);
+        return sum; // Skip categories without transactions
       }
       
       // Exclude parent categories that have children (to avoid double-counting)
@@ -1366,6 +1430,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
     
     console.log('📊 Backend Budget Overview calculation:');
     console.log('  - Total before exclusion: €' + totalBeforeExclusion.toFixed(2));
+    console.log('  - Excluded categories without transactions:', excludedNoTransactions.length, excludedNoTransactions);
     console.log('  - Excluded parent categories:', excludedParents.length, excludedParents);
     console.log('  - Total after exclusion: €' + totalBudget.toFixed(2));
     console.log('  - Difference: €' + (totalBeforeExclusion - totalBudget).toFixed(2));
