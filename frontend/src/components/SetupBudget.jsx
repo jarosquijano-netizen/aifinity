@@ -97,6 +97,23 @@ function SetupBudget({ onBudgetSaved }) {
         ];
         const allBudgetsMap = {};
         
+        // Helper function to check if a category is a parent of any other category
+        const isParentCategory = (categoryName, budgetsMap) => {
+          // A category is a parent if it matches the group part of any hierarchical category
+          // e.g., "Alimentación" is a parent of "Alimentación > Supermercado"
+          if (!categoryName || categoryName.includes(' > ')) {
+            return false; // Hierarchical categories are not parents
+          }
+          
+          // Check if any category in budgetsMap starts with this category name + " > "
+          for (const key in budgetsMap) {
+            if (key.startsWith(categoryName + ' > ')) {
+              return true; // Found a child category
+            }
+          }
+          return false;
+        };
+        
         // Deduplicate categories: prefer hierarchical format over old format
         (categoriesData.categories || []).forEach(cat => {
           if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
@@ -146,7 +163,17 @@ function SetupBudget({ onBudgetSaved }) {
             }
           }
         });
-        setAllCategoryBudgets(allBudgetsMap);
+        
+        // Remove parent categories that have children (to avoid double-counting)
+        const finalBudgetsMap = {};
+        for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
+          // Exclude parent categories that have children
+          if (!isParentCategory(catName, allBudgetsMap)) {
+            finalBudgetsMap[catName] = budgetAmount;
+          }
+        }
+        
+        setAllCategoryBudgets(finalBudgetsMap);
       } catch (err) {
         console.error('Failed to load budget categories:', err);
         // Continue without category IDs - they'll be created if needed
@@ -238,6 +265,23 @@ function SetupBudget({ onBudgetSaved }) {
         return false;
       };
       
+      // Helper function to check if a category is a parent of any other category
+      const isParentCategory = (categoryName, budgetsMap) => {
+        // A category is a parent if it matches the group part of any hierarchical category
+        // e.g., "Alimentación" is a parent of "Alimentación > Supermercado"
+        if (!categoryName || categoryName.includes(' > ')) {
+          return false; // Hierarchical categories are not parents
+        }
+        
+        // Check if any category in budgetsMap starts with this category name + " > "
+        for (const key in budgetsMap) {
+          if (key.startsWith(categoryName + ' > ')) {
+            return true; // Found a child category
+          }
+        }
+        return false;
+      };
+      
       const allBudgetsMap = {};
       (updatedCategories.categories || []).forEach(cat => {
         if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
@@ -287,7 +331,17 @@ function SetupBudget({ onBudgetSaved }) {
           }
         }
       });
-      setAllCategoryBudgets(allBudgetsMap);
+      
+      // Remove parent categories that have children (to avoid double-counting)
+      const finalBudgetsMap = {};
+      for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
+        // Exclude parent categories that have children
+        if (!isParentCategory(catName, allBudgetsMap)) {
+          finalBudgetsMap[catName] = budgetAmount;
+        }
+      }
+      
+      setAllCategoryBudgets(finalBudgetsMap);
       
       // Also update budgets state to reflect saved value (keeps UI in sync)
       setBudgets(prev => ({
