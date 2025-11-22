@@ -169,14 +169,21 @@ function SetupBudget({ onBudgetSaved }) {
         const excludedParents = [];
         const totalBeforeExclusion = Object.values(allBudgetsMap).reduce((sum, b) => sum + (b || 0), 0);
         
+        // Log all category names to see what we're working with
+        const allCategoryNames = Object.keys(allBudgetsMap).sort();
         console.log('🔍 Budget calculation - Total before exclusion:', totalBeforeExclusion);
-        console.log('🔍 Budget calculation - All categories:', Object.keys(allBudgetsMap).length);
+        console.log('🔍 Budget calculation - All categories:', allCategoryNames.length);
+        console.log('🔍 All category names:', allCategoryNames);
         
+        // Check each category to see if it's a parent
         for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
-          // Exclude parent categories that have children
-          if (isParentCategory(catName, allBudgetsMap)) {
+          const isParent = isParentCategory(catName, allBudgetsMap);
+          if (isParent) {
             excludedParents.push({ name: catName, amount: budgetAmount });
             console.log(`🚫 Excluding parent category: ${catName} (€${budgetAmount})`);
+            // Show which children were found
+            const children = Object.keys(allBudgetsMap).filter(k => k.startsWith(catName + ' > '));
+            console.log(`   └─ Children found:`, children);
             continue; // Skip parent category
           }
           finalBudgetsMap[catName] = budgetAmount;
