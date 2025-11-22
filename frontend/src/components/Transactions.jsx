@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2 } from 'lucide-react';
+import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2, Euro } from 'lucide-react';
 import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
@@ -222,10 +222,31 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(t => 
-        t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(t => {
+        // Search by description
+        const matchesDescription = t.description?.toLowerCase().includes(searchLower);
+        
+        // Search by category
+        const matchesCategory = t.category?.toLowerCase().includes(searchLower);
+        
+        // Search by account name or bank name
+        const accountName = t.account_name || t.bank || '';
+        const matchesName = accountName.toLowerCase().includes(searchLower);
+        
+        // Search by amount (check if search term matches amount as number or string)
+        let matchesAmount = false;
+        if (t.amount !== undefined && t.amount !== null) {
+          const amountStr = String(t.amount);
+          const amountNum = parseFloat(t.amount);
+          // Check if search term matches the amount string or numeric value
+          matchesAmount = amountStr.includes(searchTerm) || 
+                        amountStr.replace('.', ',').includes(searchTerm) ||
+                        (!isNaN(parseFloat(searchTerm)) && amountNum === parseFloat(searchTerm));
+        }
+        
+        return matchesDescription || matchesCategory || matchesName || matchesAmount;
+      });
     }
 
     // Type filter
