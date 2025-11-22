@@ -1386,10 +1386,35 @@ router.get('/overview', optionalAuth, async (req, res) => {
     
     // Also calculate total from raw categories (before deduplication)
     // Get list of transaction category names (same filter as /suggestions endpoint)
+    // IMPORTANT: Normalize transaction category names to match budget category names
+    // This handles cases where transactions use old format (e.g., "Hogar") 
+    // but budgets use hierarchical format (e.g., "Vivienda > Hogar")
     const transactionCategoryNames = new Set(
       allTransactionCategories.rows.map(row => row.category)
     );
+    
+    // Create a normalized map: for each transaction category, find its matching budget category
+    // This handles deduplication: "Hogar" -> "Vivienda > Hogar"
+    const normalizedTransactionCategories = new Set();
+    transactionCategoryNames.forEach(transCat => {
+      // Check if this transaction category matches any budget category (handles deduplication)
+      let matched = false;
+      for (const budgetCatName in budgetMap) {
+        if (isDuplicateCategory(transCat, budgetCatName)) {
+          // Found a match - use the budget category name (prefer hierarchical format)
+          normalizedTransactionCategories.add(budgetCatName);
+          matched = true;
+          break;
+        }
+      }
+      // If no match found, use the transaction category name as-is
+      if (!matched) {
+        normalizedTransactionCategories.add(transCat);
+      }
+    });
+    
     console.log('🔍 Backend Budget Overview - Transaction categories:', transactionCategoryNames.size);
+    console.log('🔍 Backend Budget Overview - Normalized transaction categories:', normalizedTransactionCategories.size);
     
     const rawTotal = categoriesResult.rows.reduce((sum, cat) => {
       if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
@@ -1410,8 +1435,9 @@ router.get('/overview', optionalAuth, async (req, res) => {
       }
       
       // IMPORTANT: Only count categories that have transactions (same as /suggestions)
+      // Use normalized transaction categories to handle old-format vs hierarchical format matching
       // This ensures the total matches what's displayed in the UI
-      if (!transactionCategoryNames.has(cat.name)) {
+      if (!normalizedTransactionCategories.has(cat.name)) {
         excludedNoTransactions.push({ name: cat.name, amount: parseFloat(cat.budget_amount || 0) });
         console.log(`🚫 Backend: Excluding category without transactions: ${cat.name} (€${parseFloat(cat.budget_amount || 0)})`);
         return sum; // Skip categories without transactions
