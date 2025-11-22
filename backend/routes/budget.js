@@ -1321,6 +1321,16 @@ router.get('/overview', optionalAuth, async (req, res) => {
       return false;
     };
     
+    // Debug: Log all categories in budgetMap
+    const allCategoryNames = Object.keys(budgetMap).sort();
+    console.log('🔍 Backend Budget Overview - All categories:', allCategoryNames.length);
+    console.log('🔍 Backend Budget Overview - Category names:', allCategoryNames.slice(0, 10), '...');
+    
+    const excludedParents = [];
+    const totalBeforeExclusion = Object.values(budgetMap).reduce((sum, cat) => {
+      return sum + parseFloat(cat.budget_amount || 0);
+    }, 0);
+    
     const totalBudget = Object.values(budgetMap).reduce((sum, cat) => {
       // Exclude transfers and non-computable categories
       if (cat.name === 'Finanzas > Transferencias' || cat.name === 'Transferencias' || 
@@ -1331,11 +1341,19 @@ router.get('/overview', optionalAuth, async (req, res) => {
       // Exclude parent categories that have children (to avoid double-counting)
       // Only count child categories (hierarchical format) or standalone categories without children
       if (isParentCategory(cat.name)) {
+        excludedParents.push({ name: cat.name, amount: parseFloat(cat.budget_amount || 0) });
+        console.log(`🚫 Backend: Excluding parent category: ${cat.name} (€${parseFloat(cat.budget_amount || 0)})`);
         return sum; // Skip parent category, count only children
       }
       
       return sum + parseFloat(cat.budget_amount || 0);
     }, 0);
+    
+    console.log('📊 Backend Budget Overview calculation:');
+    console.log('  - Total before exclusion: €' + totalBeforeExclusion.toFixed(2));
+    console.log('  - Excluded parent categories:', excludedParents.length, excludedParents);
+    console.log('  - Total after exclusion: €' + totalBudget.toFixed(2));
+    console.log('  - Difference: €' + (totalBeforeExclusion - totalBudget).toFixed(2));
     
     // Total Spent = sum of all spending from spendingMap (already deduplicated)
     const totalSpent = Object.values(spendingMap).reduce((sum, spending) => {
