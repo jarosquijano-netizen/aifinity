@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Save, Sparkles, TrendingUp, AlertCircle, CheckCircle, Search, DollarSign, Users, MapPin, RefreshCw } from 'lucide-react';
+import { Loader, Save, Sparkles, TrendingUp, AlertCircle, CheckCircle, Search, DollarSign, Users, MapPin, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { getTransactionCategories, getBudgetSuggestions, updateCategoryBudget } from '../utils/api';
 import { parseCategory } from '../utils/categoryFormat';
 import { getCategoryIcon } from '../utils/categoryIcons';
@@ -22,6 +22,7 @@ function SetupBudget({ onBudgetSaved }) {
   const [overallInsights, setOverallInsights] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isInsightsExpanded, setIsInsightsExpanded] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -415,47 +416,61 @@ function SetupBudget({ onBudgetSaved }) {
           Review and adjust as needed, then save to activate budgets.
         </p>
         
-        {/* Overall AI Insights */}
+        {/* Overall AI Insights - Collapsible */}
         {overallInsights && (
-          <div className="mt-4 p-4 bg-white dark:bg-slate-700 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-blue-600" />
-              AI Budget Analysis
-            </h3>
-            {overallInsights.topRecommendations && overallInsights.topRecommendations.length > 0 && (
-              <div className="mb-2">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top Recommendations:</p>
-                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                  {overallInsights.topRecommendations.map((rec, idx) => (
-                    <li key={idx}>• {rec}</li>
-                  ))}
-                </ul>
+          <div className="mt-4 bg-white dark:bg-slate-700 rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
+            <button
+              onClick={() => setIsInsightsExpanded(!isInsightsExpanded)}
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
+            >
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                AI Budget Analysis
+              </h3>
+              {isInsightsExpanded ? (
+                <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              )}
+            </button>
+            {isInsightsExpanded && (
+              <div className="px-4 pb-4 space-y-3">
+                {overallInsights.topRecommendations && overallInsights.topRecommendations.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top Recommendations:</p>
+                    <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                      {overallInsights.topRecommendations.map((rec, idx) => (
+                        <li key={idx}>• {rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {overallInsights.warnings && overallInsights.warnings.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">⚠️ Warnings:</p>
+                    <ul className="text-xs text-orange-600 dark:text-orange-400 space-y-1">
+                      {overallInsights.warnings.map((warning, idx) => (
+                        <li key={idx}>• {warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {overallInsights.strengths && overallInsights.strengths.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Strengths:</p>
+                    <ul className="text-xs text-green-600 dark:text-green-400 space-y-1">
+                      {overallInsights.strengths.map((strength, idx) => (
+                        <li key={idx}>• {strength}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {metadata && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-600">
+                    Analysis based on {metadata.basedOnTransactions || 0} transactions
+                  </p>
+                )}
               </div>
-            )}
-            {overallInsights.warnings && overallInsights.warnings.length > 0 && (
-              <div className="mb-2">
-                <p className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">⚠️ Warnings:</p>
-                <ul className="text-xs text-orange-600 dark:text-orange-400 space-y-1">
-                  {overallInsights.warnings.map((warning, idx) => (
-                    <li key={idx}>• {warning}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {overallInsights.strengths && overallInsights.strengths.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Strengths:</p>
-                <ul className="text-xs text-green-600 dark:text-green-400 space-y-1">
-                  {overallInsights.strengths.map((strength, idx) => (
-                    <li key={idx}>• {strength}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {metadata && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Analysis based on {metadata.basedOnTransactions || 0} transactions
-              </p>
             )}
           </div>
         )}
