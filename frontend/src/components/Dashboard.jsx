@@ -219,10 +219,12 @@ function Dashboard({ refreshTrigger }) {
       setAccounts(accountsData.accounts || []);
       setExpectedIncome(settings.expectedMonthlyIncome || 0);
       
-      // Filter current month income transactions
+      // Filter current month income transactions (only computable ones)
       const currentMonthIncome = (transactionsData.transactions || [])
         .filter(t => {
           if (t.type !== 'income') return false;
+          // Exclude non-computable transactions (NC, transfers, etc.)
+          if (t.computable === false) return false;
           const transactionDate = new Date(t.date);
           return transactionDate.getMonth() === currentDate.getMonth() && 
                  transactionDate.getFullYear() === currentDate.getFullYear();
