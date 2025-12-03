@@ -788,7 +788,16 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Update budget error:', error);
-    res.status(500).json({ error: 'Failed to update budget' });
+    console.error('Error details:', {
+      id: req.params.id,
+      budget_amount: req.body.budget_amount,
+      category_name: req.body.category_name,
+      is_annual: req.body.is_annual,
+      userId: req.user?.id || req.user?.userId || null,
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
+    res.status(500).json({ error: 'Failed to update budget', details: error.message });
   }
 });
 

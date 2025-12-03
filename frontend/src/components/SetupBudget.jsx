@@ -286,6 +286,14 @@ function SetupBudget({ onBudgetSaved }) {
       const budgetAmount = budgetAmountOverride !== null ? budgetAmountOverride : (budgets[categoryName] || 0);
       const isAnnualValue = isAnnual[categoryName] || false;
       
+      console.log('💾 Saving budget:', {
+        categoryName,
+        categoryId,
+        budgetAmount,
+        isAnnualValue,
+        categoryFound: !!category
+      });
+      
       await updateCategoryBudget(categoryId, budgetAmount, categoryName, isAnnualValue);
       
       setSuccessMessages(prev => ({ ...prev, [categoryName]: 'Budget saved!' }));
