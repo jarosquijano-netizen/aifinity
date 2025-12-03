@@ -27,7 +27,7 @@ router.get('/', optionalAuth, async (req, res) => {
              FROM transactions t
              LEFT JOIN bank_accounts ba ON t.account_id = ba.id
              WHERE t.user_id = $1
-             AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+             AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
              ORDER BY t.date, t.description, t.amount, t.type, t.id
            ) t`,
           [userId]
@@ -76,7 +76,7 @@ router.get('/', optionalAuth, async (req, res) => {
              FROM transactions t
              LEFT JOIN bank_accounts ba ON t.account_id = ba.id
              WHERE t.user_id = $1
-             AND (t.account_id IS NULL OR ba.id IS NOT NULL)
+             AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
              AND t.type = 'income'
              AND t.computable = true
              AND (

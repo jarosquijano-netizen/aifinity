@@ -420,8 +420,10 @@ async function getUserFinancialContext(userId, timePeriod = null) {
     // Get recent transactions (last 10 to reduce token usage)
     const recentTransactionsResult = await pool.query(
       `SELECT id, date, description, category, type, amount, bank, computable
-       FROM transactions
-       WHERE (user_id IS NULL OR user_id = $1)
+       FROM transactions t
+       LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+       WHERE (t.user_id IS NULL OR t.user_id = $1)
+       AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
        ${dateFilter}
        ORDER BY date DESC, id DESC
        LIMIT 10`,
@@ -434,8 +436,10 @@ async function getUserFinancialContext(userId, timePeriod = null) {
          TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') as month,
          SUM(CASE WHEN type = 'income' AND computable = true THEN amount ELSE 0 END) as income,
          SUM(CASE WHEN type = 'expense' AND computable = true THEN amount ELSE 0 END) as expenses
-       FROM transactions
-       WHERE (user_id IS NULL OR user_id = $1)
+       FROM transactions t
+       LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+       WHERE (t.user_id IS NULL OR t.user_id = $1)
+       AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
        AND date >= CURRENT_DATE - INTERVAL '6 months'
        GROUP BY TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM')
        ORDER BY month DESC`,
