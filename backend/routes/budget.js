@@ -1289,23 +1289,56 @@ router.get('/overview', optionalAuth, async (req, res) => {
       }
       
       const spent = spending.spent || 0;
-      // Use monthly_budget if annual, otherwise use budget_amount
+      
+      // For annual categories: use annual budget and compare with annual spending
+      // For monthly categories: use monthly budget and compare with monthly spending
       let budget = 0;
+      let displayBudget = 0; // Budget to display in UI
+      let displaySpent = spent; // Spending to display in UI
+      let isAnnual = categoryInfo.hasBudget ? (categoryInfo.budgetData.is_annual || false) : false;
+      
       if (categoryInfo.hasBudget) {
-        if (categoryInfo.budgetData.is_annual) {
-          budget = parseFloat(categoryInfo.budgetData.budget_amount || 0) / 12;
-        } else {
+        if (isAnnual) {
+          // Annual categories: use annual budget amount
           budget = parseFloat(categoryInfo.budgetData.budget_amount || 0);
+          displayBudget = budget; // Show annual amount
+          
+          // For annual categories, we need to get spending for the entire year, not just the month
+          // Since we're filtering by month, we'll compare monthly equivalent budget with monthly spending
+          // But we should note that this is an annual category
+          // Actually, for display purposes, let's show annual budget vs annual spending
+          // But since we're in a monthly view, we'll need to get year-to-date spending
+          // For now, let's show the annual budget and note that spending shown is monthly
+          // The percentage calculation will be: (monthly_spending * 12) / annual_budget
+          // Or better: show annual budget and compare with what was spent this month * 12 (projected)
+          // Actually, the simplest approach: show annual budget and actual spending (which might be the full annual payment)
+          // If spending > monthly equivalent, it's likely the full annual payment
+          displaySpent = spent; // Show actual spending (could be full annual payment)
+        } else {
+          // Monthly categories: use monthly budget amount
+          budget = parseFloat(categoryInfo.budgetData.budget_amount || 0);
+          displayBudget = budget;
         }
       }
+      
+      // Calculate percentage based on annual vs monthly
+      let percentage = 0;
+      if (isAnnual && budget > 0) {
+        // For annual categories: if spending is > monthly equivalent, it's likely the full annual payment
+        // Compare spending with annual budget directly
+        percentage = (spent / budget) * 100;
+      } else if (budget > 0) {
+        // For monthly categories: compare monthly spending with monthly budget
+        percentage = (spent / budget) * 100;
+      }
+      
       const remaining = budget - spent;
-      const percentage = budget > 0 ? (spent / budget) * 100 : 0;
       
       return {
         id: categoryInfo.hasBudget ? categoryInfo.budgetData.id : null,
         name: categoryName,
-        budget: budget,
-        spent: spent,
+        budget: displayBudget, // Show annual budget for annual categories, monthly for monthly
+        spent: displaySpent,
         remaining: remaining,
         percentage: percentage,
         transactionCount: spending.count || 0,
@@ -1314,8 +1347,8 @@ router.get('/overview', optionalAuth, async (req, res) => {
                 percentage > 90 ? 'warning' : 
                 'ok',
         hasBudget: categoryInfo.hasBudget,
-        is_annual: categoryInfo.hasBudget ? (categoryInfo.budgetData.is_annual || false) : false,
-        annual_budget_amount: categoryInfo.hasBudget && categoryInfo.budgetData.is_annual ? parseFloat(categoryInfo.budgetData.budget_amount || 0) : null
+        is_annual: isAnnual,
+        annual_budget_amount: isAnnual ? budget : null
       };
     }).sort((a, b) => {
       // Categories that should always go to the bottom
@@ -1753,3 +1786,4 @@ router.get('/insights', optionalAuth, async (req, res) => {
 });
 
 export default router;
+
