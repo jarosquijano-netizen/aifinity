@@ -625,29 +625,63 @@ function SetupBudget({ onBudgetSaved }) {
           <TrendingUp className="w-5 h-5 text-blue-600" />
           Budget Summary
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">Total Budget Set</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {Object.values(allCategoryBudgets).reduce((sum, budget) => sum + (budget || 0), 0).toLocaleString('es-ES')}€
+        
+        {/* Calculate separate monthly and annual budgets */}
+        {(() => {
+          const monthlyBudget = Object.entries(allCategoryBudgets)
+            .filter(([catName]) => !isAnnual[catName])
+            .reduce((sum, [, budget]) => sum + (budget || 0), 0);
+          
+          const annualBudget = Object.entries(allCategoryBudgets)
+            .filter(([catName]) => isAnnual[catName])
+            .reduce((sum, [, budget]) => sum + (budget || 0), 0);
+          
+          const totalBudget = monthlyBudget + annualBudget;
+          
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+              <div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Monthly Budget</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {monthlyBudget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Monthly categories
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Annual Budget</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {annualBudget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Monthly equivalent
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Total Budget Set</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {totalBudget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  (Frontend calculated)
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Categories with Budget</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {Object.values(allCategoryBudgets).filter(b => b > 0).length}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Suggested Total</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {Object.values(suggestions).reduce((sum, s) => sum + (s.suggestedBudget || 0), 0).toLocaleString('es-ES')}€
+                </div>
+              </div>
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              (Frontend calculated)
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">Categories with Budget</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {Object.values(allCategoryBudgets).filter(b => b > 0).length}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">Suggested Total</div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {Object.values(suggestions).reduce((sum, s) => sum + (s.suggestedBudget || 0), 0).toLocaleString('es-ES')}€
-            </div>
-          </div>
-        </div>
+          );
+        })()}
         {userProfile && userProfile.monthlyIncome && (
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
