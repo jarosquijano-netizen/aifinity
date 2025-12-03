@@ -418,7 +418,25 @@ function Budget({ onNavigateToTransactions }) {
         <>
 
       {/* Summary Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Monthly Budget</span>
+            <TrendingUp className="w-5 h-5 text-primary" />
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(monthlyBudget)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Monthly categories</p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Annual Budget</span>
+            <TrendingUp className="w-5 h-5 text-blue-500" />
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(annualBudget)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Monthly equivalent</p>
+        </div>
+
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <span className="text-base font-medium text-gray-600 dark:text-gray-400">Total Budget</span>
