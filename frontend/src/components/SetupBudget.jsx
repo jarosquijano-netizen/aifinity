@@ -17,6 +17,7 @@ function SetupBudget({ onBudgetSaved }) {
   const [budgets, setBudgets] = useState({});
   const [originalBudgets, setOriginalBudgets] = useState({}); // Track original values for comparison
   const [allCategoryBudgets, setAllCategoryBudgets] = useState({}); // All budgets from database (for accurate totals)
+  const [isAnnual, setIsAnnual] = useState({}); // Track which categories are annual
   const [errors, setErrors] = useState({});
   const [successMessages, setSuccessMessages] = useState({});
   const [overallInsights, setOverallInsights] = useState(null);
@@ -58,11 +59,20 @@ function SetupBudget({ onBudgetSaved }) {
       // Initialize budgets from suggestions (which include currentBudget)
       const budgetsMap = {};
       const originalBudgetsMap = {};
+      const isAnnualMap = {};
       suggestionsData.suggestions?.forEach(item => {
         const budgetValue = item.currentBudget || 0;
         budgetsMap[item.category] = budgetValue;
         originalBudgetsMap[item.category] = budgetValue; // Store original for comparison
       });
+      
+      // Initialize is_annual from categories
+      (categoriesData.categories || []).forEach(cat => {
+        if (cat.is_annual) {
+          isAnnualMap[cat.name] = true;
+        }
+      });
+      
       setBudgets(budgetsMap);
       setOriginalBudgets(originalBudgetsMap);
       
@@ -70,6 +80,15 @@ function SetupBudget({ onBudgetSaved }) {
       try {
         const categoriesData = await getTransactionCategories();
         setCategories(categoriesData.categories || []);
+        
+        // Initialize is_annual from categories
+        const isAnnualMapFromDB = {};
+        (categoriesData.categories || []).forEach(cat => {
+          if (cat.is_annual) {
+            isAnnualMapFromDB[cat.name] = true;
+          }
+        });
+        setIsAnnual(prev => ({ ...prev, ...isAnnualMapFromDB }));
         
         // Helper function to check if two categories are duplicates
         const isDuplicateCategory = (name1, name2) => {
@@ -249,8 +268,9 @@ function SetupBudget({ onBudgetSaved }) {
       
       // Use override value if provided (for Use button), otherwise use state
       const budgetAmount = budgetAmountOverride !== null ? budgetAmountOverride : (budgets[categoryName] || 0);
+      const isAnnualValue = isAnnual[categoryName] || false;
       
-      await updateCategoryBudget(categoryId, budgetAmount, categoryName);
+      await updateCategoryBudget(categoryId, budgetAmount, categoryName, isAnnualValue);
       
       setSuccessMessages(prev => ({ ...prev, [categoryName]: 'Budget saved!' }));
       setTimeout(() => {
@@ -753,9 +773,31 @@ function SetupBudget({ onBudgetSaved }) {
                             disabled={isSaving}
                           />
                           <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                            €
+                            {isAnnual[categoryName] ? '€/año' : '€'}
                           </span>
                         </div>
+                        {isAnnual[categoryName] && currentBudget > 0 && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            ≈ {(currentBudget / 12).toFixed(2)}€/mes
+                          </p>
+                        )}
+                        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isAnnual[categoryName] || false}
+                            onChange={(e) => {
+                              setIsAnnual(prev => ({
+                                ...prev,
+                                [categoryName]: e.target.checked
+                              }));
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            disabled={isSaving}
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            Pago anual (se divide entre 12 meses)
+                          </span>
+                        </label>
                         {error && (
                           <p className="text-xs text-red-500 mt-1">{error}</p>
                         )}

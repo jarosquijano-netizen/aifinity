@@ -740,12 +740,13 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
       if (checkResult.rows.length > 0) {
         // Update existing category (prefer user-specific over shared)
         const existing = checkResult.rows.find(c => c.user_id === userId) || checkResult.rows[0];
+        const is_annual_bool = req.body.is_annual === true || req.body.is_annual === 'true';
         const updateResult = await pool.query(
           `UPDATE categories 
-           SET budget_amount = $1
-           WHERE id = $2 AND (user_id IS NULL OR user_id = $3)
+           SET budget_amount = $1, is_annual = $2
+           WHERE id = $3 AND (user_id IS NULL OR user_id = $4)
            RETURNING *`,
-          [budget_amount, existing.id, userId]
+          [budget_amount, is_annual_bool, existing.id, userId]
         );
         return res.json({ 
           message: 'Budget updated successfully',
@@ -753,11 +754,12 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
         });
       } else {
         // Create new category budget
+        const is_annual_bool = req.body.is_annual === true || req.body.is_annual === 'true';
         const createResult = await pool.query(
-          `INSERT INTO categories (name, budget_amount, user_id)
-           VALUES ($1, $2, $3)
+          `INSERT INTO categories (name, budget_amount, user_id, is_annual)
+           VALUES ($1, $2, $3, $4)
            RETURNING *`,
-          [category_name, budget_amount, userId || null]
+          [category_name, budget_amount, userId || null, is_annual_bool]
         );
         return res.json({ 
           message: 'Budget created successfully',
@@ -767,12 +769,13 @@ router.put('/categories/:id', optionalAuth, async (req, res) => {
     }
 
     // Update existing category budget
+    const is_annual_bool = req.body.is_annual === true || req.body.is_annual === 'true';
     const result = await pool.query(
       `UPDATE categories 
-       SET budget_amount = $1
-       WHERE id = $2 AND (user_id IS NULL OR user_id = $3)
+       SET budget_amount = $1, is_annual = $2
+       WHERE id = $3 AND (user_id IS NULL OR user_id = $4)
        RETURNING *`,
-      [budget_amount, id, userId]
+      [budget_amount, is_annual_bool, id, userId]
     );
 
     if (result.rows.length === 0) {
@@ -908,6 +911,12 @@ router.get('/overview', optionalAuth, async (req, res) => {
       
       if (!isDuplicate) {
         // No duplicate found, add the category
+        // If annual, divide budget by 12 for monthly calculation
+        if (cat.is_annual) {
+          cat.monthly_budget = parseFloat(cat.budget_amount || 0) / 12;
+        } else {
+          cat.monthly_budget = parseFloat(cat.budget_amount || 0);
+        }
         budgetMap[cat.name] = cat;
       } else if (existingKey && cat.name.includes(' > ')) {
         // Duplicate found and new category is hierarchical - replace old format
@@ -915,6 +924,12 @@ router.get('/overview', optionalAuth, async (req, res) => {
         const newBudget = parseFloat(cat.budget_amount || 0);
         // Merge budgets if both exist
         cat.budget_amount = (oldBudget + newBudget).toString();
+        // If annual, divide budget by 12 for monthly calculation
+        if (cat.is_annual) {
+          cat.monthly_budget = parseFloat(cat.budget_amount || 0) / 12;
+        } else {
+          cat.monthly_budget = parseFloat(cat.budget_amount || 0);
+        }
         delete budgetMap[existingKey];
         budgetMap[cat.name] = cat;
       } else if (existingKey && existingKey.includes(' > ')) {
@@ -922,6 +937,12 @@ router.get('/overview', optionalAuth, async (req, res) => {
         const existingBudget = parseFloat(budgetMap[existingKey]?.budget_amount || 0);
         const newBudget = parseFloat(cat.budget_amount || 0);
         budgetMap[existingKey].budget_amount = (existingBudget + newBudget).toString();
+        // If annual, divide budget by 12 for monthly calculation
+        if (budgetMap[existingKey].is_annual) {
+          budgetMap[existingKey].monthly_budget = parseFloat(budgetMap[existingKey].budget_amount || 0) / 12;
+        } else {
+          budgetMap[existingKey].monthly_budget = parseFloat(budgetMap[existingKey].budget_amount || 0);
+        }
       }
     });
     
@@ -1259,7 +1280,15 @@ router.get('/overview', optionalAuth, async (req, res) => {
       }
       
       const spent = spending.spent || 0;
-      const budget = categoryInfo.hasBudget ? parseFloat(categoryInfo.budgetData.budget_amount) : 0;
+      // Use monthly_budget if annual, otherwise use budget_amount
+      let budget = 0;
+      if (categoryInfo.hasBudget) {
+        if (categoryInfo.budgetData.is_annual) {
+          budget = parseFloat(categoryInfo.budgetData.budget_amount || 0) / 12;
+        } else {
+          budget = parseFloat(categoryInfo.budgetData.budget_amount || 0);
+        }
+      }
       const remaining = budget - spent;
       const percentage = budget > 0 ? (spent / budget) * 100 : 0;
       
@@ -1460,7 +1489,9 @@ router.get('/overview', optionalAuth, async (req, res) => {
         return sum; // Skip parent category, count only children
       }
       
-      return sum + parseFloat(cat.budget_amount || 0);
+      // Use monthly_budget if annual, otherwise use budget_amount
+      const budgetAmount = cat.monthly_budget !== undefined ? cat.monthly_budget : parseFloat(cat.budget_amount || 0);
+      return sum + budgetAmount;
     }, 0);
     
     console.log('📊 Backend Budget Overview calculation:');
