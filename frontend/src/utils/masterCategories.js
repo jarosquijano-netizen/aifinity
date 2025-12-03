@@ -121,7 +121,6 @@ export function normalizeCategory(category) {
     
     // Services -> Servicios > Servicios y productos online
     'servicios y productos online': 'Servicios > Servicios y productos online',
-    'servicios y productos online': 'Servicios > Servicios y productos online',
     'online services': 'Servicios > Servicios y productos online',
     'online products': 'Servicios > Servicios y productos online',
     
