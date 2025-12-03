@@ -291,6 +291,49 @@ function Budget({ onNavigateToTransactions }) {
   const groupedCategories = groupCategoriesByStatus(filteredCategories);
   const summaryStats = getSummaryStats();
 
+  // Calculate frontend total budget from categories (excluding transfers and parent categories)
+  const calculateFrontendTotalBudget = () => {
+    if (!data?.categories) return 0;
+    
+    const excludedCategories = [
+      'Finanzas > Transferencias',
+      'Transferencias',
+      'NC',
+      'nc'
+    ];
+    
+    // Helper function to check if a category is a parent
+    const isParentCategory = (categoryName, allCategories) => {
+      if (!categoryName || categoryName.includes(' > ')) {
+        return false; // Hierarchical categories are not parents
+      }
+      // Check if any category starts with this category name + " > "
+      return allCategories.some(cat => cat.name && cat.name.startsWith(categoryName + ' > '));
+    };
+    
+    // Filter out excluded categories and parent categories
+    const validCategories = data.categories.filter(cat => {
+      // Exclude transfers and NC
+      if (excludedCategories.includes(cat.name)) {
+        return false;
+      }
+      // Exclude parent categories that have children
+      if (isParentCategory(cat.name, data.categories)) {
+        return false;
+      }
+      // Only include categories with budgets
+      return cat.budget > 0;
+    });
+    
+    // Sum all budgets
+    return validCategories.reduce((sum, cat) => sum + (cat.budget || 0), 0);
+  };
+
+  const frontendTotalBudget = calculateFrontendTotalBudget();
+  const frontendTotalSpent = data?.totals?.spent || 0;
+  const frontendRemaining = frontendTotalBudget - frontendTotalSpent;
+  const frontendPercentage = frontendTotalBudget > 0 ? (frontendTotalSpent / frontendTotalBudget) * 100 : 0;
+
   // Sort categories within each group
   const sortCategoriesInGroup = (categories) => {
     return [...categories].sort((a, b) => {
@@ -365,7 +408,8 @@ function Budget({ onNavigateToTransactions }) {
             <span className="text-base font-medium text-gray-600 dark:text-gray-400">Total Budget</span>
             <TrendingUp className="w-5 h-5 text-primary" />
           </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(data?.totals?.budget || 0)}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(frontendTotalBudget)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">(Frontend calculated)</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
@@ -379,9 +423,9 @@ function Budget({ onNavigateToTransactions }) {
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <span className="text-base font-medium text-gray-600 dark:text-gray-400">Spent / Budget</span>
-            {data?.totals?.percentage >= 100 ? (
+            {frontendPercentage >= 100 ? (
               <AlertCircle className="w-5 h-5 text-danger" />
-            ) : data?.totals?.percentage >= 90 ? (
+            ) : frontendPercentage >= 90 ? (
               <AlertCircle className="w-5 h-5 text-orange-500" />
             ) : (
               <CheckCircle className="w-5 h-5 text-success" />
@@ -389,19 +433,19 @@ function Budget({ onNavigateToTransactions }) {
           </div>
           <div className="space-y-2">
             <p className={`text-2xl font-bold ${
-              data?.totals?.percentage >= 100 ? 'text-danger' :
-              data?.totals?.percentage >= 90 ? 'text-orange-500' :
+              frontendPercentage >= 100 ? 'text-danger' :
+              frontendPercentage >= 90 ? 'text-orange-500' :
               'text-success'
             }`}>
-              {formatCurrency(data?.totals?.spent || 0)} / {formatCurrency(data?.totals?.budget || 0)}
+              {formatCurrency(frontendTotalSpent)} / {formatCurrency(frontendTotalBudget)}
             </p>
             <p className={`text-sm font-medium ${
-              data?.totals?.percentage >= 100 ? 'text-danger' :
-              data?.totals?.percentage >= 90 ? 'text-orange-500' :
+              frontendPercentage >= 100 ? 'text-danger' :
+              frontendPercentage >= 90 ? 'text-orange-500' :
               'text-success'
             }`}>
-              {data?.totals?.percentage >= 100 ? 'Over Budget' :
-               data?.totals?.percentage >= 90 ? 'Near Limit' :
+              {frontendPercentage >= 100 ? 'Over Budget' :
+               frontendPercentage >= 90 ? 'Near Limit' :
                'On Track'}
             </p>
           </div>
@@ -412,8 +456,8 @@ function Budget({ onNavigateToTransactions }) {
             <span className="text-base font-medium text-gray-600 dark:text-gray-400">Remaining</span>
             <TrendingUp className="w-5 h-5 text-success" />
           </div>
-          <p className={`text-3xl font-bold ${data?.totals?.remaining >= 0 ? 'text-success' : 'text-danger'}`}>
-            {formatCurrency(data?.totals?.remaining || 0)}
+          <p className={`text-3xl font-bold ${frontendRemaining >= 0 ? 'text-success' : 'text-danger'}`}>
+            {formatCurrency(frontendRemaining)}
           </p>
         </div>
 
@@ -423,11 +467,11 @@ function Budget({ onNavigateToTransactions }) {
             <TrendingUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </div>
           <p className={`text-3xl font-bold ${
-            data?.totals?.percentage >= 100 ? 'text-danger' :
-            data?.totals?.percentage >= 90 ? 'text-orange-500' :
+            frontendPercentage >= 100 ? 'text-danger' :
+            frontendPercentage >= 90 ? 'text-orange-500' :
             'text-success'
           }`}>
-            {data?.totals?.percentage?.toFixed(1) || 0}%
+            {frontendPercentage.toFixed(1)}%
           </p>
         </div>
       </div>
