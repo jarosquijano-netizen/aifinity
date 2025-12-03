@@ -79,6 +79,11 @@ export function normalizeCategory(category) {
     'hipoteca': 'Vivienda > Hipoteca',
     'mortgage': 'Vivienda > Hipoteca',
     
+    // Domestic Service -> Vivienda > Servicio doméstico
+    'servicio doméstico': 'Vivienda > Servicio doméstico',
+    'servicio domestico': 'Vivienda > Servicio doméstico',
+    'domestic service': 'Vivienda > Servicio doméstico',
+    
     // Transport -> Transporte > Transportes
     'transportes': 'Transporte > Transportes',
     'transport': 'Transporte > Transportes',

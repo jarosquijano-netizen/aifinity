@@ -69,7 +69,8 @@ export const getCategoryIcon = (category) => {
     'Alquiler y compra': Home,
     'Mantenimiento hogar': Wrench,
     'Otros vivienda': Home,
-    'Servicio doméstico': Home,
+    'Servicio doméstico': Home, // Legacy support
+    'Vivienda > Servicio doméstico': Home,
     'Alarmas y seguridad': ShieldCheck,
     
     // Alimentación
@@ -197,7 +198,7 @@ export const getAllCategoriesWithIcons = () => {
     { name: 'Alquiler y compra', icon: Home, group: 'Vivienda' },
     { name: 'Mantenimiento hogar', icon: Wrench, group: 'Vivienda' },
     { name: 'Otros vivienda', icon: Home, group: 'Vivienda' },
-    { name: 'Servicio doméstico', icon: Home, group: 'Vivienda' },
+    { name: 'Vivienda > Servicio doméstico', icon: Home, group: 'Vivienda' },
     { name: 'Alarmas y seguridad', icon: ShieldCheck, group: 'Vivienda' },
     { name: 'Comunidad', icon: Users, group: 'Vivienda' },
     

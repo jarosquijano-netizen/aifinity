@@ -24,7 +24,12 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
   }, [transaction]);
 
   // Get all categories organized by groups
-  const allCategoriesWithGroups = getAllCategoriesWithIcons();
+  // Filter to only show master categories (hierarchical format)
+  const allCategoriesWithGroups = getAllCategoriesWithIcons().filter(cat => {
+    // Include categories that are already in hierarchical format OR are in master list
+    const masterList = getMasterCategoryList();
+    return cat.name.includes(' > ') || masterList.includes(cat.name);
+  });
   
   // Filter categories based on search term
   const filteredCategories = searchTerm 
