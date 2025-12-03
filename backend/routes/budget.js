@@ -1548,30 +1548,40 @@ router.get('/insights', optionalAuth, async (req, res) => {
     }
     
     // Get budget categories data (reuse overview logic)
-    // Get ALL transaction categories
+    // Get ALL transaction categories - only from the target month
+    const targetMonthDate = targetMonth + '-01';
     let allTransactionCategories;
     if (userId) {
       allTransactionCategories = await pool.query(
-        `SELECT DISTINCT category 
-         FROM transactions 
-         WHERE user_id = $1
-         AND category IS NOT NULL
-         AND category != ''
-         AND category != 'NC'
-         AND category != 'nc'
-         ORDER BY category ASC`,
-        [userId]
+        `SELECT DISTINCT t.category 
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id = $1
+         AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
+         AND t.category IS NOT NULL
+         AND t.category != ''
+         AND t.category != 'NC'
+         AND t.category != 'nc'
+         AND t.type = 'expense'
+         AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date)
+         ORDER BY t.category ASC`,
+        [userId, targetMonthDate]
       );
     } else {
       allTransactionCategories = await pool.query(
-        `SELECT DISTINCT category 
-         FROM transactions 
-         WHERE user_id IS NULL
-         AND category IS NOT NULL
-         AND category != ''
-         AND category != 'NC'
-         AND category != 'nc'
-         ORDER BY category ASC`
+        `SELECT DISTINCT t.category 
+         FROM transactions t
+         LEFT JOIN bank_accounts ba ON t.account_id = ba.id
+         WHERE t.user_id IS NULL
+         AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
+         AND t.category IS NOT NULL
+         AND t.category != ''
+         AND t.category != 'NC'
+         AND t.category != 'nc'
+         AND t.type = 'expense'
+         AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $1::date)
+         ORDER BY t.category ASC`,
+        [targetMonthDate]
       );
     }
     
