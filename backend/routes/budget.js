@@ -1051,7 +1051,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
            FROM transactions t
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
-           AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
+           AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
            AND t.type = 'expense'
            AND t.computable = true
            AND t.amount > 0
@@ -1103,7 +1103,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
            FROM transactions t
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
-           AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
+           AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
            AND t.type = 'income'
            AND t.computable = true
            AND t.amount > 0
@@ -1161,7 +1161,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
          FROM transactions t
          LEFT JOIN bank_accounts ba ON t.account_id = ba.id
          WHERE t.user_id = $1
-         AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
+         AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
          AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', $2::date)
          AND t.type = 'expense'
          AND (t.computable = false OR t.category IN ('Transferencias', 'Finanzas > Transferencias'))
@@ -1603,7 +1603,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
            FROM transactions t
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
-           AND (t.account_id IS NULL OR (ba.id IS NOT NULL AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)))
+           AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
            AND TO_CHAR(t.date, 'YYYY-MM') = $2
            AND t.type = 'expense'
            AND t.computable = true
