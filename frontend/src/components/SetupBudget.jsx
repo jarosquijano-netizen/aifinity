@@ -23,22 +23,9 @@ function SetupBudget({ onBudgetSaved }) {
   const [metadata, setMetadata] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isInsightsExpanded, setIsInsightsExpanded] = useState(false);
-  const [backendTotalBudget, setBackendTotalBudget] = useState(null); // Use backend-calculated total
-
   useEffect(() => {
     fetchData();
-    fetchBackendTotal(); // Fetch backend-calculated total
   }, []);
-
-  const fetchBackendTotal = async () => {
-    try {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const overviewData = await getBudgetOverview(currentMonth);
-      setBackendTotalBudget(overviewData.totals?.budget || null);
-    } catch (err) {
-      console.error('Failed to fetch backend total:', err);
-    }
-  };
 
   const fetchData = async (isRefresh = false) => {
     try {
@@ -407,9 +394,6 @@ function SetupBudget({ onBudgetSaved }) {
         [categoryName]: budgetAmount
       }));
       
-      // Refresh backend total after saving
-      await fetchBackendTotal();
-      
       // Notify parent component to refresh overview
       if (onBudgetSaved) {
         onBudgetSaved();
@@ -595,15 +579,11 @@ function SetupBudget({ onBudgetSaved }) {
           <div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Total Budget Set</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {backendTotalBudget !== null 
-                ? backendTotalBudget.toLocaleString('es-ES') + '€'
-                : Object.values(allCategoryBudgets).reduce((sum, budget) => sum + (budget || 0), 0).toLocaleString('es-ES') + '€'}
+              {Object.values(allCategoryBudgets).reduce((sum, budget) => sum + (budget || 0), 0).toLocaleString('es-ES')}€
             </div>
-            {backendTotalBudget !== null && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                (Backend calculated)
-              </div>
-            )}
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              (Frontend calculated)
+            </div>
           </div>
           <div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Categories with Budget</div>
