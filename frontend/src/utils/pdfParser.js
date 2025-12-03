@@ -2757,17 +2757,58 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
 
 /**
  * Parse credit card date (DD/MM format, add current year)
+ * IMPORTANT: Only parse valid dates (day 1-31, month 1-12)
  */
 function parseCreditCardDate(dateStr, year) {
   if (!dateStr) return new Date().toISOString().split('T')[0];
   
-  const match = dateStr.match(/(\d{1,2})\/(\d{1,2})/);
+  const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})/);
   if (match) {
-    const day = match[1].padStart(2, '0');
-    const month = match[2].padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    
+    // Validate: day must be 1-31, month must be 1-12
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      const dayStr = day.toString().padStart(2, '0');
+      const monthStr = month.toString().padStart(2, '0');
+      
+      // Smart year detection: if month is in the future (relative to current month),
+      // it's likely from previous year
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // 1-12
+      const currentYear = year;
+      
+      let finalYear = currentYear;
+      // If parsed month is greater than current month + 1, assume previous year
+      // (allowing 1 month buffer for late statements)
+      if (month > currentMonth + 1) {
+        finalYear = currentYear - 1;
+      }
+      
+      // Validate the final date is not in the future (more than 1 month ahead)
+      const parsedDate = new Date(finalYear, month - 1, day);
+      const maxFutureDate = new Date();
+      maxFutureDate.setMonth(maxFutureDate.getMonth() + 1);
+      
+      if (parsedDate > maxFutureDate) {
+        // Date is too far in the future, use previous year
+        finalYear = currentYear - 1;
+      }
+      
+      // Ensure year is reasonable (not before 2020, not after current year + 1)
+      if (finalYear < 2020) {
+        finalYear = currentYear;
+      }
+      if (finalYear > currentYear + 1) {
+        finalYear = currentYear;
+      }
+      
+      return `${finalYear}-${monthStr}-${dayStr}`;
+    }
   }
   
+  // Invalid date format - return today's date as fallback
+  console.warn(`⚠️ Invalid credit card date format: "${dateStr}", using today's date`);
   return new Date().toISOString().split('T')[0];
 }
 
