@@ -292,8 +292,9 @@ function Budget({ onNavigateToTransactions }) {
   const summaryStats = getSummaryStats();
 
   // Calculate frontend total budget from categories (excluding transfers and parent categories)
+  // Separate annual and monthly budgets
   const calculateFrontendTotalBudget = () => {
-    if (!data?.categories) return 0;
+    if (!data?.categories) return { monthly: 0, annual: 0, total: 0 };
     
     const excludedCategories = [
       'Finanzas > Transferencias',
@@ -325,11 +326,26 @@ function Budget({ onNavigateToTransactions }) {
       return cat.budget > 0;
     });
     
-    // Sum all budgets
-    return validCategories.reduce((sum, cat) => sum + (cat.budget || 0), 0);
+    // Separate annual and monthly budgets
+    const monthlyBudget = validCategories
+      .filter(cat => !cat.is_annual)
+      .reduce((sum, cat) => sum + (cat.budget || 0), 0);
+    
+    const annualBudget = validCategories
+      .filter(cat => cat.is_annual)
+      .reduce((sum, cat) => sum + (cat.budget || 0), 0);
+    
+    return {
+      monthly: monthlyBudget,
+      annual: annualBudget,
+      total: monthlyBudget + annualBudget
+    };
   };
 
-  const frontendTotalBudget = calculateFrontendTotalBudget();
+  const budgetTotals = calculateFrontendTotalBudget();
+  const frontendTotalBudget = budgetTotals.total;
+  const monthlyBudget = budgetTotals.monthly;
+  const annualBudget = budgetTotals.annual;
   const frontendTotalSpent = data?.totals?.spent || 0;
   const frontendRemaining = frontendTotalBudget - frontendTotalSpent;
   const frontendPercentage = frontendTotalBudget > 0 ? (frontendTotalSpent / frontendTotalBudget) * 100 : 0;

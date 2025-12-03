@@ -1313,7 +1313,9 @@ router.get('/overview', optionalAuth, async (req, res) => {
                 spent > budget ? 'over' : 
                 percentage > 90 ? 'warning' : 
                 'ok',
-        hasBudget: categoryInfo.hasBudget
+        hasBudget: categoryInfo.hasBudget,
+        is_annual: categoryInfo.hasBudget ? (categoryInfo.budgetData.is_annual || false) : false,
+        annual_budget_amount: categoryInfo.hasBudget && categoryInfo.budgetData.is_annual ? parseFloat(categoryInfo.budgetData.budget_amount || 0) : null
       };
     }).sort((a, b) => {
       // Categories that should always go to the bottom
