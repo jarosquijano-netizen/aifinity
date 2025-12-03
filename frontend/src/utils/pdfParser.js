@@ -2607,10 +2607,20 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
       //    VUELING AIRLINES
       //    PRAT DE LLOBR		277,98 €
       
-      // Check if line starts with date (DD/MM)
-      const dateMatch = line.match(/^(\d{1,2})\/(\d{1,2})/);
+      // Check if line starts with date (DD/MM) - must be valid date format
+      const dateMatch = line.match(/^(\d{1,2})\/(\d{1,2})(?:\s|$|\t)/);
       if (dateMatch) {
-        const dateStr = dateMatch[0];
+        const day = parseInt(dateMatch[1], 10);
+        const month = parseInt(dateMatch[2], 10);
+        
+        // Validate: day must be 1-31, month must be 1-12
+        // Skip if it's not a valid date (e.g., "0,25" would match but isn't a date)
+        if (day < 1 || day > 31 || month < 1 || month > 12) {
+          i++;
+          continue;
+        }
+        
+        const dateStr = dateMatch[0].trim();
         let concept = '';
         let location = '';
         let amount = null;
