@@ -1,9 +1,11 @@
 /**
  * Get the badge color class for a given category
- * @param {string} category - The category name
+ * @param {string} category - The category name (can be hierarchical like "Vivienda > Hogar")
  * @returns {string} - The badge CSS class
  */
 export const getCategoryColor = (category) => {
+  if (!category) return 'badge-info';
+  
   const categoryColors = {
     // Vivienda y hogar
     'Hogar': 'badge-purple',
@@ -93,11 +95,16 @@ export const getCategoryColor = (category) => {
     'Mutuas y licencias': 'badge-slate',
     
     // Finanzas
-    'Ingresos': 'badge-success',
-    'Transferencias': 'badge-info',
-    'Ahorro e inversiones': 'badge-emerald',
-    'Préstamos': 'badge-orange',
-    'Efectivo': 'badge-yellow',
+    'Ingresos': 'badge-success', // Legacy support
+    'Finanzas > Ingresos': 'badge-success',
+    'Transferencias': 'badge-info', // Legacy support
+    'Finanzas > Transferencias': 'badge-info',
+    'Ahorro e inversiones': 'badge-emerald', // Legacy support
+    'Finanzas > Ahorro e inversiones': 'badge-emerald',
+    'Préstamos': 'badge-orange', // Legacy support
+    'Finanzas > Préstamos': 'badge-orange',
+    'Efectivo': 'badge-yellow', // Legacy support
+    'Finanzas > Efectivo': 'badge-yellow',
     
     // Otros
     'Otros': 'badge-gray',
@@ -105,6 +112,20 @@ export const getCategoryColor = (category) => {
     'Sin categoría': 'badge-gray',
   };
   
-  return categoryColors[category] || 'badge-info';
+  // First, try exact match
+  if (categoryColors[category]) {
+    return categoryColors[category];
+  }
+  
+  // If hierarchical (e.g., "Vivienda > Hogar"), try matching the subcategory ("Hogar")
+  if (category.includes(' > ')) {
+    const subcategory = category.split(' > ')[1];
+    if (categoryColors[subcategory]) {
+      return categoryColors[subcategory];
+    }
+  }
+  
+  // Default fallback
+  return 'badge-info';
 };
 

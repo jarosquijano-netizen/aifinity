@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon, getAllCategoriesWithIcons } from '../utils/categoryIcons';
 import { parseCategory } from '../utils/categoryFormat';
+import { normalizeCategory, isValidCategory, getMasterCategoryList } from '../utils/masterCategories';
 
 function CategoryModal({ transaction, categories, onClose, onUpdate }) {
   const [selectedCategory, setSelectedCategory] = useState(transaction?.category || '');
@@ -16,7 +17,9 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
 
   useEffect(() => {
     if (transaction) {
-      setSelectedCategory(transaction.category);
+      // Normalize the category to ensure it's from master list
+      const normalized = normalizeCategory(transaction.category);
+      setSelectedCategory(normalized);
     }
   }, [transaction]);
 
@@ -47,11 +50,23 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
       return;
     }
 
+    // Normalize category to ensure it's from master list
+    const normalizedCategory = normalizeCategory(selectedCategory);
+    
+    // Validate category is in master list
+    if (!isValidCategory(normalizedCategory)) {
+      setMessage({ 
+        type: 'error', 
+        text: `Categoría inválida: "${normalizedCategory}". Por favor selecciona una categoría de la lista.` 
+      });
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
 
     try {
-      const result = await onUpdate(transaction.id, selectedCategory, updateSimilar, isComputable);
+      const result = await onUpdate(transaction.id, normalizedCategory, updateSimilar, isComputable);
       
       if (result.similarUpdated > 0) {
         setMessage({

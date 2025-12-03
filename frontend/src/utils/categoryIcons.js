@@ -56,10 +56,12 @@ import {
 
 /**
  * Get the icon component for a given category
- * @param {string} category - The category name
+ * @param {string} category - The category name (can be hierarchical like "Vivienda > Hogar")
  * @returns {Component} - The Lucide icon component
  */
 export const getCategoryIcon = (category) => {
+  if (!category) return HelpCircle;
+  
   const categoryIcons = {
     // Vivienda y hogar
     'Hogar': Home,
@@ -116,6 +118,7 @@ export const getCategoryIcon = (category) => {
     // Ocio y entretenimiento
     'Entretenimiento': Film,
     'Espectáculos': Ticket,
+    'Vacation': VacationIcon,
     'Ocio > Vacation': VacationIcon,
     'Otros ocio': Music,
     'Loterías': DollarSign,
@@ -148,11 +151,16 @@ export const getCategoryIcon = (category) => {
     'Mutuas y licencias': FileCheck,
     
     // Finanzas
-    'Ingresos': TrendingUp,
-    'Transferencias': ArrowLeftRight,
-    'Ahorro e inversiones': PiggyBank,
-    'Préstamos': FileText,
-    'Efectivo': Coins,
+    'Ingresos': TrendingUp, // Legacy support - use 'Finanzas > Ingresos'
+    'Finanzas > Ingresos': TrendingUp,
+    'Transferencias': ArrowLeftRight, // Legacy support - use 'Finanzas > Transferencias'
+    'Finanzas > Transferencias': ArrowLeftRight,
+    'Ahorro e inversiones': PiggyBank, // Legacy support - use 'Finanzas > Ahorro e inversiones'
+    'Finanzas > Ahorro e inversiones': PiggyBank,
+    'Préstamos': FileText, // Legacy support - use 'Finanzas > Préstamos'
+    'Finanzas > Préstamos': FileText,
+    'Efectivo': Coins, // Legacy support - use 'Finanzas > Efectivo'
+    'Finanzas > Efectivo': Coins,
     
     // Otros
     'Otros': Boxes,
@@ -160,7 +168,21 @@ export const getCategoryIcon = (category) => {
     'Sin categoría': HelpCircle,
   };
   
-  return categoryIcons[category] || HelpCircle;
+  // First, try exact match
+  if (categoryIcons[category]) {
+    return categoryIcons[category];
+  }
+  
+  // If hierarchical (e.g., "Vivienda > Hogar"), try matching the subcategory ("Hogar")
+  if (category.includes(' > ')) {
+    const subcategory = category.split(' > ')[1];
+    if (categoryIcons[subcategory]) {
+      return categoryIcons[subcategory];
+    }
+  }
+  
+  // Default fallback
+  return HelpCircle;
 };
 
 /**
@@ -254,11 +276,11 @@ export const getAllCategoriesWithIcons = () => {
     { name: 'Mutuas y licencias', icon: FileCheck, group: 'Profesionales' },
     
     // Finanzas
-    { name: 'Ingresos', icon: TrendingUp, group: 'Finanzas' },
-    { name: 'Transferencias', icon: ArrowLeftRight, group: 'Finanzas' },
-    { name: 'Ahorro e inversiones', icon: PiggyBank, group: 'Finanzas' },
-    { name: 'Préstamos', icon: FileText, group: 'Finanzas' },
-    { name: 'Efectivo', icon: Coins, group: 'Finanzas' },
+    { name: 'Finanzas > Ingresos', icon: TrendingUp, group: 'Finanzas' },
+    { name: 'Finanzas > Transferencias', icon: ArrowLeftRight, group: 'Finanzas' },
+    { name: 'Finanzas > Ahorro e inversiones', icon: PiggyBank, group: 'Finanzas' },
+    { name: 'Finanzas > Préstamos', icon: FileText, group: 'Finanzas' },
+    { name: 'Finanzas > Efectivo', icon: Coins, group: 'Finanzas' },
     
     // Otros
     { name: 'Otros', icon: Boxes, group: 'Otros' },

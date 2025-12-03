@@ -4,6 +4,115 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+/**
+ * Normalize category to hierarchical format
+ * Maps old/non-hierarchical categories to master list format
+ */
+function normalizeCategory(category) {
+  if (!category) return 'Otros > Sin categoría';
+  
+  const categoryLower = category.toLowerCase().trim();
+  
+  // Category normalization mapping
+  const categoryMap = {
+    // Income categories -> Finanzas > Ingresos
+    'ingresos': 'Finanzas > Ingresos',
+    'salary': 'Finanzas > Ingresos',
+    'payroll': 'Finanzas > Ingresos',
+    'nomina': 'Finanzas > Ingresos',
+    'nómina': 'Finanzas > Ingresos',
+    'salario': 'Finanzas > Ingresos',
+    'sueldo': 'Finanzas > Ingresos',
+    
+    // Transfer categories -> Finanzas > Transferencias
+    'transferencias': 'Finanzas > Transferencias',
+    'transferencia': 'Finanzas > Transferencias',
+    'transfer': 'Finanzas > Transferencias',
+    'traspaso': 'Finanzas > Transferencias',
+    'bizum': 'Finanzas > Transferencias',
+    
+    // Cash -> Finanzas > Efectivo
+    'efectivo': 'Finanzas > Efectivo',
+    'cash': 'Finanzas > Efectivo',
+    
+    // Loans -> Finanzas > Préstamos
+    'préstamos': 'Finanzas > Préstamos',
+    'prestamos': 'Finanzas > Préstamos',
+    'loan': 'Finanzas > Préstamos',
+    'loans': 'Finanzas > Préstamos',
+    
+    // Groceries -> Alimentación > Supermercado
+    'supermercado': 'Alimentación > Supermercado',
+    'groceries': 'Alimentación > Supermercado',
+    
+    // Restaurants -> Alimentación > Restaurante
+    'restaurante': 'Alimentación > Restaurante',
+    'restaurant': 'Alimentación > Restaurante',
+    
+    // Housing -> Vivienda > Hogar
+    'hogar': 'Vivienda > Hogar',
+    'housing': 'Vivienda > Hogar',
+    
+    // Mortgage -> Vivienda > Hipoteca
+    'hipoteca': 'Vivienda > Hipoteca',
+    'mortgage': 'Vivienda > Hipoteca',
+    
+    // Transport -> Transporte > Transportes
+    'transportes': 'Transporte > Transportes',
+    'transport': 'Transporte > Transportes',
+    'transportation': 'Transporte > Transportes',
+    
+    // Gas -> Transporte > Gasolina
+    'gasolina': 'Transporte > Gasolina',
+    'gas': 'Transporte > Gasolina',
+    
+    // Health -> Salud > Médico
+    'médico': 'Salud > Médico',
+    'medico': 'Salud > Médico',
+    
+    // Pharmacy -> Salud > Farmacia
+    'farmacia': 'Salud > Farmacia',
+    'pharmacy': 'Salud > Farmacia',
+    
+    // Shopping -> Compras > Compras
+    'compras': 'Compras > Compras',
+    'shopping': 'Compras > Compras',
+    
+    // Entertainment -> Ocio > Entretenimiento
+    'entretenimiento': 'Ocio > Entretenimiento',
+    'entertainment': 'Ocio > Entretenimiento',
+    
+    // Education -> Educación > Estudios
+    'estudios': 'Educación > Estudios',
+    'education': 'Educación > Estudios',
+    
+    // Sports -> Deporte > Deporte
+    'deporte': 'Deporte > Deporte',
+    'sports': 'Deporte > Deporte',
+    
+    // Others -> Otros > Otros
+    'otros': 'Otros > Otros',
+    'other': 'Otros > Otros',
+    'others': 'Otros > Otros',
+    'uncategorized': 'Otros > Sin categoría',
+    'sin categoría': 'Otros > Sin categoría',
+    'sin categoria': 'Otros > Sin categoría',
+  };
+  
+  // Check exact match first
+  if (categoryMap[categoryLower]) {
+    return categoryMap[categoryLower];
+  }
+  
+  // Check if already in hierarchical format
+  if (category.includes(' > ')) {
+    return category; // Assume it's already normalized
+  }
+  
+  // Default fallback
+  return 'Otros > Sin categoría';
+}
+
 // Upload/save transactions
 router.post('/upload', optionalAuth, async (req, res) => {
   const client = await pool.connect();
@@ -149,7 +258,7 @@ router.post('/upload', optionalAuth, async (req, res) => {
 
       // Ensure all values are properly formatted
       const cleanBank = bank || 'Unknown';
-      const cleanCategory = category || 'Uncategorized';
+      const cleanCategory = normalizeCategory(category || 'Uncategorized');
       const cleanDescription = (description && typeof description === 'string') ? description.trim() : 'Transaction';
       const cleanAmount = parseFloat(amount);
       
@@ -328,6 +437,9 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Category is required' });
     }
 
+    // Normalize category to hierarchical format
+    const normalizedCategory = normalizeCategory(category);
+
     await client.query('BEGIN');
 
     // Get the transaction to update
@@ -346,11 +458,12 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
 
     // Auto-set computable = false for NC and Transferencias categories unless explicitly overridden
     let finalComputable = computable;
-    const categoryLower = (category || '').toLowerCase();
-    const isTransferCategory = category === 'Transferencias' || 
+    const categoryLower = (normalizedCategory || '').toLowerCase();
+    const isTransferCategory = normalizedCategory === 'Finanzas > Transferencias' || 
+                               normalizedCategory === 'Transferencias' ||
                                categoryLower.includes('transferencia') ||
                                categoryLower.includes('transferencias');
-    const isNCCategory = category === 'NC' || category === 'nc';
+    const isNCCategory = normalizedCategory === 'NC' || normalizedCategory === 'nc';
     
     if (isNCCategory || isTransferCategory) {
       if (computable === undefined) {
@@ -391,15 +504,15 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
         similarDescriptions.forEach((item, index) => {
           console.log(`   ${index + 1}. [${item.similarity}] ${item.description.substring(0, 60)}...`);
         });
-        console.log(`✅ Updating all to category: "${category}"\n`);
+        console.log(`✅ Updating all to category: "${normalizedCategory}"\n`);
         
         const updateQuery = finalComputable !== undefined
           ? 'UPDATE transactions SET category = $1, computable = $3 WHERE id = ANY($2::int[]) AND user_id = $4'
           : 'UPDATE transactions SET category = $1 WHERE id = ANY($2::int[]) AND user_id = $3';
         
         const updateParams = finalComputable !== undefined
-          ? [category, similarIds, finalComputable, userId]
-          : [category, similarIds, userId];
+          ? [normalizedCategory, similarIds, finalComputable, userId]
+          : [normalizedCategory, similarIds, userId];
         
         await client.query(updateQuery, updateParams);
         
@@ -426,8 +539,8 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
       : 'UPDATE transactions SET category = $1 WHERE id = $2 AND user_id = $3';
     
     const updateParams = finalComputable !== undefined
-      ? [category, finalComputable, transactionId, userId]
-      : [category, transactionId, userId];
+      ? [normalizedCategory, finalComputable, transactionId, userId]
+      : [normalizedCategory, transactionId, userId];
     
     const updateResult = await client.query(updateQuery, updateParams);
     

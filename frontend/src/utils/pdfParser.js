@@ -396,7 +396,7 @@ function categorizeTransaction(description) {
   if (descLower.includes('salary') || descLower.includes('payroll') || 
       descLower.includes('nomina') || descLower.includes('nómina') ||
       descLower.includes('salario') || descLower.includes('sueldo')) {
-    return 'Salary';
+    return 'Finanzas > Ingresos';
   }
   
   // === GROCERIES & SUPERMARKETS (Spanish) ===
@@ -1305,7 +1305,7 @@ function parseINGSpanishCSV(lines) {
       } else if (categoryLower.includes('ocio') || categoryLower.includes('viajes')) {
         mappedCategory = 'Entertainment';
       } else if (categoryLower.includes('ingresos')) {
-        mappedCategory = 'Ingresos';
+        mappedCategory = 'Finanzas > Ingresos';
       } else if (categoryLower.includes('transferencia')) {
         mappedCategory = 'Transferencias';
       } else {
