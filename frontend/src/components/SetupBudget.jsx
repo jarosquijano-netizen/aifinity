@@ -444,7 +444,13 @@ function SetupBudget({ onBudgetSaved }) {
       }
     } catch (err) {
       console.error('Failed to save budget:', err);
-      setErrors(prev => ({ ...prev, [categoryName]: 'Failed to save budget' }));
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      const errorMessage = err.response?.data?.details || err.response?.data?.error || err.message || 'Failed to save budget';
+      setErrors(prev => ({ ...prev, [categoryName]: errorMessage }));
       throw err; // Re-throw so caller can handle it
     } finally {
       setSaving(prev => {
