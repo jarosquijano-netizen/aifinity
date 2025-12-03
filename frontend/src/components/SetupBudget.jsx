@@ -73,21 +73,27 @@ function SetupBudget({ onBudgetSaved }) {
       const isAnnualMap = {};
       
       // Load budgets from database categories
+      // IMPORTANT: Load ALL budgets from DB, even if 0, to preserve the state
       (categoriesData.categories || []).forEach(cat => {
-        if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
-          budgetsMap[cat.name] = parseFloat(cat.budget_amount);
-          originalBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
-        }
+        // Always set budget, even if 0, to preserve state
+        const budgetAmount = parseFloat(cat.budget_amount || 0);
+        budgetsMap[cat.name] = budgetAmount;
+        originalBudgetsMap[cat.name] = budgetAmount;
+        
         if (cat.is_annual) {
           isAnnualMap[cat.name] = true;
         }
       });
       
+      console.log('📊 Loaded budgets from database:', Object.keys(budgetsMap).length, 'categories');
+      console.log('📊 Budgets map:', budgetsMap);
+      
       // Then, add budgets from suggestions for categories that don't have budgets in DB yet
       // This ensures we show all transaction categories, even if they don't have budgets set
+      // IMPORTANT: Only add if category doesn't exist in budgetsMap AND currentBudget > 0
       suggestionsData.suggestions?.forEach(item => {
-        // Only add if category doesn't already have a budget from DB
-        if (!budgetsMap[item.category] && item.currentBudget) {
+        // Only add if category doesn't already have a budget from DB AND currentBudget > 0
+        if (!budgetsMap.hasOwnProperty(item.category) && item.currentBudget && item.currentBudget > 0) {
           budgetsMap[item.category] = item.currentBudget;
           originalBudgetsMap[item.category] = item.currentBudget;
         }
