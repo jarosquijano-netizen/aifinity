@@ -1045,7 +1045,7 @@ router.get('/overview', optionalAuth, async (req, res) => {
     
     // Get actual spending for the month (exclude transfers, deduplicate, exclude NC category)
     // IMPORTANT: Use DATE_TRUNC for expenses (same as dashboard/summary) - expenses always use actual date, never applicable_month
-    // targetMonthDate is already defined above
+    // targetMonthDate was already defined above at line 805
     let spendingResult;
     if (userId) {
       // User is logged in - get their spending
