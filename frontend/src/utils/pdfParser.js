@@ -2537,12 +2537,39 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
     while (i < lines.length) {
       const line = lines[i].trim();
       
-      // Stop at summary sections
-      if (line.includes('OPERACIONES PERIODO ACTUAL') ||
+      // Stop at summary sections (case insensitive)
+      // Also stop if we see a line that looks like a total amount after "OPERACIONES PERIODO ACTUAL"
+      const lineUpper = line.toUpperCase();
+      if (lineUpper.includes('OPERACIONES PERIODO ACTUAL') ||
+          lineUpper.includes('OPERACIONES PERÍODO ACTUAL') ||
           line.includes('Saldo aplazado anterior') ||
           line.includes('IMPORTE TOTAL A LIQUIDAR') ||
-          line.includes('Total operaciones')) {
+          line.includes('Total operaciones') ||
+          /^\s*OPERACIONES\s+PERIODO\s+ACTUAL/i.test(line)) {
+        // Skip the total amount line that follows
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1]?.trim() || '';
+          // If next line is just a number with €, skip it too
+          if (/^[\d.,]+\s*€?\s*$/.test(nextLine)) {
+            i++;
+          }
+        }
         break;
+      }
+      
+      // Skip credit card numbers (format: 4106__1010 or similar patterns)
+      if (/^\s*\d{4}[_\d]+\d{4}\s*$/.test(line) || 
+          /^\s*\d{4}[_\s]+\d{4}\s*$/.test(line)) {
+        i++;
+        continue;
+      }
+      
+      // Skip exchange rate lines (e.g., "Importe original: 28,00 PEN Tipo de cambio: 0,25 PEN/€")
+      if (line.includes('Importe original:') || 
+          line.includes('Tipo de cambio:') ||
+          /Tipo de cambio:\s*[\d.,]+\s*[A-Z]+\/€/.test(line)) {
+        i++;
+        continue;
       }
       
       // Skip empty lines and headers
@@ -2601,8 +2628,12 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
             while (nextIdx < lines.length && nextIdx < i + 5) {
               const nextLine = lines[nextIdx]?.trim() || '';
               
-              // Skip reference lines
-              if (nextLine.includes('Referencia única') || nextLine.match(/^\d{20,}$/)) {
+              // Skip reference lines and exchange rate info
+              if (nextLine.includes('Referencia única') || 
+                  nextLine.match(/^\d{20,}$/) ||
+                  nextLine.includes('Importe original:') ||
+                  nextLine.includes('Tipo de cambio:') ||
+                  /Tipo de cambio:\s*[\d.,]+\s*[A-Z]+\/€/.test(nextLine)) {
                 nextIdx++;
                 continue;
               }
@@ -2636,7 +2667,11 @@ function parseSabadellCreditCardTextFormat(lines, fullText) {
             while (nextIdx < lines.length && nextIdx < i + 5) {
               const nextLine = lines[nextIdx]?.trim() || '';
               
-              if (nextLine.includes('Referencia única') || nextLine.match(/^\d{20,}$/)) {
+              if (nextLine.includes('Referencia única') || 
+                  nextLine.match(/^\d{20,}$/) ||
+                  nextLine.includes('Importe original:') ||
+                  nextLine.includes('Tipo de cambio:') ||
+                  /Tipo de cambio:\s*[\d.,]+\s*[A-Z]+\/€/.test(nextLine)) {
                 nextIdx++;
                 continue;
               }
