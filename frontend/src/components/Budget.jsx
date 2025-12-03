@@ -88,9 +88,22 @@ function Budget({ onNavigateToTransactions }) {
   };
 
   // Enhanced status calculation with 6 levels
+  // IMPORTANT: Annual categories should not trigger over budget alerts
+  // They are fixed annual payments and don't affect monthly budget tracking
   const getCategoryStatus = (category) => {
     if (category.isTransfer) return 'transfer';
     if (!category.hasBudget && category.budget === 0) return 'no_budget';
+    
+    // Annual categories should not appear in over budget alerts
+    // They are fixed annual payments, so we treat them as "safe" for monthly tracking
+    if (category.is_annual) {
+      // Still show them, but don't trigger alerts
+      const percentage = category.percentage || 0;
+      if (percentage >= 100) return 'safe'; // Don't show as "over" for annual
+      if (percentage >= 90) return 'safe'; // Don't show as "close to limit" for annual
+      if (percentage >= 75) return 'safe'; // Don't show as "watch" for annual
+      return 'safe'; // Always safe for annual categories
+    }
     
     const percentage = category.percentage || 0;
     
@@ -346,9 +359,14 @@ function Budget({ onNavigateToTransactions }) {
   const frontendTotalBudget = budgetTotals.total;
   const monthlyBudget = budgetTotals.monthly;
   const annualBudget = budgetTotals.annual;
+  
+  // Calculate spent only from monthly categories (exclude annual spending from alerts)
+  // Note: data?.totals?.spent includes all spending, but for percentage calculation
+  // we should ideally separate monthly vs annual spending. For now, we'll use monthly budget
+  // for percentage calculation to avoid false alerts from annual categories
   const frontendTotalSpent = data?.totals?.spent || 0;
-  const frontendRemaining = frontendTotalBudget - frontendTotalSpent;
-  const frontendPercentage = frontendTotalBudget > 0 ? (frontendTotalSpent / frontendTotalBudget) * 100 : 0;
+  const frontendRemaining = monthlyBudget - frontendTotalSpent; // Use monthly budget for remaining
+  const frontendPercentage = monthlyBudget > 0 ? (frontendTotalSpent / monthlyBudget) * 100 : 0; // Use monthly budget for percentage
 
   // Sort categories within each group
   const sortCategoriesInGroup = (categories) => {

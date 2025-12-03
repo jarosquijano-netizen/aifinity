@@ -701,32 +701,40 @@ function SetupBudget({ onBudgetSaved }) {
             </div>
           );
         })()}
-        {userProfile && userProfile.monthlyIncome && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Monthly Income</span>
-              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {userProfile.monthlyIncome.toLocaleString('es-ES')}€
-              </span>
-            </div>
-            <div className="mt-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Budget Usage</span>
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  {((Object.values(budgets).reduce((sum, budget) => sum + (budget || 0), 0) / userProfile.monthlyIncome) * 100).toFixed(1)}%
-                </span>
+        {userProfile && userProfile.monthlyIncome && (() => {
+          // Calculate Budget Usage using ONLY monthly budgets (exclude annual)
+          const monthlyBudgetsTotal = Object.entries(budgets)
+            .filter(([catName]) => !isAnnual[catName])
+            .reduce((sum, [, budget]) => sum + (budget || 0), 0);
+          const budgetUsagePercentage = (monthlyBudgetsTotal / userProfile.monthlyIncome) * 100;
+          
+          return (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Monthly Income</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {userProfile.monthlyIncome.toLocaleString('es-ES')}€
+                </div>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min((Object.values(budgets).reduce((sum, budget) => sum + (budget || 0), 0) / userProfile.monthlyIncome) * 100, 100)}%`
-                  }}
-                />
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Budget Usage (Monthly only)</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {budgetUsagePercentage.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(budgetUsagePercentage, 100)}%`
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Search */}
