@@ -197,20 +197,24 @@ function Insights() {
 
   const creditCards = data.accounts.filter(acc => acc.account_type === 'credit' && !acc.exclude_from_stats);
   const totalDebt = creditCards.reduce((sum, card) => sum + Math.abs(parseFloat(card.balance || 0)), 0);
-  const totalCreditLimit = creditCards.reduce((sum, card) => sum + parseFloat(card.credit_limit || 0), 0);
+  // Try both credit_limit and creditLimit (camelCase) for compatibility
+  const totalCreditLimit = creditCards.reduce((sum, card) => {
+    const limit = parseFloat(card.credit_limit || card.creditLimit || 0);
+    return sum + limit;
+  }, 0);
   const totalAvailableCredit = totalCreditLimit - totalDebt;
   const overallUtilization = totalCreditLimit > 0 ? (totalDebt / totalCreditLimit * 100) : 0;
   const minimumPayments = creditCards.reduce((sum, card) => {
     const debt = Math.abs(parseFloat(card.balance || 0));
     return sum + Math.max(debt * 0.02, 25);
   }, 0);
-  const monthlyInterestCost = totalDebt * (0.20 / 12);
-  const annualInterestCost = totalDebt * 0.20;
+  const monthlyInterestCost = totalDebt * (0.18 / 12);
+  const annualInterestCost = totalDebt * 0.18;
 
   // Calculate payoff time and interest for a single card
   const calculateCardPayoff = (card, customPayment) => {
     const debt = Math.abs(parseFloat(card.balance || 0));
-    const apr = 0.20; // 20% APR
+    const apr = 0.18; // 18% APR (annual)
     const monthlyRate = apr / 12;
     
     if (debt === 0) {
@@ -548,9 +552,22 @@ function Insights() {
                   <div className="space-y-3">
                     {creditCards.map((card) => {
                       const debt = Math.abs(parseFloat(card.balance || 0));
-                      const limit = parseFloat(card.credit_limit || 0);
+                      // Try both credit_limit and creditLimit (camelCase) for compatibility
+                      const limit = parseFloat(card.credit_limit || card.creditLimit || 0);
                       const usage = limit > 0 ? (debt / limit * 100) : 0;
                       const statusColor = usage < 30 ? 'success' : usage < 70 ? 'warning' : 'destructive';
+                      
+                      // Debug log to help diagnose missing limits
+                      if (!limit || limit === 0) {
+                        console.warn('⚠️ Credit card missing limit:', {
+                          cardName: card.name,
+                          cardId: card.id,
+                          credit_limit: card.credit_limit,
+                          creditLimit: card.creditLimit,
+                          cardData: card
+                        });
+                      }
+                      
                       return (
                         <div key={card.name} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
                           <div className="flex items-center justify-between mb-2">
@@ -572,14 +589,22 @@ function Insights() {
                             </div>
                             <div>
                               <p className="text-gray-600 dark:text-gray-400">{t('limit')}</p>
-                              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">€{limit.toFixed(0)}</p>
+                              {limit > 0 ? (
+                                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">€{limit.toFixed(0)}</p>
+                              ) : (
+                                <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('notSet') || 'Not set'}</p>
+                              )}
                             </div>
                             <div>
                               <p className="text-gray-600 dark:text-gray-400">{t('usage')}</p>
-                              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{usage.toFixed(1)}%</p>
+                              {limit > 0 ? (
+                                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{usage.toFixed(1)}%</p>
+                              ) : (
+                                <p className="text-sm text-gray-400 dark:text-gray-500 italic">—</p>
+                              )}
                             </div>
                           </div>
-                          <ProgressBar value={usage} className="mt-3" />
+                          {limit > 0 && <ProgressBar value={usage} className="mt-3" />}
                         </div>
                       );
                     })}
