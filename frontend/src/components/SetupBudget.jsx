@@ -58,12 +58,17 @@ function SetupBudget({ onBudgetSaved }) {
       
       // FIRST: Fetch existing budget categories to get IDs and ALL budgets from database
       // This is critical - we need to load budgets from DB first, not just from suggestions
-      let categoriesData;
+      let categoriesData = { categories: [] }; // Initialize with default value
       try {
         categoriesData = await getTransactionCategories();
         setCategories(categoriesData.categories || []);
       } catch (err) {
         console.error('Failed to load budget categories:', err);
+        categoriesData = { categories: [] }; // Ensure it's always defined
+      }
+      
+      // Ensure categoriesData is always an object with categories array
+      if (!categoriesData || !categoriesData.categories) {
         categoriesData = { categories: [] };
       }
       
@@ -146,7 +151,9 @@ function SetupBudget({ onBudgetSaved }) {
       };
       
       // Deduplicate categories: prefer hierarchical format over old format
-      (categoriesData.categories || []).forEach(cat => {
+      // Ensure categoriesData is defined before using it
+      if (categoriesData && categoriesData.categories) {
+        (categoriesData.categories || []).forEach(cat => {
         if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
           // Exclude transfers and NC categories
           if (excludedCategories.includes(cat.name)) {
