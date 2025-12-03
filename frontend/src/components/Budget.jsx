@@ -244,13 +244,17 @@ function Budget({ onNavigateToTransactions }) {
     }
 
     // Apply filter mode
+    // IMPORTANT: Exclude annual categories from problem/attention filters
+    // Annual categories are fixed payments and shouldn't trigger alerts
     if (filterMode === 'problems') {
       filtered = filtered.filter(cat => {
+        if (cat.is_annual) return false; // Exclude annual categories from problems
         const status = getCategoryStatus(cat);
         return status === 'over' || status === 'closeToLimit';
       });
     } else if (filterMode === 'attention') {
       filtered = filtered.filter(cat => {
+        if (cat.is_annual) return false; // Exclude annual categories from attention
         const status = getCategoryStatus(cat);
         return status === 'over' || status === 'closeToLimit' || status === 'watch' || status === 'no_budget';
       });
