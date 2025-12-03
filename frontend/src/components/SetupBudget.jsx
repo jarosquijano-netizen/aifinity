@@ -628,15 +628,19 @@ function SetupBudget({ onBudgetSaved }) {
         
         {/* Calculate separate monthly and annual budgets */}
         {(() => {
+          // For annual categories, we need to get the annual amount from the database
+          // allCategoryBudgets stores the annual amount (not divided), so for annual categories
+          // we need to divide by 12 to get the monthly equivalent for display
           const monthlyBudget = Object.entries(allCategoryBudgets)
             .filter(([catName]) => !isAnnual[catName])
             .reduce((sum, [, budget]) => sum + (budget || 0), 0);
           
-          const annualBudget = Object.entries(allCategoryBudgets)
+          // For annual categories, budget is the annual amount, so divide by 12 for monthly equivalent
+          const annualBudgetMonthlyEquivalent = Object.entries(allCategoryBudgets)
             .filter(([catName]) => isAnnual[catName])
-            .reduce((sum, [, budget]) => sum + (budget || 0), 0);
+            .reduce((sum, [, budget]) => sum + ((budget || 0) / 12), 0);
           
-          const totalBudget = monthlyBudget + annualBudget;
+          const totalBudget = monthlyBudget + annualBudgetMonthlyEquivalent;
           
           return (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
@@ -652,7 +656,7 @@ function SetupBudget({ onBudgetSaved }) {
               <div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">Annual Budget</div>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {annualBudget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                  {annualBudgetMonthlyEquivalent.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Monthly equivalent
