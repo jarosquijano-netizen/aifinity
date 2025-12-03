@@ -102,141 +102,137 @@ function SetupBudget({ onBudgetSaved }) {
       setBudgets(budgetsMap);
       setOriginalBudgets(originalBudgetsMap);
       setIsAnnual(isAnnualMap);
-        
-        // Helper function to check if two categories are duplicates
-        const isDuplicateCategory = (name1, name2) => {
-          if (name1 === name2) return true;
-          if (name1.includes(' > ')) {
-            const subcategory = name1.split(' > ')[1];
-            if (subcategory === name2) return true;
-          }
-          if (name2.includes(' > ')) {
-            const subcategory = name2.split(' > ')[1];
-            if (subcategory === name1) return true;
-          }
-          return false;
-        };
-        
-        // Create a map of ALL category budgets from database (for accurate totals)
-        // Exclude transfers and NC categories (same logic as Overview)
-        // IMPORTANT: Deduplicate to avoid double-counting budgets
-        const excludedCategories = [
-          'Finanzas > Transferencias',
-          'Transferencias',
-          'NC',
-          'nc'
-        ];
-        const allBudgetsMap = {};
-        
-        // Helper function to check if a category is a parent of any other category
-        const isParentCategory = (categoryName, budgetsMap) => {
-          // A category is a parent if it matches the group part of any hierarchical category
-          // e.g., "Alimentación" is a parent of "Alimentación > Supermercado"
-          if (!categoryName || categoryName.includes(' > ')) {
-            return false; // Hierarchical categories are not parents
-          }
-          
-          // Check if any category in budgetsMap starts with this category name + " > "
-          for (const key in budgetsMap) {
-            if (key.startsWith(categoryName + ' > ')) {
-              return true; // Found a child category
-            }
-          }
-          return false;
-        };
-        
-        // Deduplicate categories: prefer hierarchical format over old format
-        (categoriesData.categories || []).forEach(cat => {
-          if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
-            // Exclude transfers and NC categories
-            if (excludedCategories.includes(cat.name)) {
-              return;
-            }
-            
-            // Check if this category is a duplicate
-            let isDuplicate = false;
-            let existingKey = null;
-            
-            for (const key in allBudgetsMap) {
-              if (isDuplicateCategory(cat.name, key)) {
-                isDuplicate = true;
-                // Prefer hierarchical format
-                if (cat.name.includes(' > ')) {
-                  // New category is hierarchical, replace old format
-                  existingKey = key;
-                  break;
-                } else if (key.includes(' > ')) {
-                  // Existing category is hierarchical, keep it and merge budget
-                  existingKey = key;
-                  break;
-                } else {
-                  // Both are old format, use existing
-                  existingKey = key;
-                  break;
-                }
-              }
-            }
-            
-            if (!isDuplicate) {
-              // No duplicate found, add the category
-              allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
-            } else if (existingKey && cat.name.includes(' > ')) {
-              // Duplicate found and new category is hierarchical - replace old format
-              const oldBudget = allBudgetsMap[existingKey] || 0;
-              const newBudget = parseFloat(cat.budget_amount);
-              delete allBudgetsMap[existingKey];
-              allBudgetsMap[cat.name] = oldBudget + newBudget;
-            } else if (existingKey && existingKey.includes(' > ')) {
-              // Duplicate found and existing category is hierarchical - merge budget into existing
-              const existingBudget = allBudgetsMap[existingKey] || 0;
-              const newBudget = parseFloat(cat.budget_amount);
-              allBudgetsMap[existingKey] = existingBudget + newBudget;
-            }
-          }
-        });
-        
-        // Remove parent categories that have children (to avoid double-counting)
-        const finalBudgetsMap = {};
-        const excludedParents = [];
-        const totalBeforeExclusion = Object.values(allBudgetsMap).reduce((sum, b) => sum + (b || 0), 0);
-        
-        // Log all category names to see what we're working with
-        const allCategoryNames = Object.keys(allBudgetsMap).sort();
-        console.log('🔍 Budget calculation - Total before exclusion:', totalBeforeExclusion);
-        console.log('🔍 Budget calculation - All categories:', allCategoryNames.length);
-        console.log('🔍 All category names:', allCategoryNames);
-        
-        // Check each category to see if it's a parent
-        for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
-          const isParent = isParentCategory(catName, allBudgetsMap);
-          if (isParent) {
-            excludedParents.push({ name: catName, amount: budgetAmount });
-            console.log(`🚫 Excluding parent category: ${catName} (€${budgetAmount})`);
-            // Show which children were found
-            const children = Object.keys(allBudgetsMap).filter(k => k.startsWith(catName + ' > '));
-            console.log(`   └─ Children found:`, children);
-            continue; // Skip parent category
-          }
-          finalBudgetsMap[catName] = budgetAmount;
+      
+      // Helper function to check if two categories are duplicates
+      const isDuplicateCategory = (name1, name2) => {
+        if (name1 === name2) return true;
+        if (name1.includes(' > ')) {
+          const subcategory = name1.split(' > ')[1];
+          if (subcategory === name2) return true;
+        }
+        if (name2.includes(' > ')) {
+          const subcategory = name2.split(' > ')[1];
+          if (subcategory === name1) return true;
+        }
+        return false;
+      };
+      
+      // Create a map of ALL category budgets from database (for accurate totals)
+      // Exclude transfers and NC categories (same logic as Overview)
+      // IMPORTANT: Deduplicate to avoid double-counting budgets
+      const excludedCategories = [
+        'Finanzas > Transferencias',
+        'Transferencias',
+        'NC',
+        'nc'
+      ];
+      const allBudgetsMap = {};
+      
+      // Helper function to check if a category is a parent of any other category
+      const isParentCategory = (categoryName, budgetsMap) => {
+        // A category is a parent if it matches the group part of any hierarchical category
+        // e.g., "Alimentación" is a parent of "Alimentación > Supermercado"
+        if (!categoryName || categoryName.includes(' > ')) {
+          return false; // Hierarchical categories are not parents
         }
         
-        const totalAfterExclusion = Object.values(finalBudgetsMap).reduce((sum, b) => sum + (b || 0), 0);
-        
-        // Debug log
-        console.log('📊 Budget calculation results:');
-        console.log('  - Excluded parent categories:', excludedParents.length, excludedParents);
-        console.log('  - Total before exclusion: €' + totalBeforeExclusion.toFixed(2));
-        console.log('  - Total after exclusion: €' + totalAfterExclusion.toFixed(2));
-        console.log('  - Difference: €' + (totalBeforeExclusion - totalAfterExclusion).toFixed(2));
-        
-        setAllCategoryBudgets(finalBudgetsMap);
-      } catch (err) {
-        console.error('Failed to load budget categories:', err);
-        // Continue without category IDs - they'll be created if needed
+        // Check if any category in budgetsMap starts with this category name + " > "
+        for (const key in budgetsMap) {
+          if (key.startsWith(categoryName + ' > ')) {
+            return true; // Found a child category
+          }
+        }
+        return false;
+      };
+      
+      // Deduplicate categories: prefer hierarchical format over old format
+      (categoriesData.categories || []).forEach(cat => {
+        if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
+          // Exclude transfers and NC categories
+          if (excludedCategories.includes(cat.name)) {
+            return;
+          }
+          
+          // Check if this category is a duplicate
+          let isDuplicate = false;
+          let existingKey = null;
+          
+          for (const key in allBudgetsMap) {
+            if (isDuplicateCategory(cat.name, key)) {
+              isDuplicate = true;
+              // Prefer hierarchical format
+              if (cat.name.includes(' > ')) {
+                // New category is hierarchical, replace old format
+                existingKey = key;
+                break;
+              } else if (key.includes(' > ')) {
+                // Existing category is hierarchical, keep it and merge budget
+                existingKey = key;
+                break;
+              } else {
+                // Both are old format, use existing
+                existingKey = key;
+                break;
+              }
+            }
+          }
+          
+          if (!isDuplicate) {
+            // No duplicate found, add the category
+            allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+          } else if (existingKey && cat.name.includes(' > ')) {
+            // Duplicate found and new category is hierarchical - replace old format
+            const oldBudget = allBudgetsMap[existingKey] || 0;
+            const newBudget = parseFloat(cat.budget_amount);
+            delete allBudgetsMap[existingKey];
+            allBudgetsMap[cat.name] = oldBudget + newBudget;
+          } else if (existingKey && existingKey.includes(' > ')) {
+            // Duplicate found and existing category is hierarchical - merge budget into existing
+            const existingBudget = allBudgetsMap[existingKey] || 0;
+            const newBudget = parseFloat(cat.budget_amount);
+            allBudgetsMap[existingKey] = existingBudget + newBudget;
+          }
+        }
+      });
+      
+      // Remove parent categories that have children (to avoid double-counting)
+      const finalBudgetsMap = {};
+      const excludedParents = [];
+      const totalBeforeExclusion = Object.values(allBudgetsMap).reduce((sum, b) => sum + (b || 0), 0);
+      
+      // Log all category names to see what we're working with
+      const allCategoryNames = Object.keys(allBudgetsMap).sort();
+      console.log('🔍 Budget calculation - Total before exclusion:', totalBeforeExclusion);
+      console.log('🔍 Budget calculation - All categories:', allCategoryNames.length);
+      console.log('🔍 All category names:', allCategoryNames);
+      
+      // Check each category to see if it's a parent
+      for (const [catName, budgetAmount] of Object.entries(allBudgetsMap)) {
+        const isParent = isParentCategory(catName, allBudgetsMap);
+        if (isParent) {
+          excludedParents.push({ name: catName, amount: budgetAmount });
+          console.log(`🚫 Excluding parent category: ${catName} (€${budgetAmount})`);
+          // Show which children were found
+          const children = Object.keys(allBudgetsMap).filter(k => k.startsWith(catName + ' > '));
+          console.log(`   └─ Children found:`, children);
+          continue; // Skip parent category
+        }
+        finalBudgetsMap[catName] = budgetAmount;
       }
+      
+      const totalAfterExclusion = Object.values(finalBudgetsMap).reduce((sum, b) => sum + (b || 0), 0);
+      
+      // Debug log
+      console.log('📊 Budget calculation results:');
+      console.log('  - Excluded parent categories:', excludedParents.length, excludedParents);
+      console.log('  - Total before exclusion: €' + totalBeforeExclusion.toFixed(2));
+      console.log('  - Total after exclusion: €' + totalAfterExclusion.toFixed(2));
+      console.log('  - Difference: €' + (totalBeforeExclusion - totalAfterExclusion).toFixed(2));
+      
+      setAllCategoryBudgets(finalBudgetsMap);
     } catch (err) {
       console.error('Failed to load setup budget data:', err);
-      setError('Failed to load budget data. Please refresh the page.');
+      // Error is handled by setting loading to false, UI will show empty state
     } finally {
       setLoading(false);
       setRefreshing(false);
