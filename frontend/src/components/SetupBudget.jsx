@@ -56,39 +56,46 @@ function SetupBudget({ onBudgetSaved }) {
         setMetadata(suggestionsData.metadata);
       }
       
-      // Initialize budgets from suggestions (which include currentBudget)
+      // FIRST: Fetch existing budget categories to get IDs and ALL budgets from database
+      // This is critical - we need to load budgets from DB first, not just from suggestions
+      let categoriesData;
+      try {
+        categoriesData = await getTransactionCategories();
+        setCategories(categoriesData.categories || []);
+      } catch (err) {
+        console.error('Failed to load budget categories:', err);
+        categoriesData = { categories: [] };
+      }
+      
+      // Initialize budgets from database FIRST (this is the source of truth)
       const budgetsMap = {};
       const originalBudgetsMap = {};
       const isAnnualMap = {};
-      suggestionsData.suggestions?.forEach(item => {
-        const budgetValue = item.currentBudget || 0;
-        budgetsMap[item.category] = budgetValue;
-        originalBudgetsMap[item.category] = budgetValue; // Store original for comparison
-      });
       
-      // Initialize is_annual from categories
+      // Load budgets from database categories
       (categoriesData.categories || []).forEach(cat => {
+        if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
+          budgetsMap[cat.name] = parseFloat(cat.budget_amount);
+          originalBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+        }
         if (cat.is_annual) {
           isAnnualMap[cat.name] = true;
         }
       });
       
+      // Then, add budgets from suggestions for categories that don't have budgets in DB yet
+      // This ensures we show all transaction categories, even if they don't have budgets set
+      suggestionsData.suggestions?.forEach(item => {
+        // Only add if category doesn't already have a budget from DB
+        if (!budgetsMap[item.category] && item.currentBudget) {
+          budgetsMap[item.category] = item.currentBudget;
+          originalBudgetsMap[item.category] = item.currentBudget;
+        }
+      });
+      
       setBudgets(budgetsMap);
       setOriginalBudgets(originalBudgetsMap);
-      
-      // Also fetch existing budget categories to get IDs and ALL budgets
-      try {
-        const categoriesData = await getTransactionCategories();
-        setCategories(categoriesData.categories || []);
-        
-        // Initialize is_annual from categories
-        const isAnnualMapFromDB = {};
-        (categoriesData.categories || []).forEach(cat => {
-          if (cat.is_annual) {
-            isAnnualMapFromDB[cat.name] = true;
-          }
-        });
-        setIsAnnual(prev => ({ ...prev, ...isAnnualMapFromDB }));
+      setIsAnnual(isAnnualMap);
         
         // Helper function to check if two categories are duplicates
         const isDuplicateCategory = (name1, name2) => {
