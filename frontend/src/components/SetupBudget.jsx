@@ -714,7 +714,7 @@ function SetupBudget({ onBudgetSaved }) {
                 <span className="text-sm text-gray-600 dark:text-gray-400">Monthly Income</span>
                 <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {userProfile.monthlyIncome.toLocaleString('es-ES')}€
-                </div>
+                </span>
               </div>
               <div className="mt-2">
                 <div className="flex items-center justify-between mb-1">
