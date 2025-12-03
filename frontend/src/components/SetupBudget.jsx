@@ -154,53 +154,54 @@ function SetupBudget({ onBudgetSaved }) {
       // Ensure categoriesData is defined before using it
       if (categoriesData && categoriesData.categories) {
         (categoriesData.categories || []).forEach(cat => {
-        if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
-          // Exclude transfers and NC categories
-          if (excludedCategories.includes(cat.name)) {
-            return;
-          }
-          
-          // Check if this category is a duplicate
-          let isDuplicate = false;
-          let existingKey = null;
-          
-          for (const key in allBudgetsMap) {
-            if (isDuplicateCategory(cat.name, key)) {
-              isDuplicate = true;
-              // Prefer hierarchical format
-              if (cat.name.includes(' > ')) {
-                // New category is hierarchical, replace old format
-                existingKey = key;
-                break;
-              } else if (key.includes(' > ')) {
-                // Existing category is hierarchical, keep it and merge budget
-                existingKey = key;
-                break;
-              } else {
-                // Both are old format, use existing
-                existingKey = key;
-                break;
+          if (cat.budget_amount && parseFloat(cat.budget_amount) > 0) {
+            // Exclude transfers and NC categories
+            if (excludedCategories.includes(cat.name)) {
+              return;
+            }
+            
+            // Check if this category is a duplicate
+            let isDuplicate = false;
+            let existingKey = null;
+            
+            for (const key in allBudgetsMap) {
+              if (isDuplicateCategory(cat.name, key)) {
+                isDuplicate = true;
+                // Prefer hierarchical format
+                if (cat.name.includes(' > ')) {
+                  // New category is hierarchical, replace old format
+                  existingKey = key;
+                  break;
+                } else if (key.includes(' > ')) {
+                  // Existing category is hierarchical, keep it and merge budget
+                  existingKey = key;
+                  break;
+                } else {
+                  // Both are old format, use existing
+                  existingKey = key;
+                  break;
+                }
               }
             }
+            
+            if (!isDuplicate) {
+              // No duplicate found, add the category
+              allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
+            } else if (existingKey && cat.name.includes(' > ')) {
+              // Duplicate found and new category is hierarchical - replace old format
+              const oldBudget = allBudgetsMap[existingKey] || 0;
+              const newBudget = parseFloat(cat.budget_amount);
+              delete allBudgetsMap[existingKey];
+              allBudgetsMap[cat.name] = oldBudget + newBudget;
+            } else if (existingKey && existingKey.includes(' > ')) {
+              // Duplicate found and existing category is hierarchical - merge budget into existing
+              const existingBudget = allBudgetsMap[existingKey] || 0;
+              const newBudget = parseFloat(cat.budget_amount);
+              allBudgetsMap[existingKey] = existingBudget + newBudget;
+            }
           }
-          
-          if (!isDuplicate) {
-            // No duplicate found, add the category
-            allBudgetsMap[cat.name] = parseFloat(cat.budget_amount);
-          } else if (existingKey && cat.name.includes(' > ')) {
-            // Duplicate found and new category is hierarchical - replace old format
-            const oldBudget = allBudgetsMap[existingKey] || 0;
-            const newBudget = parseFloat(cat.budget_amount);
-            delete allBudgetsMap[existingKey];
-            allBudgetsMap[cat.name] = oldBudget + newBudget;
-          } else if (existingKey && existingKey.includes(' > ')) {
-            // Duplicate found and existing category is hierarchical - merge budget into existing
-            const existingBudget = allBudgetsMap[existingKey] || 0;
-            const newBudget = parseFloat(cat.budget_amount);
-            allBudgetsMap[existingKey] = existingBudget + newBudget;
-          }
-        }
-      });
+        });
+      }
       
       // Remove parent categories that have children (to avoid double-counting)
       const finalBudgetsMap = {};
@@ -628,19 +629,33 @@ function SetupBudget({ onBudgetSaved }) {
         
         {/* Calculate separate monthly and annual budgets */}
         {(() => {
+          // Debug: Log current state
+          console.log('🔍 Budget Summary Calculation:');
+          console.log('  - allCategoryBudgets keys:', Object.keys(allCategoryBudgets).length);
+          console.log('  - isAnnual keys:', Object.keys(isAnnual).length);
+          console.log('  - isAnnual values:', isAnnual);
+          
           // For annual categories, we need to get the annual amount from the database
           // allCategoryBudgets stores the annual amount (not divided), so for annual categories
           // we need to divide by 12 to get the monthly equivalent for display
-          const monthlyBudget = Object.entries(allCategoryBudgets)
-            .filter(([catName]) => !isAnnual[catName])
+          const monthlyEntries = Object.entries(allCategoryBudgets)
+            .filter(([catName]) => !isAnnual[catName]);
+          const monthlyBudget = monthlyEntries
             .reduce((sum, [, budget]) => sum + (budget || 0), 0);
           
           // For annual categories, budget is the annual amount, so divide by 12 for monthly equivalent
-          const annualBudgetMonthlyEquivalent = Object.entries(allCategoryBudgets)
-            .filter(([catName]) => isAnnual[catName])
+          const annualEntries = Object.entries(allCategoryBudgets)
+            .filter(([catName]) => isAnnual[catName]);
+          const annualBudgetMonthlyEquivalent = annualEntries
             .reduce((sum, [, budget]) => sum + ((budget || 0) / 12), 0);
           
           const totalBudget = monthlyBudget + annualBudgetMonthlyEquivalent;
+          
+          console.log('  - Monthly entries:', monthlyEntries.length);
+          console.log('  - Annual entries:', annualEntries.length);
+          console.log('  - Monthly budget:', monthlyBudget);
+          console.log('  - Annual budget (monthly equiv):', annualBudgetMonthlyEquivalent);
+          console.log('  - Total budget:', totalBudget);
           
           return (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
