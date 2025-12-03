@@ -63,107 +63,164 @@ export const getCategoryIcon = (category) => {
   if (!category) return HelpCircle;
   
   const categoryIcons = {
-    // Vivienda y hogar
+    // Vivienda y hogar (hierarchical format)
+    'Vivienda > Hogar': Home,
+    'Vivienda > Hipoteca': Building,
+    'Vivienda > Alquiler y compra': Home,
+    'Vivienda > Mantenimiento hogar': Wrench,
+    'Vivienda > Otros vivienda': Home,
+    'Vivienda > Servicio doméstico': Home,
+    'Vivienda > Alarmas y seguridad': ShieldCheck,
+    'Vivienda > Comunidad': Users,
+    
+    // Alimentación (hierarchical format)
+    'Alimentación > Supermercado': Store,
+    'Alimentación > Restaurante': Utensils,
+    
+    // Transporte (hierarchical format)
+    'Transporte > Transportes': Car,
+    'Transporte > Gasolina': Fuel,
+    'Transporte > Mantenimiento vehículo': Wrench,
+    'Transporte > Alquiler vehículos': Car,
+    'Transporte > Parking y peaje': ParkingCircle,
+    'Transporte > Compra vehículo': Truck,
+    
+    // Salud (hierarchical format)
+    'Salud > Médico': Heart,
+    'Salud > Farmacia': Plus,
+    'Salud > Óptica y dentista': Heart,
+    'Salud > Otros salud, saber y deporte': Activity,
+    
+    // Seguros (hierarchical format)
+    'Seguros > Seguros': Shield,
+    'Seguros > Seguro salud': Shield,
+    'Seguros > Seguro hogar': Shield,
+    'Seguros > Seguro auto': Shield,
+    'Seguros > Otros seguros': Shield,
+    
+    // Servicios (hierarchical format)
+    'Servicios > Agua': Droplet,
+    'Servicios > Electricidad': Lightbulb,
+    'Servicios > Internet': Wifi,
+    'Servicios > Móvil': Smartphone,
+    'Servicios > Televisión': Tv,
+    'Servicios > Cargos bancarios': CreditCard,
+    'Servicios > Servicios y productos online': Globe,
+    'Servicios > Otros servicios': Boxes,
+    
+    // Compras (hierarchical format)
+    'Compras > Compras': ShoppingBag,
+    'Compras > Otras compras': Package,
+    'Compras > Ropa': Shirt,
+    'Compras > Electrónica': Laptop,
+    
+    // Ocio (hierarchical format)
+    'Ocio > Entretenimiento': Film,
+    'Ocio > Espectáculos': Ticket,
+    'Ocio > Vacation': VacationIcon,
+    'Ocio > Otros ocio': Music,
+    'Ocio > Loterías': DollarSign,
+    
+    // Educación (hierarchical format)
+    'Educación > Estudios': BookOpen,
+    'Educación > Librería': Book,
+    
+    // Deporte (hierarchical format)
+    'Deporte > Deporte': Dumbbell,
+    'Deporte > Material deportivo': Dumbbell,
+    
+    // Personal (hierarchical format)
+    'Personal > Regalos': Gift,
+    'Personal > Belleza': Sparkles,
+    'Personal > Niños y mascotas': Baby,
+    
+    // Asociaciones (hierarchical format)
+    'Asociaciones > Asociaciones': Users,
+    
+    // Organismos (hierarchical format)
+    'Organismos > Impuestos': Landmark,
+    'Organismos > Seguridad Social': Building,
+    'Organismos > Ayuntamiento': Building,
+    'Organismos > Otros organismos': Building,
+    
+    // Profesionales (hierarchical format)
+    'Profesionales > Asesores y abogados': Briefcase,
+    'Profesionales > Mutuas y licencias': FileCheck,
+    
+    // Finanzas (hierarchical format)
+    'Finanzas > Ingresos': TrendingUp,
+    'Finanzas > Transferencias': ArrowLeftRight,
+    'Finanzas > Ahorro e inversiones': PiggyBank,
+    'Finanzas > Préstamos': FileText,
+    'Finanzas > Efectivo': Coins,
+    
+    // Otros (hierarchical format)
+    'Otros > Otros': Boxes,
+    'Otros > Otros gastos': Boxes,
+    'Otros > Sin categoría': HelpCircle,
+    
+    // Legacy support (non-hierarchical) - kept for backward compatibility
     'Hogar': Home,
     'Hipoteca': Building,
     'Alquiler y compra': Home,
     'Mantenimiento hogar': Wrench,
     'Otros vivienda': Home,
-    'Servicio doméstico': Home, // Legacy support
-    'Vivienda > Servicio doméstico': Home,
+    'Servicio doméstico': Home,
     'Alarmas y seguridad': ShieldCheck,
-    
-    // Alimentación
+    'Comunidad': Users,
     'Supermercado': Store,
     'Restaurante': Utensils,
-    
-    // Transporte
     'Transportes': Car,
     'Gasolina': Fuel,
     'Mantenimiento vehículo': Wrench,
     'Alquiler vehículos': Car,
     'Parking y peaje': ParkingCircle,
     'Compra vehículo': Truck,
-    
-    // Salud
     'Médico': Heart,
     'Farmacia': Plus,
     'Óptica y dentista': Heart,
     'Otros salud, saber y deporte': Activity,
-    
-    // Seguros
     'Seguros': Shield,
     'Seguro salud': Shield,
     'Seguro hogar': Shield,
     'Seguro auto': Shield,
     'Otros seguros': Shield,
-    
-    // Servicios y utilidades
     'Agua': Droplet,
     'Electricidad': Lightbulb,
     'Internet': Wifi,
     'Móvil': Smartphone,
     'Televisión': Tv,
-    
-    // Servicios y cargos
     'Cargos bancarios': CreditCard,
     'Servicios y productos online': Globe,
     'Otros servicios': Boxes,
-    
-    // Compras
     'Compras': ShoppingBag,
     'Otras compras': Package,
     'Ropa': Shirt,
     'Electrónica': Laptop,
-    
-    // Ocio y entretenimiento
     'Entretenimiento': Film,
     'Espectáculos': Ticket,
     'Vacation': VacationIcon,
-    'Ocio > Vacation': VacationIcon,
     'Otros ocio': Music,
     'Loterías': DollarSign,
-    
-    // Educación y cultura
     'Estudios': BookOpen,
     'Librería': Book,
-    
-    // Deporte
     'Deporte': Dumbbell,
     'Material deportivo': Dumbbell,
-    
-    // Familia y personal
     'Regalos': Gift,
     'Belleza': Sparkles,
     'Niños y mascotas': Baby,
-    
-    // Comunidad y asociaciones
-    'Comunidad': Users,
     'Asociaciones': Users,
-    
-    // Organismos oficiales
     'Impuestos': Landmark,
     'Seguridad Social': Building,
     'Ayuntamiento': Building,
     'Otros organismos': Building,
-    
-    // Profesionales
     'Asesores y abogados': Briefcase,
     'Mutuas y licencias': FileCheck,
-    
-    // Finanzas
-    'Ingresos': TrendingUp, // Legacy support - use 'Finanzas > Ingresos'
-    'Finanzas > Ingresos': TrendingUp,
-    'Transferencias': ArrowLeftRight, // Legacy support - use 'Finanzas > Transferencias'
-    'Finanzas > Transferencias': ArrowLeftRight,
-    'Ahorro e inversiones': PiggyBank, // Legacy support - use 'Finanzas > Ahorro e inversiones'
-    'Finanzas > Ahorro e inversiones': PiggyBank,
-    'Préstamos': FileText, // Legacy support - use 'Finanzas > Préstamos'
-    'Finanzas > Préstamos': FileText,
-    'Efectivo': Coins, // Legacy support - use 'Finanzas > Efectivo'
-    'Finanzas > Efectivo': Coins,
-    
-    // Otros
+    'Ingresos': TrendingUp,
+    'Transferencias': ArrowLeftRight,
+    'Ahorro e inversiones': PiggyBank,
+    'Préstamos': FileText,
+    'Efectivo': Coins,
     'Otros': Boxes,
     'Otros gastos': Boxes,
     'Sin categoría': HelpCircle,
@@ -193,88 +250,88 @@ export const getCategoryIcon = (category) => {
 export const getAllCategoriesWithIcons = () => {
   const categories = [
     // Vivienda y hogar
-    { name: 'Hogar', icon: Home, group: 'Vivienda' },
-    { name: 'Hipoteca', icon: Building, group: 'Vivienda' },
-    { name: 'Alquiler y compra', icon: Home, group: 'Vivienda' },
-    { name: 'Mantenimiento hogar', icon: Wrench, group: 'Vivienda' },
-    { name: 'Otros vivienda', icon: Home, group: 'Vivienda' },
+    { name: 'Vivienda > Hogar', icon: Home, group: 'Vivienda' },
+    { name: 'Vivienda > Hipoteca', icon: Building, group: 'Vivienda' },
+    { name: 'Vivienda > Alquiler y compra', icon: Home, group: 'Vivienda' },
+    { name: 'Vivienda > Mantenimiento hogar', icon: Wrench, group: 'Vivienda' },
+    { name: 'Vivienda > Otros vivienda', icon: Home, group: 'Vivienda' },
     { name: 'Vivienda > Servicio doméstico', icon: Home, group: 'Vivienda' },
-    { name: 'Alarmas y seguridad', icon: ShieldCheck, group: 'Vivienda' },
-    { name: 'Comunidad', icon: Users, group: 'Vivienda' },
+    { name: 'Vivienda > Alarmas y seguridad', icon: ShieldCheck, group: 'Vivienda' },
+    { name: 'Vivienda > Comunidad', icon: Users, group: 'Vivienda' },
     
     // Alimentación
-    { name: 'Supermercado', icon: Store, group: 'Alimentación' },
-    { name: 'Restaurante', icon: Utensils, group: 'Alimentación' },
+    { name: 'Alimentación > Supermercado', icon: Store, group: 'Alimentación' },
+    { name: 'Alimentación > Restaurante', icon: Utensils, group: 'Alimentación' },
     
     // Transporte
-    { name: 'Transportes', icon: Car, group: 'Transporte' },
-    { name: 'Gasolina', icon: Fuel, group: 'Transporte' },
-    { name: 'Mantenimiento vehículo', icon: Wrench, group: 'Transporte' },
-    { name: 'Alquiler vehículos', icon: Car, group: 'Transporte' },
-    { name: 'Parking y peaje', icon: ParkingCircle, group: 'Transporte' },
-    { name: 'Compra vehículo', icon: Truck, group: 'Transporte' },
+    { name: 'Transporte > Transportes', icon: Car, group: 'Transporte' },
+    { name: 'Transporte > Gasolina', icon: Fuel, group: 'Transporte' },
+    { name: 'Transporte > Mantenimiento vehículo', icon: Wrench, group: 'Transporte' },
+    { name: 'Transporte > Alquiler vehículos', icon: Car, group: 'Transporte' },
+    { name: 'Transporte > Parking y peaje', icon: ParkingCircle, group: 'Transporte' },
+    { name: 'Transporte > Compra vehículo', icon: Truck, group: 'Transporte' },
     
     // Salud
-    { name: 'Médico', icon: Heart, group: 'Salud' },
-    { name: 'Farmacia', icon: Plus, group: 'Salud' },
-    { name: 'Óptica y dentista', icon: Heart, group: 'Salud' },
-    { name: 'Otros salud, saber y deporte', icon: Activity, group: 'Salud' },
+    { name: 'Salud > Médico', icon: Heart, group: 'Salud' },
+    { name: 'Salud > Farmacia', icon: Plus, group: 'Salud' },
+    { name: 'Salud > Óptica y dentista', icon: Heart, group: 'Salud' },
+    { name: 'Salud > Otros salud, saber y deporte', icon: Activity, group: 'Salud' },
     
     // Seguros
-    { name: 'Seguros', icon: Shield, group: 'Seguros' },
-    { name: 'Seguro salud', icon: Shield, group: 'Seguros' },
-    { name: 'Seguro hogar', icon: Shield, group: 'Seguros' },
-    { name: 'Seguro auto', icon: Shield, group: 'Seguros' },
-    { name: 'Otros seguros', icon: Shield, group: 'Seguros' },
+    { name: 'Seguros > Seguros', icon: Shield, group: 'Seguros' },
+    { name: 'Seguros > Seguro salud', icon: Shield, group: 'Seguros' },
+    { name: 'Seguros > Seguro hogar', icon: Shield, group: 'Seguros' },
+    { name: 'Seguros > Seguro auto', icon: Shield, group: 'Seguros' },
+    { name: 'Seguros > Otros seguros', icon: Shield, group: 'Seguros' },
     
     // Servicios y utilidades
-    { name: 'Agua', icon: Droplet, group: 'Servicios' },
-    { name: 'Electricidad', icon: Lightbulb, group: 'Servicios' },
-    { name: 'Internet', icon: Wifi, group: 'Servicios' },
-    { name: 'Móvil', icon: Smartphone, group: 'Servicios' },
-    { name: 'Televisión', icon: Tv, group: 'Servicios' },
-    { name: 'Cargos bancarios', icon: CreditCard, group: 'Servicios' },
-    { name: 'Servicios y productos online', icon: Globe, group: 'Servicios' },
-    { name: 'Otros servicios', icon: Boxes, group: 'Servicios' },
+    { name: 'Servicios > Agua', icon: Droplet, group: 'Servicios' },
+    { name: 'Servicios > Electricidad', icon: Lightbulb, group: 'Servicios' },
+    { name: 'Servicios > Internet', icon: Wifi, group: 'Servicios' },
+    { name: 'Servicios > Móvil', icon: Smartphone, group: 'Servicios' },
+    { name: 'Servicios > Televisión', icon: Tv, group: 'Servicios' },
+    { name: 'Servicios > Cargos bancarios', icon: CreditCard, group: 'Servicios' },
+    { name: 'Servicios > Servicios y productos online', icon: Globe, group: 'Servicios' },
+    { name: 'Servicios > Otros servicios', icon: Boxes, group: 'Servicios' },
     
     // Compras
-    { name: 'Compras', icon: ShoppingBag, group: 'Compras' },
-    { name: 'Otras compras', icon: Package, group: 'Compras' },
-    { name: 'Ropa', icon: Shirt, group: 'Compras' },
-    { name: 'Electrónica', icon: Laptop, group: 'Compras' },
+    { name: 'Compras > Compras', icon: ShoppingBag, group: 'Compras' },
+    { name: 'Compras > Otras compras', icon: Package, group: 'Compras' },
+    { name: 'Compras > Ropa', icon: Shirt, group: 'Compras' },
+    { name: 'Compras > Electrónica', icon: Laptop, group: 'Compras' },
     
     // Ocio y entretenimiento
-    { name: 'Entretenimiento', icon: Film, group: 'Ocio' },
-    { name: 'Espectáculos', icon: Ticket, group: 'Ocio' },
+    { name: 'Ocio > Entretenimiento', icon: Film, group: 'Ocio' },
+    { name: 'Ocio > Espectáculos', icon: Ticket, group: 'Ocio' },
     { name: 'Ocio > Vacation', icon: VacationIcon, group: 'Ocio' },
-    { name: 'Otros ocio', icon: Music, group: 'Ocio' },
-    { name: 'Loterías', icon: DollarSign, group: 'Ocio' },
+    { name: 'Ocio > Otros ocio', icon: Music, group: 'Ocio' },
+    { name: 'Ocio > Loterías', icon: DollarSign, group: 'Ocio' },
     
     // Educación y cultura
-    { name: 'Estudios', icon: BookOpen, group: 'Educación' },
-    { name: 'Librería', icon: Book, group: 'Educación' },
+    { name: 'Educación > Estudios', icon: BookOpen, group: 'Educación' },
+    { name: 'Educación > Librería', icon: Book, group: 'Educación' },
     
     // Deporte
-    { name: 'Deporte', icon: Dumbbell, group: 'Deporte' },
-    { name: 'Material deportivo', icon: Dumbbell, group: 'Deporte' },
+    { name: 'Deporte > Deporte', icon: Dumbbell, group: 'Deporte' },
+    { name: 'Deporte > Material deportivo', icon: Dumbbell, group: 'Deporte' },
     
     // Familia y personal
-    { name: 'Regalos', icon: Gift, group: 'Personal' },
-    { name: 'Belleza', icon: Sparkles, group: 'Personal' },
-    { name: 'Niños y mascotas', icon: Baby, group: 'Personal' },
+    { name: 'Personal > Regalos', icon: Gift, group: 'Personal' },
+    { name: 'Personal > Belleza', icon: Sparkles, group: 'Personal' },
+    { name: 'Personal > Niños y mascotas', icon: Baby, group: 'Personal' },
     
     // Asociaciones
-    { name: 'Asociaciones', icon: Users, group: 'Asociaciones' },
+    { name: 'Asociaciones > Asociaciones', icon: Users, group: 'Asociaciones' },
     
     // Organismos oficiales
-    { name: 'Impuestos', icon: Landmark, group: 'Organismos' },
-    { name: 'Seguridad Social', icon: Building, group: 'Organismos' },
-    { name: 'Ayuntamiento', icon: Building, group: 'Organismos' },
-    { name: 'Otros organismos', icon: Building, group: 'Organismos' },
+    { name: 'Organismos > Impuestos', icon: Landmark, group: 'Organismos' },
+    { name: 'Organismos > Seguridad Social', icon: Building, group: 'Organismos' },
+    { name: 'Organismos > Ayuntamiento', icon: Building, group: 'Organismos' },
+    { name: 'Organismos > Otros organismos', icon: Building, group: 'Organismos' },
     
     // Profesionales
-    { name: 'Asesores y abogados', icon: Briefcase, group: 'Profesionales' },
-    { name: 'Mutuas y licencias', icon: FileCheck, group: 'Profesionales' },
+    { name: 'Profesionales > Asesores y abogados', icon: Briefcase, group: 'Profesionales' },
+    { name: 'Profesionales > Mutuas y licencias', icon: FileCheck, group: 'Profesionales' },
     
     // Finanzas
     { name: 'Finanzas > Ingresos', icon: TrendingUp, group: 'Finanzas' },
@@ -284,9 +341,9 @@ export const getAllCategoriesWithIcons = () => {
     { name: 'Finanzas > Efectivo', icon: Coins, group: 'Finanzas' },
     
     // Otros
-    { name: 'Otros', icon: Boxes, group: 'Otros' },
-    { name: 'Otros gastos', icon: Boxes, group: 'Otros' },
-    { name: 'Sin categoría', icon: HelpCircle, group: 'Otros' },
+    { name: 'Otros > Otros', icon: Boxes, group: 'Otros' },
+    { name: 'Otros > Otros gastos', icon: Boxes, group: 'Otros' },
+    { name: 'Otros > Sin categoría', icon: HelpCircle, group: 'Otros' },
   ];
   
   return categories;

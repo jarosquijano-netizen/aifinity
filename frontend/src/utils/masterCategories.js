@@ -119,6 +119,118 @@ export function normalizeCategory(category) {
     'deporte': 'Deporte > Deporte',
     'sports': 'Deporte > Deporte',
     
+    // Services -> Servicios > Servicios y productos online
+    'servicios y productos online': 'Servicios > Servicios y productos online',
+    'servicios y productos online': 'Servicios > Servicios y productos online',
+    'online services': 'Servicios > Servicios y productos online',
+    'online products': 'Servicios > Servicios y productos online',
+    
+    // Services -> Servicios > Agua
+    'agua': 'Servicios > Agua',
+    'water': 'Servicios > Agua',
+    
+    // Services -> Servicios > Electricidad
+    'electricidad': 'Servicios > Electricidad',
+    'electricity': 'Servicios > Electricidad',
+    'luz': 'Servicios > Electricidad',
+    
+    // Services -> Servicios > Internet
+    'internet': 'Servicios > Internet',
+    'fibra': 'Servicios > Internet',
+    
+    // Services -> Servicios > Móvil
+    'móvil': 'Servicios > Móvil',
+    'movil': 'Servicios > Móvil',
+    'mobile': 'Servicios > Móvil',
+    
+    // Services -> Servicios > Televisión
+    'televisión': 'Servicios > Televisión',
+    'television': 'Servicios > Televisión',
+    'tv': 'Servicios > Televisión',
+    
+    // Services -> Servicios > Cargos bancarios
+    'cargos bancarios': 'Servicios > Cargos bancarios',
+    'bank fees': 'Servicios > Cargos bancarios',
+    'comision': 'Servicios > Cargos bancarios',
+    'comisión': 'Servicios > Cargos bancarios',
+    
+    // Housing -> Vivienda > Alquiler y compra
+    'alquiler y compra': 'Vivienda > Alquiler y compra',
+    'alquiler': 'Vivienda > Alquiler y compra',
+    'rent': 'Vivienda > Alquiler y compra',
+    
+    // Housing -> Vivienda > Mantenimiento hogar
+    'mantenimiento hogar': 'Vivienda > Mantenimiento hogar',
+    'home maintenance': 'Vivienda > Mantenimiento hogar',
+    
+    // Housing -> Vivienda > Comunidad
+    'comunidad': 'Vivienda > Comunidad',
+    'community': 'Vivienda > Comunidad',
+    
+    // Transport -> Transporte > Mantenimiento vehículo
+    'mantenimiento vehículo': 'Transporte > Mantenimiento vehículo',
+    'mantenimiento vehiculo': 'Transporte > Mantenimiento vehículo',
+    'vehicle maintenance': 'Transporte > Mantenimiento vehículo',
+    
+    // Transport -> Transporte > Parking y peaje
+    'parking y peaje': 'Transporte > Parking y peaje',
+    'parking': 'Transporte > Parking y peaje',
+    'peaje': 'Transporte > Parking y peaje',
+    
+    // Health -> Salud > Óptica y dentista
+    'óptica y dentista': 'Salud > Óptica y dentista',
+    'optica y dentista': 'Salud > Óptica y dentista',
+    'dentist': 'Salud > Óptica y dentista',
+    
+    // Insurance -> Seguros > Seguro salud
+    'seguro salud': 'Seguros > Seguro salud',
+    'health insurance': 'Seguros > Seguro salud',
+    
+    // Insurance -> Seguros > Seguro auto
+    'seguro auto': 'Seguros > Seguro auto',
+    'car insurance': 'Seguros > Seguro auto',
+    
+    // Shopping -> Compras > Ropa
+    'ropa': 'Compras > Ropa',
+    'clothing': 'Compras > Ropa',
+    
+    // Shopping -> Compras > Electrónica
+    'electrónica': 'Compras > Electrónica',
+    'electronica': 'Compras > Electrónica',
+    'electronics': 'Compras > Electrónica',
+    
+    // Entertainment -> Ocio > Espectáculos
+    'espectáculos': 'Ocio > Espectáculos',
+    'espectaculos': 'Ocio > Espectáculos',
+    'shows': 'Ocio > Espectáculos',
+    
+    // Education -> Educación > Librería
+    'librería': 'Educación > Librería',
+    'libreria': 'Educación > Librería',
+    'bookstore': 'Educación > Librería',
+    
+    // Sports -> Deporte > Material deportivo
+    'material deportivo': 'Deporte > Material deportivo',
+    'sports equipment': 'Deporte > Material deportivo',
+    
+    // Personal -> Personal > Regalos
+    'regalos': 'Personal > Regalos',
+    'gifts': 'Personal > Regalos',
+    
+    // Personal -> Personal > Belleza
+    'belleza': 'Personal > Belleza',
+    'beauty': 'Personal > Belleza',
+    
+    // Personal -> Personal > Niños y mascotas
+    'niños y mascotas': 'Personal > Niños y mascotas',
+    'ninos y mascotas': 'Personal > Niños y mascotas',
+    'kids and pets': 'Personal > Niños y mascotas',
+    
+    // Taxes -> Organismos > Impuestos
+    'impuestos': 'Organismos > Impuestos',
+    'taxes': 'Organismos > Impuestos',
+    'hacienda': 'Organismos > Impuestos',
+    
     // Others -> Otros > Otros
     'otros': 'Otros > Otros',
     'other': 'Otros > Otros',
