@@ -199,9 +199,22 @@ function categorizeTransaction(description) {
     return 'Impuestos';
   }
 
-  // Loans
-  if (desc.includes('prestamo') || desc.includes('loan') || desc.includes('credito') ||
-      desc.includes('credit') || desc.includes('financiacion') || desc.includes('financing')) {
+  // Credit Card Payments (must check BEFORE loans)
+  // Pagos a tarjeta de crédito son transferencias, no préstamos
+  if (desc.includes('tarjeta credito') || desc.includes('tarjeta crédito') ||
+      desc.includes('tarjeta de credito') || desc.includes('tarjeta de crédito') ||
+      desc.includes('pago tarjeta') || desc.includes('liquidacion tarjeta') ||
+      desc.includes('liquidación tarjeta') || desc.includes('cargo tarjeta') ||
+      desc.includes('pago visa') || desc.includes('pago mastercard') ||
+      desc.includes('credit card payment') || desc.includes('pago tarjeta credito') ||
+      (desc.includes('visa') && (desc.includes('pago') || desc.includes('cargo') || desc.includes('liquidacion')))) {
+    return 'Transferencias';
+  }
+  
+  // Loans (exclude credit card payments)
+  if ((desc.includes('prestamo') || desc.includes('loan') || desc.includes('credito') ||
+      desc.includes('credit') || desc.includes('financiacion') || desc.includes('financing')) &&
+      !desc.includes('tarjeta')) { // Exclude if mentions "tarjeta"
     return 'Préstamos';
   }
 

@@ -317,10 +317,27 @@ function categorizeTransaction(description) {
   }
   
   // === LOANS ===
-  if (descLower.includes('prestamo') || descLower.includes('préstamo') ||
+  // === CREDIT CARD PAYMENTS (must check BEFORE loans) ===
+  // Pagos a tarjeta de crédito son transferencias, no préstamos
+  if (descLower.includes('tarjeta credito') || descLower.includes('tarjeta crédito') ||
+      descLower.includes('tarjeta de credito') || descLower.includes('tarjeta de crédito') ||
+      descLower.includes('pago tarjeta') || descLower.includes('liquidacion tarjeta') ||
+      descLower.includes('liquidación tarjeta') || descLower.includes('cargo tarjeta') ||
+      descLower.includes('pago visa') || descLower.includes('pago mastercard') ||
+      descLower.includes('pago american express') || descLower.includes('pago amex') ||
+      descLower.includes('credit card payment') || descLower.includes('pago tarjeta credito') ||
+      descLower.includes('pago tarjeta crédito') ||
+      (descLower.includes('visa') && (descLower.includes('pago') || descLower.includes('cargo') || descLower.includes('liquidacion')))) {
+    return 'Finanzas > Transferencias';
+  }
+  
+  // === LOANS & FINANCING ===
+  // Excluir pagos a tarjeta de crédito (ya manejados arriba)
+  if ((descLower.includes('prestamo') || descLower.includes('préstamo') ||
       descLower.includes('loan') || descLower.includes('financiera') ||
       descLower.includes('cetelem') || descLower.includes('credito') ||
-      descLower.includes('crédito') || descLower.includes('cuota')) {
+      descLower.includes('crédito') || descLower.includes('cuota')) &&
+      !descLower.includes('tarjeta')) { // Excluir si menciona "tarjeta"
     return 'Finanzas > Préstamos';
   }
   
