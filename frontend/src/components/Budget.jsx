@@ -105,13 +105,22 @@ function Budget({ onNavigateToTransactions }) {
       return 'safe'; // Always safe for annual categories
     }
     
+    // Calculate percentage more accurately, handling edge cases
     const percentage = category.percentage || 0;
+    const spent = category.spent || 0;
+    const budget = category.budget || 0;
     
-    if (percentage >= 100) return 'over'; // 🔴 Over Budget
-    if (percentage >= 90) return 'closeToLimit'; // ⚠️ Close to Limit (90-99%)
-    if (percentage >= 75) return 'watch'; // ⚡ Watch (75-89%)
-    if (percentage >= 50) return 'onTrack'; // 📊 On Track (50-74%)
-    return 'safe'; // ✅ Safe (0-49%)
+    // Recalculate percentage if needed to ensure accuracy
+    const calculatedPercentage = budget > 0 ? (spent / budget) * 100 : 0;
+    const finalPercentage = Math.max(percentage, calculatedPercentage); // Use the higher value to catch edge cases
+    
+    // Use stricter thresholds - anything >= 98% should be "closeToLimit" or "over"
+    if (finalPercentage >= 100 || spent >= budget) return 'over'; // 🔴 Over Budget (>= 100% or spent >= budget)
+    if (finalPercentage >= 98) return 'closeToLimit'; // ⚠️ Close to Limit (98-99.99%) - stricter threshold
+    if (finalPercentage >= 90) return 'closeToLimit'; // ⚠️ Close to Limit (90-97.99%)
+    if (finalPercentage >= 75) return 'watch'; // ⚡ Watch (75-89.99%)
+    if (finalPercentage >= 50) return 'onTrack'; // 📊 On Track (50-74.99%)
+    return 'safe'; // ✅ Safe (0-49.99%)
   };
 
   // Enhanced status styling
