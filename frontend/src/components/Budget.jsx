@@ -666,9 +666,12 @@ function Budget({ onNavigateToTransactions }) {
                                 {category.transactionCount > 0 && (
                                   onNavigateToTransactions ? (
                                     <button
-                                      onClick={() => onNavigateToTransactions({ category: category.name })}
+                                      onClick={() => onNavigateToTransactions({ 
+                                        category: category.name,
+                                        month: selectedMonth 
+                                      })}
                                       className="text-sm text-gray-500 dark:text-gray-400 font-medium hover:text-primary dark:hover:text-blue-400 hover:underline cursor-pointer transition-colors"
-                                      title={`View ${category.transactionCount} transactions`}
+                                      title={`View ${category.transactionCount} transactions for ${category.name} in ${selectedMonth}`}
                                     >
                                       ({category.transactionCount} trans.)
                                     </button>
