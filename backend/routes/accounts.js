@@ -418,33 +418,53 @@ router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
 // Find and remove duplicate transactions, then recalculate balances
 router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) => {
   const client = await pool.connect();
+  let transactionStarted = false;
   
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const { dryRun = false } = req.body;
     
-    console.log('🔍 Finding duplicate transactions...');
+    console.log('🔍 Finding duplicate transactions...', { userId, dryRun });
     if (dryRun) {
       console.log('⚠️  DRY RUN MODE - No changes will be made');
     }
     
-    // Find all duplicate groups
-    const duplicatesQuery = await client.query(
-      `SELECT 
-        date,
-        description,
-        amount,
-        account_id,
-        user_id,
-        COUNT(*) as count,
-        ARRAY_AGG(id ORDER BY id ASC) as transaction_ids
-      FROM transactions
-      WHERE (user_id IS NULL OR user_id = $1)
-      GROUP BY date, description, amount, account_id, user_id
-      HAVING COUNT(*) > 1
-      ORDER BY date DESC`,
-      [userId]
-    );
+    // Find all duplicate groups - handle null userId properly
+    let duplicatesQuery;
+    if (userId) {
+      duplicatesQuery = await client.query(
+        `SELECT 
+          date,
+          description,
+          amount,
+          account_id,
+          user_id,
+          COUNT(*) as count,
+          ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids
+        FROM transactions
+        WHERE user_id = $1
+        GROUP BY date, description, amount, account_id, user_id
+        HAVING COUNT(*) > 1
+        ORDER BY date DESC`,
+        [userId]
+      );
+    } else {
+      duplicatesQuery = await client.query(
+        `SELECT 
+          date,
+          description,
+          amount,
+          account_id,
+          user_id,
+          COUNT(*) as count,
+          ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids
+        FROM transactions
+        WHERE user_id IS NULL
+        GROUP BY date, description, amount, account_id, user_id
+        HAVING COUNT(*) > 1
+        ORDER BY date DESC`
+      );
+    }
 
     const duplicateGroups = duplicatesQuery.rows;
     console.log(`📊 Found ${duplicateGroups.length} sets of duplicate transactions`);
@@ -464,7 +484,21 @@ router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) =>
 
     // Analyze duplicates
     duplicateGroups.forEach((dup) => {
-      const transactionIds = dup.transaction_ids;
+      // Ensure transaction_ids is an array (PostgreSQL might return it as a string)
+      let transactionIds = dup.transaction_ids;
+      if (typeof transactionIds === 'string') {
+        try {
+          transactionIds = JSON.parse(transactionIds);
+        } catch (e) {
+          // If parsing fails, try splitting by comma
+          transactionIds = transactionIds.split(',').map(id => parseInt(id.trim()));
+        }
+      }
+      if (!Array.isArray(transactionIds) || transactionIds.length < 2) {
+        console.warn('⚠️ Invalid transaction_ids format:', transactionIds);
+        return;
+      }
+      
       const keepId = transactionIds[0]; // Keep the oldest (first) transaction
       const deleteIds = transactionIds.slice(1); // Delete the rest
       
@@ -501,9 +535,22 @@ router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) =>
 
     // Start transaction
     await client.query('BEGIN');
+    transactionStarted = true;
 
     // Delete duplicate transactions
-    console.log('🗑️  Deleting duplicate transactions...');
+    console.log('🗑️  Deleting duplicate transactions...', { count: duplicatesToDelete.length });
+    
+    if (duplicatesToDelete.length === 0) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      client.release();
+      return res.json({ 
+        message: 'No duplicates to delete',
+        duplicatesFound: 0,
+        duplicatesRemoved: 0
+      });
+    }
+    
     const deleteResult = await client.query(
       `DELETE FROM transactions 
        WHERE id = ANY($1::int[])
@@ -573,9 +620,24 @@ router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) =>
     });
     
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Cleanup transaction duplicates error:', error);
-    res.status(500).json({ error: 'Failed to cleanup duplicate transactions' });
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Rollback error:', rollbackError);
+      }
+    }
+    console.error('❌ Cleanup transaction duplicates error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail
+    });
+    res.status(500).json({ 
+      error: 'Failed to cleanup duplicate transactions',
+      message: error.message || 'Unknown error occurred'
+    });
   } finally {
     if (client) {
       client.release();
