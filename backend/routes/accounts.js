@@ -429,52 +429,128 @@ router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) =>
       console.log('⚠️  DRY RUN MODE - No changes will be made');
     }
     
-    // Find all duplicate groups - handle null userId properly
+    // Find all duplicate groups - use flexible matching:
+    // 1. First try exact matches (date, description, amount, account_id, user_id)
+    // 2. Then try flexible matches (date, description, amount - ignoring account_id)
+    // This catches duplicates where account_id might differ (uploaded before/after account selection)
+    
     let duplicatesQuery;
     if (userId) {
+      // Try flexible matching first (ignoring account_id differences)
       duplicatesQuery = await client.query(
         `SELECT 
           date,
-          description,
+          TRIM(description) as description,
           amount,
           account_id,
           user_id,
           COUNT(*) as count,
-          ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids
+          ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids,
+          ARRAY_AGG(account_id) as account_ids
         FROM transactions
         WHERE user_id = $1
-        GROUP BY date, description, amount, account_id, user_id
+        GROUP BY date, TRIM(description), amount, user_id
         HAVING COUNT(*) > 1
         ORDER BY date DESC`,
         [userId]
       );
+      
+      // If no flexible matches, try exact matches
+      if (duplicatesQuery.rows.length === 0) {
+        duplicatesQuery = await client.query(
+          `SELECT 
+            date,
+            description,
+            amount,
+            account_id,
+            user_id,
+            COUNT(*) as count,
+            ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids
+          FROM transactions
+          WHERE user_id = $1
+          GROUP BY date, description, amount, account_id, user_id
+          HAVING COUNT(*) > 1
+          ORDER BY date DESC`,
+          [userId]
+        );
+      }
     } else {
+      // Try flexible matching first (ignoring account_id differences)
       duplicatesQuery = await client.query(
         `SELECT 
           date,
-          description,
+          TRIM(description) as description,
           amount,
           account_id,
           user_id,
           COUNT(*) as count,
-          ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids
+          ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids,
+          ARRAY_AGG(account_id) as account_ids
         FROM transactions
         WHERE user_id IS NULL
-        GROUP BY date, description, amount, account_id, user_id
+        GROUP BY date, TRIM(description), amount, user_id
         HAVING COUNT(*) > 1
         ORDER BY date DESC`
       );
+      
+      // If no flexible matches, try exact matches
+      if (duplicatesQuery.rows.length === 0) {
+        duplicatesQuery = await client.query(
+          `SELECT 
+            date,
+            description,
+            amount,
+            account_id,
+            user_id,
+            COUNT(*) as count,
+            ARRAY_AGG(id ORDER BY id ASC)::int[] as transaction_ids
+          FROM transactions
+          WHERE user_id IS NULL
+          GROUP BY date, description, amount, account_id, user_id
+          HAVING COUNT(*) > 1
+          ORDER BY date DESC`
+        );
+      }
     }
 
     const duplicateGroups = duplicatesQuery.rows;
     console.log(`📊 Found ${duplicateGroups.length} sets of duplicate transactions`);
+    
+    // Log sample duplicates for debugging
+    if (duplicateGroups.length > 0) {
+      console.log('Sample duplicates:');
+      duplicateGroups.slice(0, 3).forEach((dup, idx) => {
+        console.log(`  ${idx + 1}. Date: ${dup.date}, Amount: €${dup.amount}, Count: ${dup.count}`);
+        console.log(`     Description: ${dup.description?.substring(0, 60)}...`);
+        if (dup.account_ids) {
+          console.log(`     Account IDs: ${dup.account_ids.join(', ')}`);
+        }
+      });
+    }
 
     if (duplicateGroups.length === 0) {
+      // Check total transaction count for diagnostic info
+      let totalCountQuery;
+      if (userId) {
+        totalCountQuery = await client.query(
+          `SELECT COUNT(*) as total FROM transactions WHERE user_id = $1`,
+          [userId]
+        );
+      } else {
+        totalCountQuery = await client.query(
+          `SELECT COUNT(*) as total FROM transactions WHERE user_id IS NULL`
+        );
+      }
+      const totalTransactions = totalCountQuery.rows[0]?.total || 0;
+      
+      client.release();
       return res.json({ 
-        message: 'No duplicate transactions found',
+        message: 'No duplicate transactions found using flexible matching (date, description, amount). All transactions appear unique.',
         duplicatesFound: 0,
         duplicatesRemoved: 0,
-        accountsRecalculated: []
+        accountsRecalculated: [],
+        totalTransactions: parseInt(totalTransactions),
+        note: 'If balance is incorrect, try recalculating individual account balances using the refresh button.'
       });
     }
 
