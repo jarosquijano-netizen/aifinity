@@ -746,7 +746,7 @@ function Upload({ onUploadComplete }) {
               )}
               {results.balanceUpdated && (
                 <p className="text-xs text-blue-600 mt-1">
-                  ✅ Account balance updated from CSV
+                  ✅ Account balance replaced with CSV balance (replaces existing balance, does not add)
                 </p>
               )}
               <p className="text-xs text-gray-600 mt-1">

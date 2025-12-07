@@ -280,14 +280,26 @@ router.post('/upload', optionalAuth, async (req, res) => {
     }
 
     // Update account balance if lastBalance provided and account_id exists
+    // IMPORTANT: This REPLACES the balance (does not add to it)
+    // The balance from CSV represents the actual account balance after all transactions
     if (account_id && lastBalance !== undefined && lastBalance !== null) {
+      // Get current balance for logging
+      const currentBalanceResult = await client.query(
+        `SELECT balance, balance_source FROM bank_accounts WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
+        [account_id, userId]
+      );
+      const currentBalance = currentBalanceResult.rows[0]?.balance || 0;
+      const previousSource = currentBalanceResult.rows[0]?.balance_source || 'unknown';
+      
+      // REPLACE balance (do not add) - CSV balance is the absolute value
       await client.query(
         `UPDATE bank_accounts 
          SET balance = $1, balance_updated_at = NOW(), balance_source = 'csv'
          WHERE id = $2 AND (user_id IS NULL OR user_id = $3)`,
         [lastBalance, account_id, userId]
       );
-      console.log(`✅ Updated balance for account ${account_id}: €${lastBalance}`);
+      
+      console.log(`✅ Updated balance for account ${account_id}: €${currentBalance} → €${lastBalance} (source: ${previousSource} → csv)`);
     }
 
     // Update summaries
