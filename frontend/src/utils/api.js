@@ -157,6 +157,11 @@ export const recalculateAccountBalance = async (id) => {
   return response.data;
 };
 
+export const cleanupTransactionDuplicates = async (dryRun = false) => {
+  const response = await api.post('/accounts/cleanup-transaction-duplicates', { dryRun });
+  return response.data;
+};
+
 // Budget endpoints
 export const getBudgetOverview = async (month) => {
   const response = await api.get('/budget/overview', { params: { month } });

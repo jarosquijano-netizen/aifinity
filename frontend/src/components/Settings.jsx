@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Loader, Building2, Brain, Key, CheckCircle, Circle, Wallet, PiggyBank, TrendingUp, CreditCard, RefreshCw, Clock, DollarSign, Zap } from 'lucide-react';
-import { getAccounts, createAccount, updateAccount, deleteAccount, recalculateAccountBalance, getAIConfig, saveAIConfig, deleteAIConfig, activateAIConfig, getSettings, updateSettings, calculateExpectedIncome, updateExpectedFromActual } from '../utils/api';
+import { getAccounts, createAccount, updateAccount, deleteAccount, recalculateAccountBalance, cleanupTransactionDuplicates, getAIConfig, saveAIConfig, deleteAIConfig, activateAIConfig, getSettings, updateSettings, calculateExpectedIncome, updateExpectedFromActual } from '../utils/api';
 import AddAccountModal from './AddAccountModal';
 
 function Settings() {
@@ -11,6 +11,8 @@ function Settings() {
   const [editingAccount, setEditingAccount] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const [recalculatingAccountId, setRecalculatingAccountId] = useState(null);
+  const [cleaningDuplicates, setCleaningDuplicates] = useState(false);
+  const [duplicateCleanupResult, setDuplicateCleanupResult] = useState(null);
 
   // AI Configuration state
   const [aiConfigs, setAIConfigs] = useState([]);
@@ -110,6 +112,27 @@ function Settings() {
       console.error(err);
     } finally {
       setRecalculatingAccountId(null);
+    }
+  };
+
+  const handleCleanupDuplicates = async () => {
+    if (!window.confirm('This will find and remove duplicate transactions, then recalculate account balances. Continue?')) {
+      return;
+    }
+
+    try {
+      setCleaningDuplicates(true);
+      setError('');
+      setDuplicateCleanupResult(null);
+      const result = await cleanupTransactionDuplicates(false);
+      setDuplicateCleanupResult(result);
+      fetchAccounts(); // Reload accounts to get updated balances
+      setTimeout(() => setDuplicateCleanupResult(null), 10000); // Clear message after 10 seconds
+    } catch (err) {
+      setError('Failed to cleanup duplicate transactions');
+      console.error(err);
+    } finally {
+      setCleaningDuplicates(false);
     }
   };
 
@@ -351,14 +374,62 @@ function Settings() {
       <div className="card bg-white dark:bg-slate-800">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Accounts</h3>
-          <button
-            onClick={handleAddAccount}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleCleanupDuplicates}
+              disabled={cleaningDuplicates}
+              className="btn-secondary flex items-center space-x-2"
+              title="Find and remove duplicate transactions, then recalculate balances"
+            >
+              {cleaningDuplicates ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin" />
+                  <span>Cleaning...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Clean Duplicates</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleAddAccount}
+              className="btn-primary flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add</span>
+            </button>
+          </div>
         </div>
+
+        {/* Duplicate Cleanup Result */}
+        {duplicateCleanupResult && (
+          <div className={`mb-4 p-4 rounded-lg ${
+            duplicateCleanupResult.duplicatesRemoved > 0 
+              ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+              : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-semibold">{duplicateCleanupResult.message}</span>
+            </div>
+            {duplicateCleanupResult.duplicatesFound > 0 && (
+              <div className="text-sm mt-2">
+                <p>• Found {duplicateCleanupResult.duplicatesFound} duplicate group(s)</p>
+                <p>• Removed {duplicateCleanupResult.duplicatesRemoved} duplicate transaction(s)</p>
+                {duplicateCleanupResult.accountsRecalculated && duplicateCleanupResult.accountsRecalculated.length > 0 && (
+                  <div className="mt-2">
+                    <p className="font-semibold">Recalculated balances:</p>
+                    {duplicateCleanupResult.accountsRecalculated.map(acc => (
+                      <p key={acc.id}>• {acc.name}: €{acc.newBalance.toFixed(2)}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Show Archived Toggle */}
         <div className="flex items-center space-x-2 mb-4">

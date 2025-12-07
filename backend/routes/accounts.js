@@ -415,6 +415,174 @@ router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
   }
 });
 
+// Find and remove duplicate transactions, then recalculate balances
+router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { dryRun = false } = req.body;
+    
+    console.log('🔍 Finding duplicate transactions...');
+    if (dryRun) {
+      console.log('⚠️  DRY RUN MODE - No changes will be made');
+    }
+    
+    // Find all duplicate groups
+    const duplicatesQuery = await client.query(
+      `SELECT 
+        date,
+        description,
+        amount,
+        account_id,
+        user_id,
+        COUNT(*) as count,
+        ARRAY_AGG(id ORDER BY id ASC) as transaction_ids
+      FROM transactions
+      WHERE (user_id IS NULL OR user_id = $1)
+      GROUP BY date, description, amount, account_id, user_id
+      HAVING COUNT(*) > 1
+      ORDER BY date DESC`,
+      [userId]
+    );
+
+    const duplicateGroups = duplicatesQuery.rows;
+    console.log(`📊 Found ${duplicateGroups.length} sets of duplicate transactions`);
+
+    if (duplicateGroups.length === 0) {
+      return res.json({ 
+        message: 'No duplicate transactions found',
+        duplicatesFound: 0,
+        duplicatesRemoved: 0,
+        accountsRecalculated: []
+      });
+    }
+
+    let totalDuplicatesToDelete = 0;
+    const duplicatesToDelete = [];
+    const affectedAccounts = new Set();
+
+    // Analyze duplicates
+    duplicateGroups.forEach((dup) => {
+      const transactionIds = dup.transaction_ids;
+      const keepId = transactionIds[0]; // Keep the oldest (first) transaction
+      const deleteIds = transactionIds.slice(1); // Delete the rest
+      
+      if (dup.account_id) {
+        affectedAccounts.add(dup.account_id);
+      }
+
+      duplicatesToDelete.push(...deleteIds);
+      totalDuplicatesToDelete += deleteIds.length;
+    });
+
+    console.log(`   Total transactions to delete: ${totalDuplicatesToDelete}`);
+    console.log(`   Affected accounts: ${affectedAccounts.size}`);
+
+    if (dryRun) {
+      client.release();
+      return res.json({
+        message: 'Dry run completed - no changes made',
+        duplicatesFound: duplicateGroups.length,
+        duplicatesToRemove: totalDuplicatesToDelete,
+        affectedAccounts: Array.from(affectedAccounts),
+        dryRun: true
+      });
+    }
+
+    if (duplicatesToDelete.length === 0) {
+      client.release();
+      return res.json({ 
+        message: 'No duplicates to delete',
+        duplicatesFound: 0,
+        duplicatesRemoved: 0
+      });
+    }
+
+    // Start transaction
+    await client.query('BEGIN');
+
+    // Delete duplicate transactions
+    console.log('🗑️  Deleting duplicate transactions...');
+    const deleteResult = await client.query(
+      `DELETE FROM transactions 
+       WHERE id = ANY($1::int[])
+       RETURNING id, account_id`,
+      [duplicatesToDelete]
+    );
+
+    console.log(`✅ Successfully deleted ${deleteResult.rowCount} duplicate transaction(s)`);
+
+    // Recalculate balances for affected accounts
+    const recalculatedAccounts = [];
+    if (affectedAccounts.size > 0) {
+      console.log('🔄 Recalculating balances for affected accounts...');
+      
+      for (const accountId of affectedAccounts) {
+        // Get account info
+        const accountResult = await client.query(
+          `SELECT id, name, user_id FROM bank_accounts WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
+          [accountId, userId]
+        );
+        
+        if (accountResult.rows.length === 0) {
+          continue;
+        }
+        
+        const account = accountResult.rows[0];
+        const accountUserId = account.user_id;
+        
+        // Calculate balance from transactions
+        const balanceResult = await client.query(
+          `SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as calculated_balance
+           FROM transactions
+           WHERE account_id = $1 AND (user_id IS NULL OR user_id = $2) AND computable = true`,
+          [accountId, accountUserId]
+        );
+        
+        const calculatedBalance = parseFloat(balanceResult.rows[0]?.calculated_balance || 0);
+        
+        // Update account balance
+        await client.query(
+          `UPDATE bank_accounts 
+           SET balance = $1, balance_updated_at = NOW(), balance_source = 'calculated'
+           WHERE id = $2`,
+          [calculatedBalance, accountId]
+        );
+        
+        recalculatedAccounts.push({
+          id: accountId,
+          name: account.name,
+          newBalance: calculatedBalance
+        });
+        
+        console.log(`✅ ${account.name}: Updated balance to €${calculatedBalance.toFixed(2)}`);
+      }
+    }
+
+    await client.query('COMMIT');
+    client.release();
+
+    console.log('✅ Duplicate removal and balance recalculation completed');
+
+    res.json({ 
+      message: 'Duplicate transactions removed and balances recalculated',
+      duplicatesFound: duplicateGroups.length,
+      duplicatesRemoved: deleteResult.rowCount,
+      accountsRecalculated: recalculatedAccounts
+    });
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Cleanup transaction duplicates error:', error);
+    res.status(500).json({ error: 'Failed to cleanup duplicate transactions' });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
 export default router;
 
 

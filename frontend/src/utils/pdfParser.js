@@ -904,6 +904,7 @@ function parseSabadellTextFormat(lines) {
   
   const transactions = [];
   let lastBalance = null;
+  let balanceFound = false; // Flag to capture only the first balance (most recent transaction)
   let headerIndex = -1;
   
   // Find header row
@@ -1013,8 +1014,8 @@ function parseSabadellTextFormat(lines) {
         }
       }
       
-      // Parse balance
-      if (balanceStr) {
+      // Parse balance - only capture the FIRST balance (most recent transaction)
+      if (balanceStr && !balanceFound) {
         const isBalanceNegative = balanceStr.startsWith('−') || balanceStr.startsWith('-');
         let cleanedBalance = balanceStr.replace(/[€\s]/g, '').trim();
         cleanedBalance = cleanedBalance.replace(/[−-]/, '');
@@ -1030,6 +1031,7 @@ function parseSabadellTextFormat(lines) {
         
         if (!isNaN(parsedBalance) && parsedBalance !== 0) {
           lastBalance = isBalanceNegative ? -parsedBalance : parsedBalance;
+          balanceFound = true; // Don't update balance again
         }
       }
       
