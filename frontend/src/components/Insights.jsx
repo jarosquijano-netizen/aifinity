@@ -116,6 +116,16 @@ function Insights() {
       });
       
       console.log('✅ Data loaded successfully');
+      console.log('📊 Final data state:', {
+        expectedIncome: expectedIncome,
+        accountsCount: normalizedAccounts.length,
+        totalBalance: normalizedAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0),
+        accounts: normalizedAccounts.map(acc => ({
+          name: acc.name,
+          balance: acc.balance,
+          exclude_from_stats: acc.exclude_from_stats
+        }))
+      });
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Failed to load financial data';
       setError(errorMessage);
@@ -277,12 +287,15 @@ function Insights() {
   const expectedIncome = data.expectedIncome || 0;
   const incomeRatio = expectedIncome > 0 ? (actualIncome / expectedIncome * 100) : 0;
   
-  // Calculate total balance - exclude accounts marked as exclude_from_stats
-  const accountsIncluded = data.accounts.filter(acc => !acc.exclude_from_stats);
-  const totalAccountsBalance = accountsIncluded.reduce((sum, acc) => {
+  // Calculate total balance - include ALL accounts (same as Dashboard)
+  // This shows the real total balance across all accounts for transparency
+  const totalAccountsBalance = data.accounts.reduce((sum, acc) => {
     const balance = parseFloat(acc.balance || 0);
     return sum + balance;
   }, 0);
+  
+  // For savings calculation, still exclude accounts marked as exclude_from_stats
+  const accountsIncluded = data.accounts.filter(acc => !acc.exclude_from_stats);
   
   const savingsAccounts = data.accounts.filter(acc => 
     (acc.account_type === 'savings' || acc.account_type === 'investment') && !acc.exclude_from_stats
@@ -406,7 +419,7 @@ function Insights() {
 
   const aggregatedResults = creditCards.length > 0 ? calculateAggregatedResults() : null;
 
-  // Total balance available (excluding accounts marked as exclude_from_stats)
+  // Total balance available - includes ALL accounts (same as Dashboard)
   const balanceDisponible = totalAccountsBalance;
   
   // Calculate pending expected income: remaining expected income for the month
@@ -417,11 +430,17 @@ function Insights() {
   // Debug logging for balance and income calculations
   console.log('💰 Balance & Income Calculations:', {
     totalAccountsBalance: balanceDisponible,
-    accountsCount: accountsIncluded.length,
+    allAccountsCount: data.accounts.length,
+    includedAccountsCount: accountsIncluded.length,
     expectedIncome,
     actualIncome,
     ingresoEsperadoPendiente,
-    currentMonth: new Date().toISOString().slice(0, 7)
+    currentMonth: new Date().toISOString().slice(0, 7),
+    accountsBreakdown: data.accounts.map(acc => ({
+      name: acc.name,
+      balance: acc.balance,
+      exclude_from_stats: acc.exclude_from_stats
+    }))
   });
   const diasRestantesMes = daysRemaining;
   const capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
