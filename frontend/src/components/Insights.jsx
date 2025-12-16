@@ -188,7 +188,65 @@ function Insights() {
   const monthlyExpenses = actualExpenses;
   const netBalance = actualNetBalance;
   const savingsRate = actualIncome > 0 ? ((actualNetBalance / actualIncome) * 100) : 0;
-  const budgetTotal = data.budget.totals?.budget || 0;
+  // Calculate total budget the same way as Budget.jsx
+  // Sum all categories with budget (excluding transfers and parent categories)
+  const calculateTotalBudget = () => {
+    if (!data.budget?.categories) return 0;
+    
+    const excludedCategories = [
+      'Finanzas > Transferencias',
+      'Transferencias',
+      'NC',
+      'nc'
+    ];
+    
+    // Helper function to check if a category is a parent
+    const isParentCategory = (categoryName, allCategories) => {
+      if (!categoryName || categoryName.includes(' > ')) {
+        return false; // Hierarchical categories are not parents
+      }
+      // Check if any category starts with this category name + " > "
+      return allCategories.some(cat => cat.category && cat.category.startsWith(categoryName + ' > '));
+    };
+    
+    // Filter out excluded categories and parent categories
+    const validCategories = data.budget.categories.filter(cat => {
+      const catName = cat.category || cat.name;
+      // Exclude transfers and NC
+      if (excludedCategories.includes(catName)) {
+        return false;
+      }
+      // Exclude parent categories that have children
+      if (isParentCategory(catName, data.budget.categories)) {
+        return false;
+      }
+      // Only include categories with budgets
+      return (cat.budget || 0) > 0;
+    });
+    
+    // Separate annual and monthly budgets
+    const monthlyBudget = validCategories
+      .filter(cat => !cat.is_annual)
+      .reduce((sum, cat) => sum + (cat.budget || 0), 0);
+    
+    // For annual categories, budget is the annual amount, so divide by 12 for monthly equivalent
+    const annualBudgetMonthlyEquivalent = validCategories
+      .filter(cat => cat.is_annual)
+      .reduce((sum, cat) => sum + ((cat.budget || 0) / 12), 0);
+    
+    const totalBudget = monthlyBudget + annualBudgetMonthlyEquivalent;
+    
+    console.log('💰 Budget Calculation (same as Budget.jsx):', {
+      validCategoriesCount: validCategories.length,
+      monthlyBudget,
+      annualBudgetMonthlyEquivalent,
+      totalBudget
+    });
+    
+    return totalBudget;
+  };
+  
+  const budgetTotal = calculateTotalBudget();
   const budgetSpent = data.budget.totals?.spent || 0;
   const budgetUsage = budgetTotal > 0 ? (budgetSpent / budgetTotal * 100) : 0;
   
