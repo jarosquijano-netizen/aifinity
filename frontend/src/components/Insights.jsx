@@ -62,7 +62,7 @@ function Insights() {
       
       console.log('🔄 Fetching all data for Insights...');
       
-      const [summary, budget, trends, accountsData, settings] = await Promise.all([
+      const [summary, budget, trends, accountsData, settingsResponse] = await Promise.all([
         getSummary(),
         api.get(`/budget/overview?month=${currentMonth}`).catch(() => ({ data: { totals: { budget: 0, spent: 0 }, categories: [] } })),
         getTrends(),
@@ -84,8 +84,18 @@ function Insights() {
         creditLimit: acc.creditLimit
       })));
       
-      console.log('💰 Settings:', {
-        expectedMonthlyIncome: settings?.expectedMonthlyIncome || settings
+      // Extract expectedMonthlyIncome from settings response
+      // settingsResponse should be an object with expectedMonthlyIncome property
+      // The API returns: { expectedMonthlyIncome: number, familySize: number, location: string, ages: array }
+      const expectedIncome = settingsResponse && typeof settingsResponse === 'object' && 'expectedMonthlyIncome' in settingsResponse
+        ? parseFloat(settingsResponse.expectedMonthlyIncome || 0)
+        : 0;
+      
+      console.log('💰 Settings from API:', {
+        settingsResponse,
+        expectedMonthlyIncome: expectedIncome,
+        type: typeof settingsResponse,
+        hasProperty: settingsResponse && 'expectedMonthlyIncome' in settingsResponse
       });
 
       const accounts = accountsData.accounts || [];
@@ -102,7 +112,7 @@ function Insights() {
         budget: budget.data,
         trends: trends,
         accounts: normalizedAccounts,
-        expectedIncome: settings?.expectedMonthlyIncome || settings || 0
+        expectedIncome: expectedIncome
       });
       
       console.log('✅ Data loaded successfully');
