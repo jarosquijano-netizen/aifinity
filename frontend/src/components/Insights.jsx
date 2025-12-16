@@ -57,7 +57,10 @@ function Insights() {
   const fetchAllData = async () => {
     try {
       setLoading(true);
+      setError('');
       const currentMonth = new Date().toISOString().slice(0, 7);
+      
+      console.log('🔄 Fetching all data for Insights...');
       
       const [summary, budget, trends, accountsData, settings] = await Promise.all([
         getSummary(),
@@ -67,16 +70,46 @@ function Insights() {
         getSettings().catch(() => ({ expectedMonthlyIncome: 0 }))
       ]);
 
+      console.log('📊 Summary data:', {
+        actualIncome: summary?.actualIncome,
+        actualExpenses: summary?.actualExpenses,
+        actualNetBalance: summary?.actualNetBalance
+      });
+      
+      console.log('💳 Accounts data:', accountsData.accounts?.map(acc => ({
+        name: acc.name,
+        type: acc.account_type,
+        balance: acc.balance,
+        credit_limit: acc.credit_limit,
+        creditLimit: acc.creditLimit
+      })));
+      
+      console.log('💰 Settings:', {
+        expectedMonthlyIncome: settings?.expectedMonthlyIncome || settings
+      });
+
+      const accounts = accountsData.accounts || [];
+      
+      // Ensure credit_limit is properly set (check both credit_limit and creditLimit)
+      const normalizedAccounts = accounts.map(acc => ({
+        ...acc,
+        credit_limit: acc.credit_limit || acc.creditLimit || null,
+        balance: parseFloat(acc.balance || 0)
+      }));
+
       setData({
         summary,
         budget: budget.data,
         trends: trends,
-        accounts: accountsData.accounts || [],
-        expectedIncome: settings.expectedMonthlyIncome || 0
+        accounts: normalizedAccounts,
+        expectedIncome: settings?.expectedMonthlyIncome || settings || 0
       });
+      
+      console.log('✅ Data loaded successfully');
     } catch (err) {
-      setError('Failed to load financial data');
-      console.error(err);
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to load financial data';
+      setError(errorMessage);
+      console.error('❌ Error loading data:', err);
     } finally {
       setLoading(false);
     }
@@ -176,11 +209,17 @@ function Insights() {
   const expectedIncome = data.expectedIncome || 0;
   const incomeRatio = expectedIncome > 0 ? (actualIncome / expectedIncome * 100) : 0;
   
-  const totalAccountsBalance = data.accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
-  const savingsAccounts = data.accounts.filter(acc => acc.account_type === 'savings' || acc.account_type === 'investment');
-  const totalSavings = savingsAccounts
-    .filter(acc => !acc.exclude_from_stats)
-    .reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
+  // Calculate total balance - exclude accounts marked as exclude_from_stats
+  const accountsIncluded = data.accounts.filter(acc => !acc.exclude_from_stats);
+  const totalAccountsBalance = accountsIncluded.reduce((sum, acc) => {
+    const balance = parseFloat(acc.balance || 0);
+    return sum + balance;
+  }, 0);
+  
+  const savingsAccounts = data.accounts.filter(acc => 
+    (acc.account_type === 'savings' || acc.account_type === 'investment') && !acc.exclude_from_stats
+  );
+  const totalSavings = savingsAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
   
   const dailyAvgExpense = monthlyExpenses / Math.max(1, daysElapsed);
 
@@ -196,11 +235,20 @@ function Insights() {
   const topCategories = categoryExpenses.slice(0, 5);
 
   const creditCards = data.accounts.filter(acc => acc.account_type === 'credit' && !acc.exclude_from_stats);
-  const totalDebt = creditCards.reduce((sum, card) => sum + Math.abs(parseFloat(card.balance || 0)), 0);
-  // Try both credit_limit and creditLimit (camelCase) for compatibility
+  const totalDebt = creditCards.reduce((sum, card) => {
+    // Credit card balances are negative (debt), so we use absolute value
+    const balance = parseFloat(card.balance || 0);
+    return sum + Math.abs(balance);
+  }, 0);
+  
+  // Get credit limit - check both credit_limit and creditLimit fields
   const totalCreditLimit = creditCards.reduce((sum, card) => {
+    // Try both credit_limit and creditLimit (camelCase) for compatibility
     const limit = parseFloat(card.credit_limit || card.creditLimit || 0);
-    return sum + limit;
+    if (limit > 0) {
+      return sum + limit;
+    }
+    return sum;
   }, 0);
   const totalAvailableCredit = totalCreditLimit - totalDebt;
   const overallUtilization = totalCreditLimit > 0 ? (totalDebt / totalCreditLimit * 100) : 0;
@@ -290,11 +338,23 @@ function Insights() {
 
   const aggregatedResults = creditCards.length > 0 ? calculateAggregatedResults() : null;
 
+  // Total balance available (excluding accounts marked as exclude_from_stats)
   const balanceDisponible = totalAccountsBalance;
+  
   // Calculate pending expected income: remaining expected income for the month
   // If actual income >= expected income, show 0 (already received all expected)
   // Otherwise, show the difference
   const ingresoEsperadoPendiente = expectedIncome > 0 ? Math.max(0, expectedIncome - actualIncome) : 0;
+  
+  // Debug logging for balance and income calculations
+  console.log('💰 Balance & Income Calculations:', {
+    totalAccountsBalance: balanceDisponible,
+    accountsCount: accountsIncluded.length,
+    expectedIncome,
+    actualIncome,
+    ingresoEsperadoPendiente,
+    currentMonth: new Date().toISOString().slice(0, 7)
+  });
   const diasRestantesMes = daysRemaining;
   const capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
   const gastoDiarioSeguro = capacidadSegura / Math.max(1, diasRestantesMes);
@@ -551,7 +611,10 @@ function Insights() {
                   </div>
                   <div className="space-y-3">
                     {creditCards.map((card) => {
-                      const debt = Math.abs(parseFloat(card.balance || 0));
+                      // Credit card balances are negative (debt), so we use absolute value
+                      const balance = parseFloat(card.balance || 0);
+                      const debt = Math.abs(balance);
+                      
                       // Try both credit_limit and creditLimit (camelCase) for compatibility
                       const limit = parseFloat(card.credit_limit || card.creditLimit || 0);
                       const usage = limit > 0 ? (debt / limit * 100) : 0;
@@ -562,6 +625,8 @@ function Insights() {
                         console.warn('⚠️ Credit card missing limit:', {
                           cardName: card.name,
                           cardId: card.id,
+                          balance: balance,
+                          debt: debt,
                           credit_limit: card.credit_limit,
                           creditLimit: card.creditLimit,
                           cardData: card
@@ -749,7 +814,9 @@ function Insights() {
                     
                     <div className="space-y-4">
                       {creditCards.map((card) => {
-                        const debt = Math.abs(parseFloat(card.balance || 0));
+                        // Credit card balances are negative (debt), so we use absolute value
+                        const balance = parseFloat(card.balance || 0);
+                        const debt = Math.abs(balance);
                         const defaultMin = Math.max(debt * 0.02, 25);
                         const customPayment = customMinimumPayments[card.id] || defaultMin;
                         const result = calculateCardPayoff(card, customPayment);

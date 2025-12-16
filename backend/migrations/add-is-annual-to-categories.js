@@ -49,7 +49,7 @@ async function addIsAnnualToCategories() {
 }
 
 // Only run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === `file://${process.argv[1]}` || import.meta.url.endsWith('add-is-annual-to-categories.js')) {
   addIsAnnualToCategories()
     .then(() => {
       console.log('\n✅ Script completed');
