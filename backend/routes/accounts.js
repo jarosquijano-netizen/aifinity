@@ -360,13 +360,18 @@ router.post('/cleanup-duplicates', optionalAuth, async (req, res) => {
 
 // Recalculate account balance from transactions
 router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const { id } = req.params;
 
+    console.log(`🔄 Recalculating balance for account ${id} (userId: ${userId})`);
+
     // Get the account info first
-    const accountResult = await pool.query(
-      `SELECT account_type, balance FROM bank_accounts WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
+    const accountResult = await client.query(
+      `SELECT id, name, account_type, balance, user_id FROM bank_accounts 
+       WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
       [id, userId]
     );
 
@@ -376,42 +381,83 @@ router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
 
     const account = accountResult.rows[0];
     const isCreditCard = account.account_type === 'credit';
+    const accountUserId = account.user_id; // Use account's user_id, not request userId
 
-    // Get all transactions for this account (belonging to this user)
-    const result = await pool.query(
-      `SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as calculated_balance
+    console.log(`📊 Account: ${account.name} (${account.account_type}), current balance: €${parseFloat(account.balance || 0).toFixed(2)}`);
+
+    // Get all transactions for this account
+    // Use account's user_id to handle both shared (NULL) and user-specific accounts
+    const result = await client.query(
+      `SELECT 
+         COUNT(*) as transaction_count,
+         SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as calculated_balance,
+         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income,
+         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expenses
        FROM transactions
-       WHERE account_id = $1 AND user_id = $2 AND computable = true`,
-      [id, userId]
+       WHERE account_id = $1 
+         AND (user_id IS NULL OR user_id = $2) 
+         AND computable = true`,
+      [id, accountUserId]
     );
 
-    const transactionSum = parseFloat(result.rows[0]?.calculated_balance || 0);
+    const transactionData = result.rows[0];
+    const transactionCount = parseInt(transactionData.transaction_count || 0);
+    const transactionSum = parseFloat(transactionData.calculated_balance || 0);
+    const totalIncome = parseFloat(transactionData.total_income || 0);
+    const totalExpenses = parseFloat(transactionData.total_expenses || 0);
+
+    console.log(`📈 Transactions: ${transactionCount} (Income: €${totalIncome.toFixed(2)}, Expenses: €${totalExpenses.toFixed(2)})`);
+    console.log(`💰 Calculated sum: €${transactionSum.toFixed(2)}`);
+
+    // For credit cards:
+    // - Expenses increase debt (make balance more negative)
+    // - Income (payments/refunds) decrease debt (make balance less negative)
+    // The formula SUM(income) - SUM(expenses) already handles this correctly
+    // because expenses are stored as negative amounts in transactions
+    // So transactionSum will be negative for credit cards with debt
     
-    // For credit cards, the balance is already negative (debt)
-    // Transactions add to or reduce the debt
-    // So we just use the transaction sum directly (expenses are negative, refunds are positive)
+    // For regular accounts:
+    // - Income increases balance (positive)
+    // - Expenses decrease balance (negative)
+    // Same formula works: SUM(income) - SUM(expenses)
+    
     const calculatedBalance = transactionSum;
 
-    // Update the account balance - account already verified above
-    const updateResult = await pool.query(
+    console.log(`✅ Final calculated balance: €${calculatedBalance.toFixed(2)}`);
+
+    // Update the account balance
+    await client.query('BEGIN');
+    
+    const updateResult = await client.query(
       `UPDATE bank_accounts 
        SET balance = $1, balance_updated_at = NOW(), balance_source = 'calculated'
-       WHERE id = $2 AND user_id = $3
+       WHERE id = $2
        RETURNING *`,
-      [calculatedBalance, id, userId]
+      [calculatedBalance, id]
     );
 
-    console.log(`✅ Updated balance for account ${id}: €${calculatedBalance}`);
+    await client.query('COMMIT');
+
+    console.log(`✅ Updated balance for account ${account.name}: €${parseFloat(account.balance).toFixed(2)} → €${calculatedBalance.toFixed(2)}`);
 
     res.json({ 
       message: 'Balance recalculated successfully',
       account: updateResult.rows[0],
       previousBalance: parseFloat(account.balance),
-      calculatedBalance: calculatedBalance
+      calculatedBalance: calculatedBalance,
+      transactionCount: transactionCount,
+      totalIncome: totalIncome,
+      totalExpenses: totalExpenses
     });
   } catch (error) {
-    console.error('Recalculate balance error:', error);
-    res.status(500).json({ error: 'Failed to recalculate balance' });
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('❌ Recalculate balance error:', error);
+    res.status(500).json({ 
+      error: 'Failed to recalculate balance',
+      message: error.message
+    });
+  } finally {
+    client.release();
   }
 });
 
