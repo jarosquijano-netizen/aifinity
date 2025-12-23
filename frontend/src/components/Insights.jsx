@@ -128,24 +128,41 @@ function Insights() {
   
   const handleDeleteDuplicates = async (duplicatesFound) => {
     try {
+      setCheckingDuplicates(true);
       let totalDeleted = 0;
+      const errors = [];
       
       for (const dup of duplicatesFound) {
-        const result = await deleteDuplicateTransactions(
-          dup.checkingAccount.id, 
-          dup.card.id
-        );
-        totalDeleted += result.deleted;
+        try {
+          console.log(`🗑️ Deleting duplicates from account ${dup.checkingAccount.id} (${dup.checkingAccount.name}), keeping account ${dup.card.id} (${dup.card.name})`);
+          const result = await deleteDuplicateTransactions(
+            dup.checkingAccount.id, 
+            dup.card.id
+          );
+          console.log(`✅ Deleted ${result.deleted} duplicates for ${dup.card.name}`);
+          totalDeleted += result.deleted || 0;
+        } catch (err) {
+          console.error(`❌ Error deleting duplicates for ${dup.card.name}:`, err);
+          const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error desconocido';
+          errors.push(`${dup.card.name}: ${errorMsg}`);
+        }
       }
       
-      alert(`✅ Se eliminaron ${totalDeleted} transacciones duplicadas de la cuenta corriente.\n\nLas transacciones se mantienen en las tarjetas de crédito correctas.`);
+      if (errors.length > 0) {
+        alert(`⚠️ Se eliminaron ${totalDeleted} transacciones duplicadas, pero hubo errores:\n\n${errors.join('\n')}`);
+      } else {
+        alert(`✅ Se eliminaron ${totalDeleted} transacciones duplicadas de la cuenta corriente.\n\nLas transacciones se mantienen en las tarjetas de crédito correctas.`);
+      }
       
       // Refresh data
       await fetchAllData();
       setDuplicateInfo(null);
     } catch (err) {
       console.error('Error deleting duplicates:', err);
-      alert('Error al eliminar duplicados: ' + (err.message || 'Error desconocido'));
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error desconocido';
+      alert('Error al eliminar duplicados: ' + errorMsg);
+    } finally {
+      setCheckingDuplicates(false);
     }
   };
 

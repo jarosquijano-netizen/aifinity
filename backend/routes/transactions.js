@@ -1484,6 +1484,22 @@ router.delete('/duplicates/:fromAccountId/:toAccountId', optionalAuth, async (re
     
     await client.query('BEGIN');
     
+    // Verify accounts exist and belong to user
+    const accountCheck = await client.query(
+      `SELECT id, name FROM bank_accounts 
+       WHERE id IN ($1, $2) 
+       AND (user_id = $3 OR (user_id IS NULL AND $3 IS NULL))`,
+      [fromAccountId, toAccountId, userId]
+    );
+    
+    if (accountCheck.rows.length !== 2) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ 
+        error: 'One or both accounts not found or do not belong to user',
+        foundAccounts: accountCheck.rows.length
+      });
+    }
+    
     // Find duplicate transaction IDs to delete
     const duplicatesResult = await client.query(
       `SELECT t1.id
