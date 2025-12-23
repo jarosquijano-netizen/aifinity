@@ -1415,6 +1415,139 @@ router.post('/transfer', optionalAuth, async (req, res) => {
   }
 });
 
+// Find and delete duplicate transactions between accounts
+router.post('/find-duplicates', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { accountId1, accountId2 } = req.body;
+    
+    if (!accountId1 || !accountId2) {
+      return res.status(400).json({ error: 'Both account IDs are required' });
+    }
+    
+    console.log(`🔍 Finding duplicate transactions between accounts ${accountId1} and ${accountId2}`);
+    
+    // Find duplicate transactions (same date, description, and amount)
+    const duplicatesResult = await client.query(
+      `SELECT t1.id as id1, t1.account_id as account1, t1.date, t1.description, t1.amount,
+              t2.id as id2, t2.account_id as account2
+       FROM transactions t1
+       INNER JOIN transactions t2 
+         ON t1.date = t2.date 
+         AND t1.description = t2.description 
+         AND t1.amount = t2.amount
+         AND t1.type = t2.type
+       WHERE t1.account_id = $1 
+         AND t2.account_id = $2
+         AND (t1.user_id = $3 OR (t1.user_id IS NULL AND $3 IS NULL))
+         AND (t2.user_id = $3 OR (t2.user_id IS NULL AND $3 IS NULL))
+       ORDER BY t1.date DESC, t1.amount DESC`,
+      [accountId1, accountId2, userId]
+    );
+    
+    if (duplicatesResult.rows.length === 0) {
+      return res.json({
+        duplicates: [],
+        count: 0,
+        message: 'No duplicate transactions found'
+      });
+    }
+    
+    res.json({
+      duplicates: duplicatesResult.rows,
+      count: duplicatesResult.rows.length,
+      account1: accountId1,
+      account2: accountId2
+    });
+  } catch (error) {
+    console.error('Error finding duplicates:', error);
+    res.status(500).json({ 
+      error: 'Failed to find duplicates',
+      message: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete duplicate transactions from one account (keep the ones in the other account)
+router.delete('/duplicates/:fromAccountId/:toAccountId', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { fromAccountId, toAccountId } = req.params;
+    
+    console.log(`🗑️ Deleting duplicates from account ${fromAccountId}, keeping account ${toAccountId}`);
+    
+    await client.query('BEGIN');
+    
+    // Find duplicate transaction IDs to delete
+    const duplicatesResult = await client.query(
+      `SELECT t1.id
+       FROM transactions t1
+       INNER JOIN transactions t2 
+         ON t1.date = t2.date 
+         AND t1.description = t2.description 
+         AND t1.amount = t2.amount
+         AND t1.type = t2.type
+       WHERE t1.account_id = $1 
+         AND t2.account_id = $2
+         AND (t1.user_id = $3 OR (t1.user_id IS NULL AND $3 IS NULL))
+         AND (t2.user_id = $3 OR (t2.user_id IS NULL AND $3 IS NULL))`,
+      [fromAccountId, toAccountId, userId]
+    );
+    
+    if (duplicatesResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.json({
+        deleted: 0,
+        message: 'No duplicate transactions found to delete'
+      });
+    }
+    
+    const transactionIds = duplicatesResult.rows.map(r => r.id);
+    
+    // Delete duplicates
+    const deleteResult = await client.query(
+      `DELETE FROM transactions
+       WHERE id = ANY($1)
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))
+       RETURNING id, description`,
+      [transactionIds, userId]
+    );
+    
+    const deletedCount = deleteResult.rows.length;
+    console.log(`✅ Deleted ${deletedCount} duplicate transactions`);
+    
+    // Update summaries
+    try {
+      await updateSummaries(client, userId);
+    } catch (summaryError) {
+      console.error('⚠️ Error updating summaries (non-critical):', summaryError);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      deleted: deletedCount,
+      message: `Deleted ${deletedCount} duplicate transactions from account ${fromAccountId}`,
+      keptAccount: toAccountId
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting duplicates:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete duplicates',
+      message: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // Delete credit card transactions from checking account (fix misuploaded credit card statements)
 router.delete('/account/:accountId/credit-card-transactions', optionalAuth, async (req, res) => {
   const client = await pool.connect();

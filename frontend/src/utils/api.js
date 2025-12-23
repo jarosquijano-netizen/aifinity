@@ -73,6 +73,19 @@ export const deleteCreditCardTransactions = async (accountId) => {
   return response.data;
 };
 
+export const findDuplicateTransactions = async (accountId1, accountId2) => {
+  const response = await api.post('/transactions/find-duplicates', {
+    accountId1,
+    accountId2
+  });
+  return response.data;
+};
+
+export const deleteDuplicateTransactions = async (fromAccountId, toAccountId) => {
+  const response = await api.delete(`/transactions/duplicates/${fromAccountId}/${toAccountId}`);
+  return response.data;
+};
+
 export const deleteTransaction = async (transactionId) => {
   const response = await api.delete(`/transactions/${transactionId}`);
   return response.data;

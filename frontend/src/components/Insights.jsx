@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarSign, PieChart, Target, Shield, Calendar, MessageCircle, Send, Bot, User, Sparkles, X, Building2, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, CreditCard, RotateCcw } from 'lucide-react';
-import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory, getAccounts, getSettings } from '../utils/api';
+import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory, getAccounts, getSettings, findDuplicateTransactions, deleteDuplicateTransactions } from '../utils/api';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -692,9 +692,30 @@ function Insights() {
             {creditCards.length > 0 && (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
                 <div className="p-6">
-                  <div className="flex items-center gap-2 mb-6">
-                    <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('analysisByCard')}</h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('analysisByCard')}</h2>
+                    </div>
+                    {creditCards.length > 0 && (
+                      <button
+                        onClick={handleCheckDuplicates}
+                        disabled={checkingDuplicates}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {checkingDuplicates ? (
+                          <>
+                            <Loader className="h-3 w-3 animate-spin" />
+                            <span>Buscando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-3 w-3" />
+                            <span>Buscar duplicados</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-3">
                     {creditCards.map((card) => {
