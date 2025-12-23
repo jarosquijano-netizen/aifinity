@@ -753,10 +753,14 @@ export async function parseCSVTransactions(file) {
     
     // Detect if it's a Sabadell statement (CSV format)
     const isSabadellFormat = detectSabadellFormat(text);
+    console.error('🔍 Sabadell format detection:', isSabadellFormat);
+    console.error('🔍 Text preview (first 500 chars):', text.substring(0, 500));
     
     if (isSabadellFormat) {
       console.log('🏦 Detected: Sabadell Bank format');
-      return parseSabadellCSV(lines);
+      const result = parseSabadellCSV(lines);
+      console.error(`✅ Sabadell CSV parser returned ${result.transactions.length} transactions`);
+      return result;
     }
     
     // Detect ING Spanish format (Movimientos de la Cuenta with F. VALOR header)
@@ -1656,6 +1660,7 @@ function parseINGTextFormat(lines) {
  * Parse Sabadell bank CSV/Excel export
  */
 function parseSabadellCSV(lines) {
+  console.error('📝 parseSabadellCSV CALLED with', lines.length, 'lines');
   const transactions = [];
   let accountNumber = '';
   let headerRowIndex = -1;
@@ -1675,17 +1680,23 @@ function parseSabadellCSV(lines) {
     }
     
     // Find header row - check for all formats
-    if (line.includes('F. Operativa') && line.includes('F. Valor') && line.includes('Descripción') && line.includes('Importe') && line.includes('Saldo')) {
+    // Normalize line for comparison (handle multiple spaces/tabs)
+    const normalizedLine = line.replace(/\s+/g, ' ');
+    
+    if (normalizedLine.includes('F. Operativa') && normalizedLine.includes('F. Valor') && normalizedLine.includes('Descripción') && normalizedLine.includes('Importe') && normalizedLine.includes('Saldo')) {
       // New tab-separated format: F. Operativa, F. Valor, Descripción, Importe, Saldo
       headerRowIndex = i;
+      console.error('✅ Found new Sabadell format header at line', i, ':', line.substring(0, 100));
       break;
-    } else if (line.includes('F. Operativa') && line.includes('Concepto')) {
+    } else if (normalizedLine.includes('F. Operativa') && normalizedLine.includes('Concepto')) {
       // Old comma-separated format: F. Operativa, Concepto, F. Valor, Importe, Saldo
       headerRowIndex = i;
+      console.error('✅ Found old Sabadell format header at line', i);
       break;
-    } else if (line.includes('Fecha') && line.includes('Descripción') && line.includes('Importe')) {
+    } else if (normalizedLine.includes('Fecha') && normalizedLine.includes('Descripción') && normalizedLine.includes('Importe')) {
       // Tab-separated format: Fecha, Descripción, Importe, Saldo
       headerRowIndex = i;
+      console.error('✅ Found tab Sabadell format header at line', i);
       break;
     }
   }
@@ -1693,6 +1704,7 @@ function parseSabadellCSV(lines) {
   // Parse transactions starting after header
   if (headerRowIndex === -1) {
     console.error('❌ No Sabadell header row found');
+    console.error('First 10 lines:', lines.slice(0, 10));
     return {
       bank: 'Sabadell',
       accountNumber: accountNumber,
@@ -1703,14 +1715,25 @@ function parseSabadellCSV(lines) {
   
   // Detect format by checking header row
   const headerRow = lines[headerRowIndex];
-  const isNewTabFormat = headerRow.includes('F. Operativa') && headerRow.includes('F. Valor') && headerRow.includes('Descripción');
-  const isTabFormat = headerRow.includes('Fecha') && headerRow.includes('Descripción') && !isNewTabFormat;
+  console.error('📋 Header row:', headerRow);
+  console.error('📋 Header row (raw):', JSON.stringify(headerRow));
+  
+  // Normalize header row for comparison (handle multiple spaces/tabs)
+  const normalizedHeader = headerRow.replace(/\s+/g, ' ');
+  const isNewTabFormat = normalizedHeader.includes('F. Operativa') && normalizedHeader.includes('F. Valor') && normalizedHeader.includes('Descripción');
+  const isTabFormat = normalizedHeader.includes('Fecha') && normalizedHeader.includes('Descripción') && !isNewTabFormat;
+  console.error('📋 Format detection:', { isNewTabFormat, isTabFormat, normalizedHeader: normalizedHeader.substring(0, 100) });
   
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     
     const fields = parseCSVLine(line); // parseCSVLine handles both commas and tabs
+    
+    // Debug first few lines
+    if (i <= headerRowIndex + 5) {
+      console.error(`📄 Line ${i}: fields.length=${fields.length}, fields:`, fields.slice(0, 5));
+    }
     
     if (isNewTabFormat) {
       // New tab-separated format: F. Operativa, F. Valor, Descripción, Importe, Saldo
@@ -1721,8 +1744,16 @@ function parseSabadellCSV(lines) {
         const amountStr = fields[3]?.trim();     // Importe
         const balanceStr = fields.length > 4 ? fields[4]?.trim() : null; // Saldo
         
+        // Debug first few transactions
+        if (i <= headerRowIndex + 5) {
+          console.error(`🔍 Parsing transaction ${i}:`, { operationDate, description: description?.substring(0, 30), amountStr, balanceStr });
+        }
+        
         // Skip rows that are just category tags or empty
         if (!description || description.length < 3) {
+          if (i <= headerRowIndex + 5) {
+            console.error(`⏭️ Skipping line ${i}: invalid description`);
+          }
           continue;
         }
         
@@ -1734,6 +1765,9 @@ function parseSabadellCSV(lines) {
         
         // Skip if amount is 0 or invalid
         if (parsedAmount === 0 || isNaN(parsedAmount) || !operationDate || !description) {
+          if (i <= headerRowIndex + 5) {
+            console.error(`⏭️ Skipping line ${i}: invalid amount or date`, { parsedAmount, operationDate, description: description.substring(0, 30) });
+          }
           continue;
         }
         
@@ -1839,6 +1873,8 @@ function parseSabadellCSV(lines) {
       }
     }
   }
+  
+  console.error(`✅ parseSabadellCSV completed: ${transactions.length} transactions parsed, lastBalance: ${lastBalance}`);
   
   return {
     bank: 'Sabadell',
@@ -2944,8 +2980,24 @@ function categorizeCreditCardTransaction(description, isRefund) {
 /**
  * Parse CSV line handling quoted fields
  * Handles: "field with, commas" correctly
+ * Also handles tab-separated values and multiple spaces as separators
  */
 function parseCSVLine(line) {
+  // Check if line has tabs or commas first
+  const hasTabs = line.includes('\t');
+  const hasCommas = line.includes(',');
+  
+  // If no tabs or commas, try splitting by multiple spaces (2+ spaces)
+  if (!hasTabs && !hasCommas && /\s{2,}/.test(line)) {
+    // Split by 2+ spaces, but preserve single spaces within fields
+    const fields = line.split(/\s{2,}/).map(f => f.trim()).filter(f => f);
+    // Only use this method if we get at least 3 fields (likely tabular format)
+    if (fields.length >= 3) {
+      return fields;
+    }
+  }
+  
+  // Standard parsing for tabs and commas
   const fields = [];
   let current = '';
   let inQuotes = false;
@@ -2958,7 +3010,7 @@ function parseCSVLine(line) {
       inQuotes = !inQuotes;
       // Don't add quote to current field
     } else if ((char === ',' || char === '\t') && !inQuotes) {
-      // Field separator (only if not inside quotes)
+      // Field separator (comma or tab, only if not inside quotes)
       fields.push(current.trim());
       current = '';
     } else {
