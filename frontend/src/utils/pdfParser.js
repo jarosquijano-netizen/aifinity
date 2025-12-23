@@ -853,14 +853,22 @@ function detectSabadellCreditCardFormat(text) {
  */
 function detectSabadellTextFormat(text, lines) {
   // Check for Sabadell header in first few lines
+  // This function only detects the OLD multi-line format, not the new tab-separated format
   let hasHeader = false;
   let headerIndex = -1;
+  
   for (let i = 0; i < Math.min(5, lines.length); i++) {
     const line = lines[i];
+    // Only check for old format: Fecha, Descripción, Importe, Saldo
+    // The new format (F. Operativa, F. Valor, Descripción, Importe, Saldo) 
+    // should be detected by detectSabadellFormat instead
     if (line && line.includes('Fecha') && line.includes('Descripción') && line.includes('Importe') && line.includes('Saldo')) {
-      hasHeader = true;
-      headerIndex = i;
-      break;
+      // Make sure it's NOT the new format
+      if (!line.includes('F. Operativa') && !line.includes('F. Valor')) {
+        hasHeader = true;
+        headerIndex = i;
+        break;
+      }
     }
   }
   
@@ -1080,7 +1088,14 @@ function detectSabadellFormat(text) {
                        text.includes('Importe') &&
                        text.includes('Saldo');
   
-  return hasCommaFormat || hasTabFormat;
+  // Check for new tab-separated format (F. Operativa, F. Valor, Descripción, Importe, Saldo)
+  const hasNewTabFormat = text.includes('F. Operativa') && 
+                          text.includes('F. Valor') &&
+                          text.includes('Descripción') && 
+                          text.includes('Importe') &&
+                          text.includes('Saldo');
+  
+  return hasCommaFormat || hasTabFormat || hasNewTabFormat;
 }
 
 /**
@@ -1659,8 +1674,13 @@ function parseSabadellCSV(lines) {
       }
     }
     
-    // Find header row - check for both formats
-    if (line.includes('F. Operativa') && line.includes('Concepto')) {
+    // Find header row - check for all formats
+    if (line.includes('F. Operativa') && line.includes('F. Valor') && line.includes('Descripción') && line.includes('Importe') && line.includes('Saldo')) {
+      // New tab-separated format: F. Operativa, F. Valor, Descripción, Importe, Saldo
+      headerRowIndex = i;
+      break;
+    } else if (line.includes('F. Operativa') && line.includes('Concepto')) {
+      // Old comma-separated format: F. Operativa, Concepto, F. Valor, Importe, Saldo
       headerRowIndex = i;
       break;
     } else if (line.includes('Fecha') && line.includes('Descripción') && line.includes('Importe')) {
@@ -1683,7 +1703,8 @@ function parseSabadellCSV(lines) {
   
   // Detect format by checking header row
   const headerRow = lines[headerRowIndex];
-  const isTabFormat = headerRow.includes('Fecha') && headerRow.includes('Descripción');
+  const isNewTabFormat = headerRow.includes('F. Operativa') && headerRow.includes('F. Valor') && headerRow.includes('Descripción');
+  const isTabFormat = headerRow.includes('Fecha') && headerRow.includes('Descripción') && !isNewTabFormat;
   
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -1691,7 +1712,52 @@ function parseSabadellCSV(lines) {
     
     const fields = parseCSVLine(line); // parseCSVLine handles both commas and tabs
     
-    if (isTabFormat) {
+    if (isNewTabFormat) {
+      // New tab-separated format: F. Operativa, F. Valor, Descripción, Importe, Saldo
+      if (fields.length >= 4) {
+        const operationDate = fields[0]?.trim(); // F. Operativa
+        const valueDate = fields[1]?.trim();     // F. Valor
+        const description = fields[2]?.trim();    // Descripción
+        const amountStr = fields[3]?.trim();     // Importe
+        const balanceStr = fields.length > 4 ? fields[4]?.trim() : null; // Saldo
+        
+        // Skip rows that are just category tags or empty
+        if (!description || description.length < 3) {
+          continue;
+        }
+        
+        // Parse date (DD/MM/YYYY format) - use F. Operativa as the transaction date
+        const parsedDate = parseSabadellDate(operationDate);
+        
+        // Parse amount (e.g., "-300,00 €" or "6.439,46 €")
+        const parsedAmount = parseAmount(amountStr);
+        
+        // Skip if amount is 0 or invalid
+        if (parsedAmount === 0 || isNaN(parsedAmount) || !operationDate || !description) {
+          continue;
+        }
+        
+        // Store FIRST balance only (most recent transaction, usually at top)
+        if (balanceStr && !balanceFound) {
+          const parsedBalance = parseAmount(balanceStr);
+          if (!isNaN(parsedBalance)) {
+            lastBalance = parsedBalance;
+            balanceFound = true;
+          }
+        }
+        
+        const transaction = {
+          bank: 'Sabadell',
+          date: parsedDate,
+          category: categorizeSabadellTransaction(description),
+          description: description,
+          amount: Math.abs(parsedAmount),
+          type: parsedAmount > 0 ? 'income' : 'expense'
+        };
+        
+        transactions.push(transaction);
+      }
+    } else if (isTabFormat) {
       // Tab-separated format: Fecha, Descripción, Importe, Saldo
       if (fields.length >= 3) {
         const dateStr = fields[0]?.trim();
