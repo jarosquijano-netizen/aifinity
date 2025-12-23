@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard, RotateCcw, Trash2 } from 'lucide-react';
+import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard, RotateCcw, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
 import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload, deleteRecentTransactions, deleteCreditCardTransactions } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,6 +19,8 @@ function Upload({ onUploadComplete }) {
   const [parsedTransactionsData, setParsedTransactionsData] = useState(null); // Store parsed data before account selection
   const [lastUpload, setLastUpload] = useState(null);
   const [reverting, setReverting] = useState(false);
+  const [showCreditCardBanner, setShowCreditCardBanner] = useState(true);
+  const [showLastUploadBanner, setShowLastUploadBanner] = useState(true);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const { t } = useLanguage();
@@ -492,95 +494,105 @@ function Upload({ onUploadComplete }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Quick Actions - Delete Credit Card Transactions from Checking Account */}
-      {accounts.some(acc => acc.name && acc.name.toUpperCase().includes('JAXO') && !acc.name.toUpperCase().includes('AHORRO') && acc.account_type !== 'credit') && (
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all duration-300">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="flex-shrink-0 mt-0.5">
-                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-1.5">
-                  ¿Subiste extracto de tarjeta de crédito por error?
-                </h3>
-                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                  Si subiste transacciones de tarjeta de crédito a la cuenta corriente por error, puedes eliminarlas aquí de forma segura.
-                </p>
-              </div>
-            </div>
+      {/* Quick Actions Banners - Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Quick Actions - Delete Credit Card Transactions from Checking Account */}
+        {accounts.some(acc => acc.name && acc.name.toUpperCase().includes('JAXO') && !acc.name.toUpperCase().includes('AHORRO') && acc.account_type !== 'credit') && (
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
             <button
-              onClick={handleDeleteCreditCardTransactions}
-              disabled={reverting}
-              className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm whitespace-nowrap transform hover:scale-105 active:scale-95"
+              onClick={() => setShowCreditCardBanner(!showCreditCardBanner)}
+              className="w-full flex items-center justify-between p-4 hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors"
             >
-              {reverting ? (
-                <>
-                  <Loader className="h-4 w-4 animate-spin" />
-                  <span>Eliminando...</span>
-                </>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                  Eliminar transacciones de tarjeta
+                </h3>
+              </div>
+              {showCreditCardBanner ? (
+                <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               ) : (
-                <>
-                  <Trash2 className="h-4 w-4" />
-                  <span>Eliminar transacciones</span>
-                </>
+                <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               )}
             </button>
+            {showCreditCardBanner && (
+              <div className="px-4 pb-4 space-y-3">
+                <p className="text-xs text-gray-700 dark:text-gray-300">
+                  Si subiste transacciones de tarjeta de crédito a la cuenta corriente por error, puedes eliminarlas aquí.
+                </p>
+                <button
+                  onClick={handleDeleteCreditCardTransactions}
+                  disabled={reverting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs"
+                >
+                  {reverting ? (
+                    <>
+                      <Loader className="h-3.5 w-3.5 animate-spin" />
+                      <span>Eliminando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Eliminar transacciones</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Last Upload Info - Show at top */}
-      {lastUpload && (
-        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all duration-300">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="flex-shrink-0 mt-0.5">
-                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+        {/* Last Upload Info */}
+        {lastUpload && (
+          <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <button
+              onClick={() => setShowLastUploadBanner(!showLastUploadBanner)}
+              className="w-full flex items-center justify-between p-4 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">Último Upload</h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {lastUpload.transactionCount} transacciones • {lastUpload.account?.name || 'Cuenta'}
+                  </p>
                 </div>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">Último Upload</h3>
-                  <span className="px-2 py-0.5 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded-full">
-                    {lastUpload.transactionCount} transacciones
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    {lastUpload.account && (
-                      <span className="font-medium">Cuenta: <span className="text-gray-900 dark:text-gray-100">{lastUpload.account.name}</span></span>
-                    )}
-                    {lastUpload.uploadedAt && (
-                      <span className="ml-3 text-gray-600 dark:text-gray-400">
-                        {new Date(lastUpload.uploadedAt).toLocaleDateString('es-ES', { 
-                          day: 'numeric', 
-                          month: 'long', 
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                    )}
-                  </p>
+              {showLastUploadBanner ? (
+                <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              )}
+            </button>
+            {showLastUploadBanner && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="text-xs text-gray-700 dark:text-gray-300">
+                  {lastUpload.uploadedAt && (
+                    <p className="mb-2">
+                      {new Date(lastUpload.uploadedAt).toLocaleDateString('es-ES', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  )}
                   {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
-                    <div className="mt-3 p-3 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-amber-200 dark:border-amber-700">
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">Ejemplos de transacciones:</p>
-                      <div className="space-y-1.5">
-                        {lastUpload.sampleTransactions.slice(0, 3).map((t, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 py-1 px-2 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <span className="text-gray-500 dark:text-gray-500 font-mono">
-                                {new Date(t.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
-                              </span>
-                              <span className="truncate">{t.description.substring(0, 35)}
-                                {t.description.length > 35 && '...'}
-                              </span>
-                            </div>
-                            <span className={`font-semibold ml-2 whitespace-nowrap ${
+                    <div className="p-2 bg-white/60 dark:bg-slate-800/60 rounded border border-amber-200 dark:border-amber-700">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Ejemplos:</p>
+                      <div className="space-y-1">
+                        {lastUpload.sampleTransactions.slice(0, 2).map((t, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600 dark:text-gray-400 truncate flex-1 min-w-0">
+                              {t.description.substring(0, 25)}
+                              {t.description.length > 25 && '...'}
+                            </span>
+                            <span className={`font-semibold ml-2 ${
                               t.amount > 0 
                                 ? 'text-emerald-600 dark:text-emerald-400' 
                                 : 'text-red-600 dark:text-red-400'
@@ -593,28 +605,28 @@ function Upload({ onUploadComplete }) {
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={handleRevertLastUpload}
+                  disabled={reverting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs"
+                >
+                  {reverting ? (
+                    <>
+                      <Loader className="h-3.5 w-3.5 animate-spin" />
+                      <span>Revirtiendo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span>Revertir Upload</span>
+                    </>
+                  )}
+                </button>
               </div>
-            </div>
-            <button
-              onClick={handleRevertLastUpload}
-              disabled={reverting}
-              className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm whitespace-nowrap transform hover:scale-105 active:scale-95"
-            >
-              {reverting ? (
-                <>
-                  <Loader className="h-4 w-4 animate-spin" />
-                  <span>Revirtiendo...</span>
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="h-4 w-4" />
-                  <span>Revertir Upload</span>
-                </>
-              )}
-            </button>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Upload Area */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
