@@ -837,11 +837,17 @@ export async function parseCSVTransactions(file) {
  * Detect if CSV is Sabadell CREDIT CARD statement
  */
 function detectSabadellCreditCardFormat(text) {
-  return text.includes('MOVIMIENTOS DE CREDITO') || 
-         text.includes('Saldo dispuesto') ||
-         text.includes('Límite de') ||
-         text.includes('Forma pago mensual') ||
-         (text.includes('VISA') && text.includes('Límite'));
+  // Check for credit card specific indicators
+  const hasMovimientosCredito = text.includes('MOVIMIENTOS DE CREDITO') || text.includes('MOVIMIENTOS DE CREDITO');
+  const hasSaldoDispuesto = text.includes('Saldo dispuesto') || text.includes('Saldo dispuesto:');
+  const hasLimite = text.includes('Límite de crédito') || text.includes('Límite de crédito:');
+  const hasFormaPago = text.includes('Forma pago mensual') || text.includes('Forma pago mensual:');
+  const hasVisaAndLimite = text.includes('VISA') && (text.includes('Límite') || text.includes('Límite de'));
+  const hasSaldosMovimientos = text.includes('Saldos y movimientos');
+  const hasContrato = text.includes('Contrato') && /\d{10,}/.test(text); // Contract number pattern
+  
+  // Must have at least MOVIMIENTOS DE CREDITO and one other indicator
+  return hasMovimientosCredito && (hasSaldoDispuesto || hasLimite || hasVisaAndLimite || hasContrato || hasSaldosMovimientos);
 }
 
 /**
@@ -2492,42 +2498,51 @@ function parseSabadellCreditCard(lines, fullText) {
   let skipNextLines = 0;
   
   // Extract credit card info from text
-  const creditLimitMatch = fullText.match(/Límite de crédito[,\s]+"?([\d.,]+)\s*EUR/);
+  // Updated regex to handle tab-separated format: "Límite de crédito\t1.750,00 EUR"
+  const creditLimitMatch = fullText.match(/Límite de crédito[\s\t]+([\d.,]+)\s*EUR/i);
   if (creditLimitMatch) {
     result.creditCard.creditLimit = parseAmount(creditLimitMatch[1]);
   }
   
-  const debtMatch = fullText.match(/Saldo dispuesto:[,\s]+"?([\d.,]+)\s*EUR/);
+  const debtMatch = fullText.match(/Saldo dispuesto:[\s\t]+([\d.,]+)\s*EUR/i);
   if (debtMatch) {
     const debt = parseAmount(debtMatch[1]);
     result.creditCard.currentDebt = debt;
     result.creditCard.balance = -debt; // Negative = debt
   }
   
-  const availableMatch = fullText.match(/Saldo disponible:[,\s]+"?([\d.,]+)\s*EUR/);
+  const availableMatch = fullText.match(/Saldo disponible:[\s\t]+([\d.,]+)\s*EUR/i);
   if (availableMatch) {
     result.creditCard.availableCredit = parseAmount(availableMatch[1]);
   }
   
-  const monthlyPaymentMatch = fullText.match(/Fijo mensual de ([\d.,]+)\s*EUR/);
+  const monthlyPaymentMatch = fullText.match(/Fijo mensual de ([\d.,]+)\s*EUR/i);
   if (monthlyPaymentMatch) {
     result.creditCard.monthlyPayment = parseAmount(monthlyPaymentMatch[1]);
   }
   
-  const cardNumberMatch = fullText.match(/Tarjeta:[,\s]*([\d_]+)/);
+  // Updated to handle format: "Tarjeta:\t4106________1010"
+  const cardNumberMatch = fullText.match(/Tarjeta:[\s\t]*([\d_]+)/i);
   if (cardNumberMatch) {
     result.creditCard.cardNumber = cardNumberMatch[1];
   }
   
-  const contractMatch = fullText.match(/Contrato[,\s]+([\d]+)/);
+  // Updated to handle format: "Contrato\t004014368331"
+  const contractMatch = fullText.match(/Contrato[\s\t]+([\d]+)/i);
   if (contractMatch) {
     result.creditCard.contractNumber = contractMatch[1];
   }
   
-  const cardTypeMatch = fullText.match(/VISA[^\n,]*/);
+  // Extract card type (e.g., "VISA CLASSIC BSAB")
+  const cardTypeMatch = fullText.match(/VISA[^\n\t]*/i);
   if (cardTypeMatch) {
     result.creditCard.cardType = cardTypeMatch[0].trim();
   }
+  
+  console.error('💳 Parsing Sabadell Credit Card CSV format');
+  console.error('💳 Credit Limit:', result.creditCard.creditLimit);
+  console.error('💳 Current Debt:', result.creditCard.currentDebt);
+  console.error('💳 Available Credit:', result.creditCard.availableCredit);
   
   // Parse transactions - look for lines after "MOVIMIENTOS DE CREDITO"
   for (let i = 0; i < lines.length; i++) {
@@ -2542,28 +2557,32 @@ function parseSabadellCreditCard(lines, fullText) {
       continue;
     }
     
-    // Find transaction section
-    if (line.includes('MOVIMIENTOS DE CREDITO')) {
+    // Find transaction section (case insensitive)
+    if (line.toUpperCase().includes('MOVIMIENTOS DE CREDITO')) {
       inTransactionSection = true;
       skipNextLines = 2; // Skip the blank line and header
+      console.error('💳 Found MOVIMIENTOS DE CREDITO section at line', i);
       continue;
     }
     
-    // Stop at summary sections
+    // Stop at summary sections or debit section
     if (line.includes('Saldo aplazado anterior') || 
         line.includes('IMPORTE TOTAL A LIQUIDAR') ||
-        line.includes('MOVIMIENTOS DE DEBITO')) {
+        line.toUpperCase().includes('MOVIMIENTOS DE DEBITO')) {
+      if (inTransactionSection) {
+        console.error('💳 Ending transaction section at line', i, ':', line.substring(0, 50));
+      }
       inTransactionSection = false;
       continue;
     }
     
     // Skip header rows
-    if (line.includes('FECHA') && line.includes('CONCEPTO')) {
+    if (line.toUpperCase().includes('FECHA') && line.toUpperCase().includes('CONCEPTO')) {
       continue;
     }
     
     // Skip summary rows
-    if (line.includes('TOTAL OPERACIONES') || 
+    if (line.toUpperCase().includes('TOTAL OPERACIONES') || 
         line.includes('Total operaciones') ||
         line.includes('Importe total')) {
       continue;
@@ -2573,46 +2592,94 @@ function parseSabadellCreditCard(lines, fullText) {
     if (inTransactionSection) {
       const fields = parseCSVLine(line);
       
-      // Need at least: date, concept, location, amount
-      if (fields.length >= 4) {
-        const dateField = fields[0];
+      // Format: FECHA, CONCEPTO, LOCALIDAD, (empty), IMPORTE, EUR
+      // Need at least: date, concept
+      if (fields.length >= 2) {
+        const dateField = fields[0]?.trim();
         
         // Check if first field looks like a date (DD/MM)
         if (dateField && dateField.match(/^\d{1,2}\/\d{1,2}$/)) {
-          const concept = fields[1] || '';
-          const location = fields[2] || '';
+          const concept = fields[1]?.trim() || '';
+          const location = fields[2]?.trim() || '';
           
-          // Find amount - look for numeric field followed by EUR
+          // Find amount - it can be in different positions depending on format
+          // Try fields[4] first (standard format), then search for numeric field followed by EUR
           let amount = null;
-          for (let j = 3; j < fields.length; j++) {
-            const field = fields[j].trim();
-            // Check if this field is a number
-            if (field.match(/^-?[\d.,]+$/)) {
-              const nextField = fields[j + 1] || '';
-              // Check if next field contains EUR
-              if (nextField.includes('EUR') || j === fields.length - 2) {
-                amount = parseAmount(field);
-                break;
+          let amountFieldIndex = -1;
+          
+          // Check if amount is in position 4 (standard format: FECHA, CONCEPTO, LOCALIDAD, empty, IMPORTE, EUR)
+          if (fields.length > 4 && fields[4]?.trim()) {
+            const field4 = fields[4].trim();
+            if (field4.match(/^-?[\d.,]+$/)) {
+              // Check if next field is EUR or if we're at the end
+              if (fields.length > 5 && fields[5]?.trim().toUpperCase().includes('EUR')) {
+                amount = parseAmount(field4);
+                amountFieldIndex = 4;
+              } else if (fields.length === 5) {
+                // EUR might be in the same field or missing
+                amount = parseAmount(field4);
+                amountFieldIndex = 4;
               }
             }
           }
           
-          if (concept && amount !== null && amount !== 0) {
+          // If not found, search through all fields
+          if (amount === null) {
+            for (let j = 3; j < fields.length; j++) {
+              const field = fields[j]?.trim();
+              if (!field) continue;
+              
+              // Check if this field is a number
+              if (field.match(/^-?[\d.,]+$/)) {
+                const nextField = fields[j + 1]?.trim() || '';
+                // Check if next field contains EUR
+                if (nextField.toUpperCase().includes('EUR') || j === fields.length - 2) {
+                  amount = parseAmount(field);
+                  amountFieldIndex = j;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Skip if concept is empty or amount is invalid
+          if (!concept || concept.length < 2) {
+            if (i < 20) {
+              console.error(`⏭️ Skipping line ${i}: invalid concept`, { concept, fields });
+            }
+            continue;
+          }
+          
+          if (amount !== null && amount !== 0 && !isNaN(amount)) {
             const currentYear = new Date().getFullYear();
             const fullDate = parseCreditCardDate(dateField, currentYear);
             const isRefund = amount < 0;
             
+            // Build description: combine concept and location if location exists and is meaningful
+            let description = concept;
+            if (location && location.trim() && location !== ' ' && !location.match(/^\s*$/)) {
+              description = `${concept} - ${location}`;
+            }
+            
             const transaction = {
               bank: 'Sabadell',
               date: fullDate,
-              description: location && location !== ' ' ? `${concept} - ${location}` : concept,
+              description: description,
               amount: Math.abs(amount),
               type: isRefund ? 'income' : 'expense',
               category: categorizeCreditCardTransaction(concept, isRefund),
               isRefund: isRefund
             };
             
+            if (result.transactions.length < 5) {
+              console.error(`💳 Parsed transaction ${result.transactions.length + 1}:`, { dateField, fullDate, concept, location, amount, description });
+            }
+            
             result.transactions.push(transaction);
+          } else {
+            if (i < 20) {
+              console.error(`⏭️ Skipping line ${i}: invalid amount`, { amount, amountFieldIndex, fields });
+            }
           }
         }
       }
