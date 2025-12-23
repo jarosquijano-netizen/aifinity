@@ -276,6 +276,22 @@ router.post('/upload', optionalAuth, async (req, res) => {
         [userId, cleanBank, date, cleanCategory, cleanDescription, cleanAmount, type, account_id, isComputable, applicableMonth]
       );
 
+      // Log credit card transactions for debugging
+      if (account_id) {
+        const accountCheck = await client.query(
+          `SELECT account_type FROM bank_accounts WHERE id = $1`,
+          [account_id]
+        );
+        if (accountCheck.rows[0]?.account_type === 'credit') {
+          console.log(`💳 Credit card transaction saved:`, {
+            description: cleanDescription.substring(0, 30),
+            amount: cleanAmount,
+            account_id,
+            category: cleanCategory
+          });
+        }
+      }
+
       insertedTransactions.push(result.rows[0]);
     }
 
