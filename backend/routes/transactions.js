@@ -1234,6 +1234,99 @@ router.post('/transfer', optionalAuth, async (req, res) => {
   }
 });
 
+// Delete recent transactions from a specific account (admin/debug endpoint)
+router.delete('/account/:accountId/recent', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { accountId } = req.params;
+    const { limit = 50 } = req.query; // Default to last 50 transactions
+    
+    console.log(`🗑️ Deleting recent transactions from account ${accountId} (limit: ${limit})`);
+    
+    await client.query('BEGIN');
+    
+    // Verify account exists and belongs to user
+    const accountResult = await client.query(
+      `SELECT id, name, balance FROM bank_accounts 
+       WHERE id = $1 AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))`,
+      [accountId, userId]
+    );
+    
+    if (accountResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    
+    const account = accountResult.rows[0];
+    console.log(`✅ Found account: ${account.name}`);
+    
+    // Get recent transactions
+    const transactionsResult = await client.query(
+      `SELECT id, date, description, amount
+       FROM transactions 
+       WHERE account_id = $1 
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))
+       ORDER BY created_at DESC 
+       LIMIT $3`,
+      [accountId, userId, parseInt(limit)]
+    );
+    
+    if (transactionsResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.json({ 
+        message: 'No transactions found',
+        deleted: 0 
+      });
+    }
+    
+    const transactionIds = transactionsResult.rows.map(t => t.id);
+    
+    console.log(`📋 Found ${transactionIds.length} transactions to delete`);
+    
+    // Delete transactions
+    const deleteResult = await client.query(
+      `DELETE FROM transactions
+       WHERE id = ANY($1)
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))
+       RETURNING id, description`,
+      [transactionIds, userId]
+    );
+    
+    const deletedCount = deleteResult.rows.length;
+    console.log(`✅ Deleted ${deletedCount} transactions`);
+    
+    // Update summaries
+    try {
+      await updateSummaries(client, userId);
+    } catch (summaryError) {
+      console.error('⚠️ Error updating summaries (non-critical):', summaryError);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      message: `Deleted ${deletedCount} recent transactions from ${account.name}`,
+      deleted: deletedCount,
+      account: account.name,
+      transactions: deleteResult.rows.map(t => ({
+        id: t.id,
+        description: t.description?.substring(0, 50)
+      }))
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting recent transactions:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete transactions',
+      message: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
 
 

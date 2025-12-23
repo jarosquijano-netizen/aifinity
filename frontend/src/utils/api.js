@@ -63,6 +63,11 @@ export const revertLastUpload = async () => {
   return response.data;
 };
 
+export const deleteRecentTransactions = async (accountId, limit = 50) => {
+  const response = await api.delete(`/transactions/account/${accountId}/recent?limit=${limit}`);
+  return response.data;
+};
+
 export const deleteTransaction = async (transactionId) => {
   const response = await api.delete(`/transactions/${transactionId}`);
   return response.data;
