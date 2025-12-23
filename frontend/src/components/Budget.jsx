@@ -448,46 +448,40 @@ function Budget({ onNavigateToTransactions }) {
       ) : (
         <>
 
-      {/* Summary Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+      {/* Summary Dashboard - Consolidated */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Budget Breakdown Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Monthly Budget</span>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Budget Breakdown</span>
             <TrendingUp className="w-5 h-5 text-primary" />
           </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(monthlyBudget)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Monthly categories</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Annual Budget</span>
-            <TrendingUp className="w-5 h-5 text-blue-500" />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-700">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Monthly</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(monthlyBudget)}</span>
+            </div>
+            <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-700">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Annual (monthly equiv.)</span>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(annualBudget)}</span>
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Total Budget</span>
+              <span className="text-2xl font-bold text-primary">{formatCurrency(frontendTotalBudget)}</span>
+            </div>
           </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(annualBudget)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Monthly equivalent</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Total Budget</span>
-            <TrendingUp className="w-5 h-5 text-primary" />
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(frontendTotalBudget)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">(Frontend calculated)</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Total Spent</span>
-            <TrendingUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(data?.totals?.spent || 0)}</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Spent / Budget</span>
+        {/* Spending Overview Card */}
+        <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border-2 ${
+          frontendPercentage >= 100 
+            ? 'border-red-300 dark:border-red-700' 
+            : frontendPercentage >= 90 
+            ? 'border-orange-300 dark:border-orange-700'
+            : 'border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Spending Overview</span>
             {frontendPercentage >= 100 ? (
               <AlertCircle className="w-5 h-5 text-danger" />
             ) : frontendPercentage >= 90 ? (
@@ -496,48 +490,73 @@ function Budget({ onNavigateToTransactions }) {
               <CheckCircle className="w-5 h-5 text-success" />
             )}
           </div>
-          <div className="space-y-2">
-            <p className={`text-2xl font-bold ${
-              frontendPercentage >= 100 ? 'text-danger' :
-              frontendPercentage >= 90 ? 'text-orange-500' :
-              'text-success'
-            }`}>
-              {formatCurrency(frontendTotalSpent)} / {formatCurrency(frontendTotalBudget)}
-            </p>
-            <p className={`text-sm font-medium ${
-              frontendPercentage >= 100 ? 'text-danger' :
-              frontendPercentage >= 90 ? 'text-orange-500' :
-              'text-success'
-            }`}>
-              {frontendPercentage >= 100 ? 'Over Budget' :
-               frontendPercentage >= 90 ? 'Near Limit' :
-               'On Track'}
-            </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Spent</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(frontendTotalSpent)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Budget</span>
+              <span className="text-xl font-bold text-gray-700 dark:text-gray-300">{formatCurrency(frontendTotalBudget)}</span>
+            </div>
+            <div className="pt-2 border-t-2 border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Usage</span>
+                <span className={`text-2xl font-bold ${
+                  frontendPercentage >= 100 ? 'text-danger' :
+                  frontendPercentage >= 90 ? 'text-orange-500' :
+                  'text-success'
+                }`}>
+                  {frontendPercentage.toFixed(1)}%
+                </span>
+              </div>
+              <p className={`text-xs font-medium ${
+                frontendPercentage >= 100 ? 'text-danger' :
+                frontendPercentage >= 90 ? 'text-orange-500' :
+                'text-success'
+              }`}>
+                {frontendPercentage >= 100 ? 'Over Budget' :
+                 frontendPercentage >= 90 ? 'Near Limit' :
+                 'On Track'}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Remaining</span>
-            <TrendingUp className="w-5 h-5 text-success" />
+        {/* Remaining & Status Card */}
+        <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border-2 ${
+          frontendRemaining >= 0 
+            ? 'border-green-300 dark:border-green-700' 
+            : 'border-red-300 dark:border-red-700'
+        }`}>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Remaining</span>
+            {frontendRemaining >= 0 ? (
+              <CheckCircle className="w-5 h-5 text-success" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-danger" />
+            )}
           </div>
-          <p className={`text-3xl font-bold ${frontendRemaining >= 0 ? 'text-success' : 'text-danger'}`}>
-            {formatCurrency(frontendRemaining)}
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-medium text-gray-600 dark:text-gray-400">Usage</span>
-            <TrendingUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          <div className="space-y-4">
+            <div>
+              <p className={`text-4xl font-bold mb-2 ${frontendRemaining >= 0 ? 'text-success' : 'text-danger'}`}>
+                {formatCurrency(frontendRemaining)}
+              </p>
+              <p className={`text-sm font-medium ${
+                frontendRemaining >= 0 ? 'text-success' : 'text-danger'
+              }`}>
+                {frontendRemaining >= 0 ? 'Available to spend' : 'Over budget'}
+              </p>
+            </div>
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>Spent / Budget</span>
+                <span className="font-semibold">
+                  {formatCurrency(frontendTotalSpent)} / {formatCurrency(frontendTotalBudget)}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className={`text-3xl font-bold ${
-            frontendPercentage >= 100 ? 'text-danger' :
-            frontendPercentage >= 90 ? 'text-orange-500' :
-            'text-success'
-          }`}>
-            {frontendPercentage.toFixed(1)}%
-          </p>
         </div>
       </div>
 
