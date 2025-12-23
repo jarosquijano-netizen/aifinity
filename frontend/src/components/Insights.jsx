@@ -54,6 +54,101 @@ function Insights() {
     }
   }, [chatMessages, showChat]);
 
+  const handleCheckDuplicates = async () => {
+    if (!data || !data.accounts) return;
+    
+    setCheckingDuplicates(true);
+    setDuplicateInfo(null);
+    
+    try {
+      // Find checking account (Sabadell JAXO)
+      const checkingAccount = data.accounts.find(acc => 
+        acc.name && 
+        acc.name.toUpperCase().includes('JAXO') && 
+        !acc.name.toUpperCase().includes('AHORRO') &&
+        acc.account_type !== 'credit'
+      );
+      
+      if (!checkingAccount) {
+        alert('No se encontró la cuenta corriente Sabadell JAXO');
+        setCheckingDuplicates(false);
+        return;
+      }
+      
+      // Find credit cards that might have duplicates
+      const creditCards = data.accounts.filter(acc => acc.account_type === 'credit');
+      
+      if (creditCards.length === 0) {
+        alert('No se encontraron tarjetas de crédito');
+        setCheckingDuplicates(false);
+        return;
+      }
+      
+      // Check duplicates with each credit card
+      const duplicatesFound = [];
+      for (const card of creditCards) {
+        try {
+          const result = await findDuplicateTransactions(checkingAccount.id, card.id);
+          if (result.count > 0) {
+            duplicatesFound.push({
+              card: card,
+              checkingAccount: checkingAccount,
+              count: result.count,
+              duplicates: result.duplicates
+            });
+          }
+        } catch (err) {
+          console.error(`Error checking duplicates for ${card.name}:`, err);
+        }
+      }
+      
+      if (duplicatesFound.length === 0) {
+        alert('✅ No se encontraron transacciones duplicadas');
+        setDuplicateInfo(null);
+      } else {
+        setDuplicateInfo(duplicatesFound);
+        // Show alert with option to delete
+        const totalDuplicates = duplicatesFound.reduce((sum, d) => sum + d.count, 0);
+        const confirmDelete = window.confirm(
+          `Se encontraron ${totalDuplicates} transacciones duplicadas entre la cuenta corriente y las tarjetas de crédito.\n\n` +
+          `¿Quieres eliminar las duplicadas de la cuenta corriente y mantener las de las tarjetas de crédito?`
+        );
+        
+        if (confirmDelete) {
+          await handleDeleteDuplicates(duplicatesFound);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking duplicates:', err);
+      alert('Error al buscar duplicados: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setCheckingDuplicates(false);
+    }
+  };
+  
+  const handleDeleteDuplicates = async (duplicatesFound) => {
+    try {
+      let totalDeleted = 0;
+      
+      for (const dup of duplicatesFound) {
+        const result = await deleteDuplicateTransactions(
+          dup.checkingAccount.id, 
+          dup.card.id
+        );
+        totalDeleted += result.deleted;
+      }
+      
+      alert(`✅ Se eliminaron ${totalDeleted} transacciones duplicadas de la cuenta corriente.\n\nLas transacciones se mantienen en las tarjetas de crédito correctas.`);
+      
+      // Refresh data
+      await fetchAllData();
+      setDuplicateInfo(null);
+    } catch (err) {
+      console.error('Error deleting duplicates:', err);
+      alert('Error al eliminar duplicados: ' + (err.message || 'Error desconocido'));
+    }
+  };
+
   const fetchAllData = async () => {
     try {
       setLoading(true);
