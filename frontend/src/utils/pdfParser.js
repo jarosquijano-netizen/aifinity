@@ -1782,18 +1782,12 @@ function parseSabadellCSV(lines) {
         }
       }
       
-      // Clean description but preserve important information
-      // Don't remove account numbers or important details
-      let cleanedDescription = description;
+      // Preserve description as-is - don't remove important information
+      // Only clean up excessive whitespace
+      let cleanedDescription = description.trim();
       
-      // Only remove card numbers if they're masked (with X's)
-      cleanedDescription = cleanedDescription.replace(/\d{4}X+\d{4}/g, '');
-      
-      // Remove trailing location suffixes but keep the main description
-      cleanedDescription = cleanedDescription.replace(/\s*-[A-Z\s]+$/i, '');
-      
-      // Clean up extra spaces but preserve the content
-      cleanedDescription = cleanedDescription.replace(/\s+/g, ' ').trim();
+      // Clean up multiple spaces but preserve single spaces
+      cleanedDescription = cleanedDescription.replace(/\s+/g, ' ');
       
       const transaction = {
         bank: 'Sabadell',
@@ -1930,17 +1924,12 @@ function parseSabadellCSV(lines) {
           }
         }
         
-        // Clean description but preserve important information
-        let cleanedDescription = description;
+        // Preserve description as-is - don't remove important information
+        // Only clean up excessive whitespace
+        let cleanedDescription = description.trim();
         
-        // Only remove card numbers if they're masked (with X's)
-        cleanedDescription = cleanedDescription.replace(/\d{4}X+\d{4}/g, '');
-        
-        // Remove trailing location suffixes but keep the main description
-        cleanedDescription = cleanedDescription.replace(/\s*-[A-Z\s]+$/i, '');
-        
-        // Clean up extra spaces but preserve the content
-        cleanedDescription = cleanedDescription.replace(/\s+/g, ' ').trim();
+        // Clean up multiple spaces but preserve single spaces
+        cleanedDescription = cleanedDescription.replace(/\s+/g, ' ');
         
         const transaction = {
           bank: 'Sabadell',
