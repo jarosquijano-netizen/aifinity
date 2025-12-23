@@ -1782,11 +1782,24 @@ function parseSabadellCSV(lines) {
         }
       }
       
+      // Clean description but preserve important information
+      // Don't remove account numbers or important details
+      let cleanedDescription = description;
+      
+      // Only remove card numbers if they're masked (with X's)
+      cleanedDescription = cleanedDescription.replace(/\d{4}X+\d{4}/g, '');
+      
+      // Remove trailing location suffixes but keep the main description
+      cleanedDescription = cleanedDescription.replace(/\s*-[A-Z\s]+$/i, '');
+      
+      // Clean up extra spaces but preserve the content
+      cleanedDescription = cleanedDescription.replace(/\s+/g, ' ').trim();
+      
       const transaction = {
         bank: 'Sabadell',
         date: parsedDate,
-        category: categorizeSabadellTransaction(description),
-        description: description,
+        category: categorizeSabadellTransaction(cleanedDescription),
+        description: cleanedDescription,
         amount: Math.abs(parsedAmount),
         type: parsedAmount > 0 ? 'income' : 'expense'
       };
