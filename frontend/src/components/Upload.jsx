@@ -494,18 +494,27 @@ function Upload({ onUploadComplete }) {
     <div className="space-y-6 animate-fadeIn">
       {/* Quick Actions - Delete Credit Card Transactions from Checking Account */}
       {accounts.some(acc => acc.name && acc.name.toUpperCase().includes('JAXO') && !acc.name.toUpperCase().includes('AHORRO') && acc.account_type !== 'credit') && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">⚠️ ¿Subiste extracto de tarjeta de crédito por error?</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Si subiste transacciones de tarjeta de crédito a la cuenta corriente por error, puedes eliminarlas aquí.
-              </p>
+        <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="flex-shrink-0 mt-0.5">
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-1.5">
+                  ¿Subiste extracto de tarjeta de crédito por error?
+                </h3>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  Si subiste transacciones de tarjeta de crédito a la cuenta corriente por error, puedes eliminarlas aquí de forma segura.
+                </p>
+              </div>
             </div>
             <button
               onClick={handleDeleteCreditCardTransactions}
               disabled={reverting}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-4"
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm whitespace-nowrap transform hover:scale-105 active:scale-95"
             >
               {reverting ? (
                 <>
@@ -515,7 +524,7 @@ function Upload({ onUploadComplete }) {
               ) : (
                 <>
                   <Trash2 className="h-4 w-4" />
-                  <span>Eliminar transacciones de tarjeta</span>
+                  <span>Eliminar transacciones</span>
                 </>
               )}
             </button>
@@ -525,40 +534,71 @@ function Upload({ onUploadComplete }) {
 
       {/* Last Upload Info - Show at top */}
       {lastUpload && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Último Upload</h3>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Se subieron <strong>{lastUpload.transactionCount}</strong> transacciones
-                {lastUpload.account && (
-                  <> a la cuenta <strong>{lastUpload.account.name}</strong></>
-                )}
-                {lastUpload.uploadedAt && (
-                  <> el {new Date(lastUpload.uploadedAt).toLocaleString('es-ES')}</>
-                )}
-              </p>
-              {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  <p className="font-medium mb-1">Ejemplos de transacciones:</p>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {lastUpload.sampleTransactions.slice(0, 3).map((t, idx) => (
-                      <li key={idx}>
-                        {new Date(t.date).toLocaleDateString('es-ES')} - {t.description.substring(0, 40)}
-                        {t.description.length > 40 && '...'} - {t.amount > 0 ? '+' : ''}€{Math.abs(t.amount).toFixed(2)}
-                      </li>
-                    ))}
-                  </ul>
+        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="flex-shrink-0 mt-0.5">
+                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 </div>
-              )}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">Último Upload</h3>
+                  <span className="px-2 py-0.5 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded-full">
+                    {lastUpload.transactionCount} transacciones
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {lastUpload.account && (
+                      <span className="font-medium">Cuenta: <span className="text-gray-900 dark:text-gray-100">{lastUpload.account.name}</span></span>
+                    )}
+                    {lastUpload.uploadedAt && (
+                      <span className="ml-3 text-gray-600 dark:text-gray-400">
+                        {new Date(lastUpload.uploadedAt).toLocaleDateString('es-ES', { 
+                          day: 'numeric', 
+                          month: 'long', 
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    )}
+                  </p>
+                  {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
+                    <div className="mt-3 p-3 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-amber-200 dark:border-amber-700">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">Ejemplos de transacciones:</p>
+                      <div className="space-y-1.5">
+                        {lastUpload.sampleTransactions.slice(0, 3).map((t, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 py-1 px-2 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-gray-500 dark:text-gray-500 font-mono">
+                                {new Date(t.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+                              </span>
+                              <span className="truncate">{t.description.substring(0, 35)}
+                                {t.description.length > 35 && '...'}
+                              </span>
+                            </div>
+                            <span className={`font-semibold ml-2 whitespace-nowrap ${
+                              t.amount > 0 
+                                ? 'text-emerald-600 dark:text-emerald-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {t.amount > 0 ? '+' : ''}€{Math.abs(t.amount).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <button
               onClick={handleRevertLastUpload}
               disabled={reverting}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-4"
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm whitespace-nowrap transform hover:scale-105 active:scale-95"
             >
               {reverting ? (
                 <>
@@ -568,7 +608,7 @@ function Upload({ onUploadComplete }) {
               ) : (
                 <>
                   <RotateCcw className="h-4 w-4" />
-                  <span>Revertir</span>
+                  <span>Revertir Upload</span>
                 </>
               )}
             </button>
