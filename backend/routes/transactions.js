@@ -1234,6 +1234,113 @@ router.post('/transfer', optionalAuth, async (req, res) => {
   }
 });
 
+// Delete credit card transactions from checking account (fix misuploaded credit card statements)
+router.delete('/account/:accountId/credit-card-transactions', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { accountId } = req.params;
+    
+    console.log(`🔍 Finding credit card transactions in account ${accountId}`);
+    
+    await client.query('BEGIN');
+    
+    // Verify account exists
+    const accountResult = await client.query(
+      `SELECT id, name, account_type FROM bank_accounts 
+       WHERE id = $1 AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))`,
+      [accountId, userId]
+    );
+    
+    if (accountResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    
+    const account = accountResult.rows[0];
+    
+    // Find transactions that look like credit card transactions (in a checking account)
+    // Look for patterns: COMPRA TARJ, card numbers with X's, etc.
+    const creditCardPatterns = [
+      'COMPRA TARJ',
+      'COMPRA TARJETA',
+      'TARJ',
+      'XXXXXXXX',
+      'MOVIMIENTOS DE CREDITO',
+      'Límite de crédito'
+    ];
+    
+    const patternQuery = creditCardPatterns.map((_, i) => 
+      `description ILIKE $${i + 3}`
+    ).join(' OR ');
+    
+    const patternValues = creditCardPatterns.map(p => `%${p}%`);
+    
+    const transactionsResult = await client.query(
+      `SELECT id, date, description, amount, created_at
+       FROM transactions 
+       WHERE account_id = $1 
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))
+       AND (${patternQuery})
+       ORDER BY created_at DESC`,
+      [accountId, userId, ...patternValues]
+    );
+    
+    if (transactionsResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.json({ 
+        message: 'No credit card transactions found',
+        deleted: 0 
+      });
+    }
+    
+    const transactionIds = transactionsResult.rows.map(t => t.id);
+    
+    console.log(`📋 Found ${transactionIds.length} credit card transactions to delete`);
+    
+    // Delete transactions
+    const deleteResult = await client.query(
+      `DELETE FROM transactions
+       WHERE id = ANY($1)
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))
+       RETURNING id, description`,
+      [transactionIds, userId]
+    );
+    
+    const deletedCount = deleteResult.rows.length;
+    console.log(`✅ Deleted ${deletedCount} credit card transactions`);
+    
+    // Update summaries
+    try {
+      await updateSummaries(client, userId);
+    } catch (summaryError) {
+      console.error('⚠️ Error updating summaries (non-critical):', summaryError);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      message: `Deleted ${deletedCount} credit card transactions from ${account.name}`,
+      deleted: deletedCount,
+      account: account.name,
+      transactions: deleteResult.rows.map(t => ({
+        id: t.id,
+        description: t.description?.substring(0, 50)
+      }))
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting credit card transactions:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete transactions',
+      message: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // Delete recent transactions from a specific account (admin/debug endpoint)
 router.delete('/account/:accountId/recent', optionalAuth, async (req, res) => {
   const client = await pool.connect();

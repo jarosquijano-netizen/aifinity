@@ -68,6 +68,11 @@ export const deleteRecentTransactions = async (accountId, limit = 50) => {
   return response.data;
 };
 
+export const deleteCreditCardTransactions = async (accountId) => {
+  const response = await api.delete(`/transactions/account/${accountId}/credit-card-transactions`);
+  return response.data;
+};
+
 export const deleteTransaction = async (transactionId) => {
   const response = await api.delete(`/transactions/${transactionId}`);
   return response.data;
