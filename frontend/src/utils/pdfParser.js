@@ -1669,26 +1669,33 @@ function parseSabadellCSV(lines) {
   
   // Check if format is vertical (each field in separate line)
   // Format: F. Operativa (line 0), F. Valor (line 1), Descripción (line 2), Importe (line 3), Saldo (line 4)
-  const line0 = lines[0]?.trim();
-  const line1 = lines[1]?.trim();
-  const line2 = lines[2]?.trim();
-  const line3 = lines[3]?.trim();
-  const line4 = lines[4]?.trim();
+  console.error('🔍 Checking for vertical format...');
+  console.error('🔍 First 5 lines:', lines.slice(0, 5));
+  
+  const line0 = lines[0]?.trim() || '';
+  const line1 = lines[1]?.trim() || '';
+  const line2 = lines[2]?.trim() || '';
+  const line3 = lines[3]?.trim() || '';
+  const line4 = lines[4]?.trim() || '';
   
   const check0 = line0 === 'F. Operativa';
   const check1 = line1 === 'F. Valor';
-  const check2 = line2?.includes('Descripción') || line2 === 'Descripción(Ver menos)';
+  const check2 = line2.includes('Descripción') || line2 === 'Descripción(Ver menos)';
   const check3 = line3 === 'Importe';
   const check4 = line4 === 'Saldo';
   
+  console.error('🔍 Individual checks:', { 
+    check0, check1, check2, check3, check4,
+    line0, line1, line2, line3, line4,
+    line2IncludesDescripcion: line2.includes('Descripción')
+  });
+  
   const isVerticalFormat = lines.length > 4 && check0 && check1 && check2 && check3 && check4;
   
-  console.error('🔍 Format detection:', { 
+  console.error('🔍 Format detection result:', { 
     isVerticalFormat, 
     linesLength: lines.length,
-    line0, line1, line2, line3, line4,
-    check0, check1, check2, check3, check4,
-    first5Lines: lines.slice(0, 5) 
+    allChecksPass: check0 && check1 && check2 && check3 && check4
   });
   
   if (isVerticalFormat) {
