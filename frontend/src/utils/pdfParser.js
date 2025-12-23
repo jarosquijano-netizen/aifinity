@@ -1667,37 +1667,55 @@ function parseSabadellCSV(lines) {
   let lastBalance = null; // Store the balance from CSV (first valid one = most recent)
   let balanceFound = false; // Flag to capture only the first balance
   
-  // Find account number and header row
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Extract account number
-    if (line.includes('Cuenta:')) {
-      const match = line.match(/ES\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}/);
-      if (match) {
-        accountNumber = match[0].replace(/\s/g, '');
+  // Check if format is vertical (each field in separate line)
+  // Format: F. Operativa (line 0), F. Valor (line 1), Descripción (line 2), Importe (line 3), Saldo (line 4)
+  const isVerticalFormat = lines.length > 4 && 
+    lines[0]?.trim() === 'F. Operativa' &&
+    lines[1]?.trim() === 'F. Valor' &&
+    (lines[2]?.trim().includes('Descripción') || lines[2]?.trim() === 'Descripción(Ver menos)') &&
+    lines[3]?.trim() === 'Importe' &&
+    lines[4]?.trim() === 'Saldo';
+  
+  console.error('🔍 Format detection:', { isVerticalFormat, first5Lines: lines.slice(0, 5) });
+  
+  if (isVerticalFormat) {
+    // Vertical format: each column header is on a separate line
+    // Transactions start from line 5, and each transaction has 5 lines (one per field)
+    headerRowIndex = 0; // Header spans lines 0-4
+    console.error('✅ Detected vertical Sabadell format');
+  } else {
+    // Horizontal format: find header row
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Extract account number
+      if (line.includes('Cuenta:')) {
+        const match = line.match(/ES\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}/);
+        if (match) {
+          accountNumber = match[0].replace(/\s/g, '');
+        }
       }
-    }
-    
-    // Find header row - check for all formats
-    // Normalize line for comparison (handle multiple spaces/tabs)
-    const normalizedLine = line.replace(/\s+/g, ' ');
-    
-    if (normalizedLine.includes('F. Operativa') && normalizedLine.includes('F. Valor') && normalizedLine.includes('Descripción') && normalizedLine.includes('Importe') && normalizedLine.includes('Saldo')) {
-      // New tab-separated format: F. Operativa, F. Valor, Descripción, Importe, Saldo
-      headerRowIndex = i;
-      console.error('✅ Found new Sabadell format header at line', i, ':', line.substring(0, 100));
-      break;
-    } else if (normalizedLine.includes('F. Operativa') && normalizedLine.includes('Concepto')) {
-      // Old comma-separated format: F. Operativa, Concepto, F. Valor, Importe, Saldo
-      headerRowIndex = i;
-      console.error('✅ Found old Sabadell format header at line', i);
-      break;
-    } else if (normalizedLine.includes('Fecha') && normalizedLine.includes('Descripción') && normalizedLine.includes('Importe')) {
-      // Tab-separated format: Fecha, Descripción, Importe, Saldo
-      headerRowIndex = i;
-      console.error('✅ Found tab Sabadell format header at line', i);
-      break;
+      
+      // Find header row - check for all formats
+      // Normalize line for comparison (handle multiple spaces/tabs)
+      const normalizedLine = line.replace(/\s+/g, ' ');
+      
+      if (normalizedLine.includes('F. Operativa') && normalizedLine.includes('F. Valor') && normalizedLine.includes('Descripción') && normalizedLine.includes('Importe') && normalizedLine.includes('Saldo')) {
+        // New tab-separated format: F. Operativa, F. Valor, Descripción, Importe, Saldo
+        headerRowIndex = i;
+        console.error('✅ Found new Sabadell format header at line', i, ':', line.substring(0, 100));
+        break;
+      } else if (normalizedLine.includes('F. Operativa') && normalizedLine.includes('Concepto')) {
+        // Old comma-separated format: F. Operativa, Concepto, F. Valor, Importe, Saldo
+        headerRowIndex = i;
+        console.error('✅ Found old Sabadell format header at line', i);
+        break;
+      } else if (normalizedLine.includes('Fecha') && normalizedLine.includes('Descripción') && normalizedLine.includes('Importe')) {
+        // Tab-separated format: Fecha, Descripción, Importe, Saldo
+        headerRowIndex = i;
+        console.error('✅ Found tab Sabadell format header at line', i);
+        break;
+      }
     }
   }
   
@@ -1718,7 +1736,93 @@ function parseSabadellCSV(lines) {
   console.error('📋 Header row:', headerRow);
   console.error('📋 Header row (raw):', JSON.stringify(headerRow));
   
-  // Normalize header row for comparison (handle multiple spaces/tabs)
+  // Check if format is vertical (each field in separate line)
+  const isVerticalFormat = headerRowIndex === 0 && 
+    lines[0]?.trim() === 'F. Operativa' &&
+    lines[1]?.trim() === 'F. Valor' &&
+    (lines[2]?.trim().includes('Descripción') || lines[2]?.trim() === 'Descripción(Ver menos)') &&
+    lines[3]?.trim() === 'Importe' &&
+    lines[4]?.trim() === 'Saldo';
+  
+  if (isVerticalFormat) {
+    // Vertical format: parse transactions where each transaction spans 5 lines
+    // Header is lines 0-4, transactions start at line 5
+    console.error('📋 Parsing vertical format - transactions start at line 5');
+    
+    for (let i = 5; i < lines.length; i += 5) {
+      // Each transaction has 5 fields on 5 consecutive lines
+      if (i + 4 >= lines.length) break; // Not enough lines for a complete transaction
+      
+      const operationDate = lines[i]?.trim();     // F. Operativa
+      const valueDate = lines[i + 1]?.trim();     // F. Valor
+      const description = lines[i + 2]?.trim();    // Descripción
+      const amountStr = lines[i + 3]?.trim();    // Importe
+      const balanceStr = lines[i + 4]?.trim();    // Saldo
+      
+      // Debug first few transactions
+      if (i <= 20) {
+        console.error(`🔍 Parsing vertical transaction ${Math.floor(i/5)}:`, { operationDate, description: description?.substring(0, 30), amountStr, balanceStr });
+      }
+      
+      // Skip if missing required fields
+      if (!operationDate || !description || !amountStr) {
+        if (i <= 20) {
+          console.error(`⏭️ Skipping transaction at line ${i}: missing fields`);
+        }
+        continue;
+      }
+      
+      // Skip rows that are just category tags or empty
+      if (description.length < 3) {
+        continue;
+      }
+      
+      // Parse date (DD/MM/YYYY format)
+      const parsedDate = parseSabadellDate(operationDate);
+      
+      // Parse amount (e.g., "-300,00 €" or "6.439,46 €")
+      const parsedAmount = parseAmount(amountStr);
+      
+      // Skip if amount is 0 or invalid
+      if (parsedAmount === 0 || isNaN(parsedAmount)) {
+        if (i <= 20) {
+          console.error(`⏭️ Skipping transaction at line ${i}: invalid amount`, { parsedAmount, amountStr });
+        }
+        continue;
+      }
+      
+      // Store FIRST balance only (most recent transaction, usually at top)
+      if (balanceStr && !balanceFound) {
+        const parsedBalance = parseAmount(balanceStr);
+        if (!isNaN(parsedBalance)) {
+          lastBalance = parsedBalance;
+          balanceFound = true;
+        }
+      }
+      
+      const transaction = {
+        bank: 'Sabadell',
+        date: parsedDate,
+        category: categorizeSabadellTransaction(description),
+        description: description,
+        amount: Math.abs(parsedAmount),
+        type: parsedAmount > 0 ? 'income' : 'expense'
+      };
+      
+      transactions.push(transaction);
+    }
+    
+    console.error(`✅ parseSabadellCSV completed (vertical): ${transactions.length} transactions parsed, lastBalance: ${lastBalance}`);
+    
+    return {
+      bank: 'Sabadell',
+      accountNumber: accountNumber,
+      lastBalance: lastBalance,
+      transactions
+    };
+  }
+  
+  // Horizontal format: normalize header row for comparison (handle multiple spaces/tabs)
   const normalizedHeader = headerRow.replace(/\s+/g, ' ');
   const isNewTabFormat = normalizedHeader.includes('F. Operativa') && normalizedHeader.includes('F. Valor') && normalizedHeader.includes('Descripción');
   const isTabFormat = normalizedHeader.includes('Fecha') && normalizedHeader.includes('Descripción') && !isNewTabFormat;
