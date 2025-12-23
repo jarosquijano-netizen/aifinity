@@ -97,6 +97,44 @@ function Upload({ onUploadComplete }) {
     }
   };
 
+  const handleDeleteCreditCardTransactions = async () => {
+    const jaxoAccount = accounts.find(acc => 
+      acc.name && 
+      acc.name.toUpperCase().includes('JAXO') && 
+      !acc.name.toUpperCase().includes('AHORRO') &&
+      acc.account_type !== 'credit'
+    );
+
+    if (!jaxoAccount) {
+      alert('No se encontró la cuenta Sabadell JAXO');
+      return;
+    }
+
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar las transacciones de tarjeta de crédito de la cuenta "${jaxoAccount.name}"?\n\nEsta acción eliminará todas las transacciones que parezcan ser de tarjeta de crédito (como "COMPRA TARJ", etc.)`)) {
+      return;
+    }
+
+    setReverting(true);
+    setError('');
+    
+    try {
+      const result = await deleteCreditCardTransactions(jaxoAccount.id);
+      alert(`✅ Se eliminaron ${result.deletedCount || 0} transacciones de tarjeta de crédito de la cuenta "${jaxoAccount.name}".`);
+      // Refresh accounts to update balances
+      await fetchAccounts();
+      // Trigger refresh in parent component
+      if (onUploadComplete) {
+        onUploadComplete();
+      }
+    } catch (err) {
+      console.error('❌ Error deleting credit card transactions:', err);
+      setError(err.response?.data?.error || err.message || 'Error al eliminar transacciones de tarjeta de crédito');
+      alert('Error al eliminar transacciones: ' + (err.response?.data?.error || err.message || 'Error desconocido'));
+    } finally {
+      setReverting(false);
+    }
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     setIsDragging(true);
