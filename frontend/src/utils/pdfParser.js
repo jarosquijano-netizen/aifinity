@@ -767,7 +767,7 @@ export async function parseCSVTransactions(file) {
     
     if (isSabadellFormat) {
       console.log('🏦 Detected: Sabadell Bank format');
-      const result = parseSabadellCSV(lines);
+      const result = await parseSabadellCSV(lines);
       console.error(`✅ Sabadell CSV parser returned ${result.transactions.length} transactions`);
       return result;
     }
@@ -1686,7 +1686,7 @@ function parseINGTextFormat(lines) {
 /**
  * Parse Sabadell bank CSV/Excel export
  */
-function parseSabadellCSV(lines) {
+async function parseSabadellCSV(lines) {
   console.error('📝 parseSabadellCSV CALLED with', lines.length, 'lines');
   const transactions = [];
   let accountNumber = '';
@@ -1729,6 +1729,9 @@ function parseSabadellCSV(lines) {
     // Vertical format: each column header is on a separate line
     // Transactions start from line 5, and each transaction has 5 lines (one per field)
     console.error('✅ Detected vertical Sabadell format - parsing transactions');
+    
+    // Initialize learned categories cache
+    await loadLearnedCategories();
     
     // Parse vertical format transactions
     for (let i = 5; i < lines.length; i += 5) {
@@ -1789,10 +1792,13 @@ function parseSabadellCSV(lines) {
       // Clean up multiple spaces but preserve single spaces
       cleanedDescription = cleanedDescription.replace(/\s+/g, ' ');
       
+      // Categorize transaction (will use learned categories if available)
+      const category = await categorizeSabadellTransactionAsync(cleanedDescription);
+      
       const transaction = {
         bank: 'Sabadell',
         date: parsedDate,
-        category: categorizeSabadellTransaction(cleanedDescription),
+        category: category,
         description: cleanedDescription,
         amount: Math.abs(parsedAmount),
         type: parsedAmount > 0 ? 'income' : 'expense'
@@ -1868,6 +1874,9 @@ function parseSabadellCSV(lines) {
   const isTabFormat = normalizedHeader.includes('Fecha') && normalizedHeader.includes('Descripción') && !isNewTabFormat;
   console.error('📋 Format detection:', { isNewTabFormat, isTabFormat, normalizedHeader: normalizedHeader.substring(0, 100) });
   
+  // Initialize learned categories cache
+  await loadLearnedCategories();
+  
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -1931,10 +1940,13 @@ function parseSabadellCSV(lines) {
         // Clean up multiple spaces but preserve single spaces
         cleanedDescription = cleanedDescription.replace(/\s+/g, ' ');
         
+        // Categorize transaction (will use learned categories if available)
+        const category = await categorizeSabadellTransactionAsync(cleanedDescription);
+        
         const transaction = {
           bank: 'Sabadell',
           date: parsedDate,
-          category: categorizeSabadellTransaction(cleanedDescription),
+          category: category,
           description: cleanedDescription,
           amount: Math.abs(parsedAmount),
           type: parsedAmount > 0 ? 'income' : 'expense'
@@ -2068,6 +2080,78 @@ function cleanSabadellDescription(description) {
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   
   return cleaned;
+}
+
+// Cache for learned categories (loaded at parsing start)
+let learnedCategoriesCache = {};
+let learnedCategoriesLoaded = false;
+
+/**
+ * Load learned categories from backend (called once at start of parsing)
+ */
+async function loadLearnedCategories() {
+  if (learnedCategoriesLoaded) {
+    return; // Already loaded
+  }
+  
+  try {
+    // Import API function dynamically to avoid circular dependencies
+    const { getLearnedCategory: apiGetLearnedCategory } = await import('./api');
+    
+    // Try to load some common patterns (we'll load more as needed)
+    // For now, we'll load on-demand but cache results
+    learnedCategoriesLoaded = true;
+    console.log('📚 Learned categories cache initialized');
+  } catch (error) {
+    console.error('Error initializing learned categories cache:', error);
+    learnedCategoriesLoaded = true; // Mark as loaded to avoid retrying
+  }
+}
+
+/**
+ * Get learned category for a description (with caching)
+ */
+async function getLearnedCategory(description) {
+  try {
+    const normalizedDesc = description.toLowerCase().trim().replace(/\s+/g, ' ').substring(0, 200);
+    
+    // Check cache first
+    if (learnedCategoriesCache[normalizedDesc] !== undefined) {
+      return learnedCategoriesCache[normalizedDesc];
+    }
+    
+    // Import API function dynamically to avoid circular dependencies
+    const { getLearnedCategory: apiGetLearnedCategory } = await import('./api');
+    const result = await apiGetLearnedCategory(description);
+    
+    // Cache result (even if null)
+    learnedCategoriesCache[normalizedDesc] = result.category || null;
+    
+    if (result.category && result.category !== 'Otros > Sin categoría' && result.category !== 'Uncategorized') {
+      console.log(`✅ Found learned category for "${description.substring(0, 50)}...": ${result.category}`);
+    }
+    
+    return result.category || null;
+  } catch (error) {
+    console.error('Error getting learned category:', error);
+    learnedCategoriesCache[normalizedDesc] = null; // Cache null to avoid retrying
+    return null;
+  }
+}
+
+/**
+ * Categorize Sabadell transactions to match Spanish budget categories
+ * Now checks learned categories first (async version)
+ */
+async function categorizeSabadellTransactionAsync(description) {
+  // First, check learned categories
+  const learnedCategory = await getLearnedCategory(description);
+  if (learnedCategory && learnedCategory !== 'Otros > Sin categoría' && learnedCategory !== 'Uncategorized') {
+    return learnedCategory;
+  }
+  
+  // Fall back to rule-based categorization
+  return categorizeSabadellTransaction(description);
 }
 
 /**

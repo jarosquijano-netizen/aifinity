@@ -812,6 +812,46 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
       return res.status(403).json({ error: 'Cannot update transaction belonging to another user' });
     }
 
+    // Save learned category mapping for future transactions
+    // Create table if it doesn't exist
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS transaction_category_mappings (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          description_pattern TEXT NOT NULL,
+          category VARCHAR(255) NOT NULL,
+          usage_count INTEGER DEFAULT 1,
+          last_used TIMESTAMP DEFAULT NOW(),
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(user_id, description_pattern)
+        )
+      `);
+      
+      // Normalize description for pattern matching (remove extra spaces, lowercase)
+      const normalizedDescription = transaction.description
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ')
+        .substring(0, 200); // Limit length
+      
+      // Save or update mapping
+      await client.query(`
+        INSERT INTO transaction_category_mappings (user_id, description_pattern, category, usage_count, last_used)
+        VALUES ($1, $2, $3, 1, NOW())
+        ON CONFLICT (user_id, description_pattern) 
+        DO UPDATE SET 
+          category = EXCLUDED.category,
+          usage_count = transaction_category_mappings.usage_count + 1,
+          last_used = NOW()
+      `, [userId, normalizedDescription, normalizedCategory]);
+      
+      console.log(`💾 Saved category mapping: "${normalizedDescription.substring(0, 50)}..." -> "${normalizedCategory}"`);
+    } catch (mappingError) {
+      console.error('⚠️ Error saving category mapping (non-critical):', mappingError);
+      // Don't fail the transaction if mapping save fails
+    }
+
     // Update summaries
     await updateSummaries(client, userId);
 
@@ -828,6 +868,97 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to update category' });
   } finally {
     client.release();
+  }
+});
+
+// Get learned category mappings for a description pattern
+router.get('/learned-category', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { description } = req.query;
+    
+    if (!description) {
+      return res.json({ category: null });
+    }
+    
+    // Normalize description for matching
+    const normalizedDescription = description
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+      .substring(0, 200);
+    
+    // Ensure table exists
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS transaction_category_mappings (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          description_pattern TEXT NOT NULL,
+          category VARCHAR(255) NOT NULL,
+          usage_count INTEGER DEFAULT 1,
+          last_used TIMESTAMP DEFAULT NOW(),
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(user_id, description_pattern)
+        )
+      `);
+    } catch (tableError) {
+      // Table might already exist, ignore
+    }
+    
+    // Find exact or similar matches
+    // First try exact match
+    let result = await pool.query(
+      `SELECT category, usage_count 
+       FROM transaction_category_mappings
+       WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)
+       AND description_pattern = $2
+       ORDER BY usage_count DESC, last_used DESC
+       LIMIT 1`,
+      [userId, normalizedDescription]
+    );
+    
+    if (result.rows.length > 0) {
+      return res.json({ 
+        category: result.rows[0].category,
+        confidence: 'exact',
+        usageCount: result.rows[0].usage_count
+      });
+    }
+    
+    // Try similarity matching (find descriptions that contain or are contained in the pattern)
+    result = await pool.query(
+      `SELECT category, usage_count, 
+              CASE 
+                WHEN description_pattern LIKE $2 || '%' THEN 1
+                WHEN $2 LIKE description_pattern || '%' THEN 2
+                WHEN description_pattern LIKE '%' || $2 || '%' THEN 3
+                ELSE 4
+              END as match_type
+       FROM transaction_category_mappings
+       WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)
+       AND (
+         description_pattern LIKE $2 || '%' OR
+         $2 LIKE description_pattern || '%' OR
+         description_pattern LIKE '%' || $2 || '%'
+       )
+       ORDER BY match_type ASC, usage_count DESC, last_used DESC
+       LIMIT 1`,
+      [userId, normalizedDescription]
+    );
+    
+    if (result.rows.length > 0) {
+      return res.json({ 
+        category: result.rows[0].category,
+        confidence: 'similar',
+        usageCount: result.rows[0].usage_count
+      });
+    }
+    
+    res.json({ category: null });
+  } catch (error) {
+    console.error('Error getting learned category:', error);
+    res.json({ category: null });
   }
 });
 

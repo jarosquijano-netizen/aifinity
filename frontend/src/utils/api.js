@@ -117,6 +117,11 @@ export const getCategories = async () => {
   return response.data;
 };
 
+export const getLearnedCategory = async (description) => {
+  const response = await api.get(`/transactions/learned-category?description=${encodeURIComponent(description)}`);
+  return response.data;
+};
+
 // Summary endpoint
 export const getSummary = async () => {
   const response = await api.get('/summary');
