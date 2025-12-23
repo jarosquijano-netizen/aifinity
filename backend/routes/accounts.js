@@ -380,7 +380,6 @@ router.post('/:id/recalculate-balance', optionalAuth, async (req, res) => {
     }
 
     const account = accountResult.rows[0];
-    const isCreditCard = account.account_type === 'credit';
     const accountUserId = account.user_id; // Use account's user_id, not request userId
 
     console.log(`📊 Account: ${account.name} (${account.account_type}), current balance: €${parseFloat(account.balance || 0).toFixed(2)}`);
