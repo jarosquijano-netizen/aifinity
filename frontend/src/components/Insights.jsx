@@ -23,6 +23,10 @@ function Insights() {
 
   // Minimum payment calculator state
   const [customMinimumPayments, setCustomMinimumPayments] = useState({});
+  
+  // Duplicate detection state
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
 
   useEffect(() => {
     fetchAllData();
