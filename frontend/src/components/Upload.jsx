@@ -3,6 +3,7 @@ import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Bu
 import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
 import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload, deleteRecentTransactions, deleteCreditCardTransactions } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
+import AccountSelector from './AccountSelector';
 
 function Upload({ onUploadComplete }) {
   const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'paste'
@@ -770,59 +771,37 @@ function Upload({ onUploadComplete }) {
 
         {/* Account Selector Modal */}
         {showAccountSelector && (
-          <div className="mt-6 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl border-2 border-purple-200" style={{ zIndex: 1000 }}>
+          <div className="mt-6 p-6 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-2xl border-2 border-purple-200 dark:border-purple-700 shadow-lg">
             <div className="flex items-center space-x-3 mb-4">
-              <Building2 className="w-6 h-6 text-purple-600" />
-              <h3 className="text-lg font-bold text-gray-900">
+              <Building2 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Select Account for Transactions
               </h3>
             </div>
-            <p className="text-sm text-gray-600 mb-4">
-              {parsedTransactionsData ? (
-                <>
+            
+            {parsedTransactionsData && (
+              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                <p className="text-sm text-green-800 dark:text-green-200">
                   ✅ Successfully parsed <strong>{parsedTransactionsData.transactions.length} transactions</strong>.
-                  <br />
-                  {accounts.length > 0 ? (
-                    'Choose which account these transactions belong to:'
-                  ) : (
-                    <>
-                      ⚠️ <strong>No accounts found.</strong> Please create an account first in Settings, then try again.
-                    </>
-                  )}
-                </>
-              ) : (
-                accounts.length > 0 ? (
-                  'Choose which account these transactions belong to:'
-                ) : (
-                  '⚠️ No accounts found. Please create an account first.'
-                )
-              )}
-            </p>
-            {accounts.length > 0 ? (
-              <div>
-                <select
-                  value={selectedAccount}
-                  onChange={(e) => setSelectedAccount(e.target.value)}
-                  className="input-primary mb-4 w-full"
-                >
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} ({account.account_type || 'General'})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Showing {accounts.length} account{accounts.length !== 1 ? 's' : ''} from Settings
-                </p>
-              </div>
-            ) : (
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  💡 <strong>Tip:</strong> Go to <strong>Settings</strong> → <strong>Accounts</strong> to create your first bank account, then come back here to upload transactions.
                 </p>
               </div>
             )}
-            <div className="flex space-x-3">
+
+            <AccountSelector
+              accounts={accounts}
+              selectedAccount={selectedAccount}
+              onAccountChange={(accountId) => setSelectedAccount(accountId.toString())}
+              label=""
+              description={parsedTransactionsData 
+                ? 'Choose which account these transactions belong to:'
+                : 'Choose which account these transactions belong to:'
+              }
+              showBalance={true}
+              disabled={processing || accounts.length === 0}
+              className="mb-4"
+            />
+
+            <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => {
                   if (uploadMode === 'file') {
