@@ -727,22 +727,28 @@ export async function parseCSVTransactions(file) {
     console.error(`📄 CSV file: ${file.name}, ${lines.length} lines`);
     console.error(`📄 First 5 lines with indices:`, lines.slice(0, 5).map((l, i) => `[${i}] ${l.substring(0, 80)}`));
     
-    // Check if it's a credit card TEXT format (copy-paste) FIRST
+    // Check if it's a credit card statement (CSV format) FIRST
+    // CSV format should be checked before TEXT format to avoid false positives
+    const isCreditCard = detectSabadellCreditCardFormat(text);
+    console.error('🔍 Credit card CSV detection:', { isCreditCard, textPreview: text.substring(0, 500) });
+    
+    if (isCreditCard) {
+      console.log('💳 Detected: Sabadell Credit Card CSV format');
+      const result = parseSabadellCreditCard(lines, text);
+      console.error(`✅ Credit card CSV parser returned ${result.transactions.length} transactions`);
+      // Only return if we found transactions, otherwise try TEXT format
+      if (result.transactions.length > 0) {
+        return result;
+      } else {
+        console.error('⚠️ CSV parser found 0 transactions, trying TEXT format...');
+      }
+    }
+    
+    // Check if it's a credit card TEXT format (copy-paste) as fallback
     const isCreditCardText = detectSabadellCreditCardTextFormat(text, lines);
     if (isCreditCardText) {
       console.log('💳 Detected: Sabadell Credit Card TEXT format (copy-paste)');
       return parseSabadellCreditCardTextFormat(lines, text);
-    }
-    
-    // Check if it's a credit card statement (CSV format)
-    const isCreditCard = detectSabadellCreditCardFormat(text);
-    console.error('🔍 Credit card detection:', { isCreditCard, textPreview: text.substring(0, 500) });
-    
-    if (isCreditCard) {
-      console.log('💳 Detected: Sabadell Credit Card format');
-      const result = parseSabadellCreditCard(lines, text);
-      console.error(`✅ Credit card parser returned ${result.transactions.length} transactions`);
-      return result;
     }
     
     // Check for Sabadell text format FIRST (copy-paste from website) - multi-line format
@@ -2513,20 +2519,36 @@ function parseSabadellCreditCard(lines, fullText) {
   let skipNextLines = 0;
   
   // Extract credit card info from text
-  // Updated regex to handle tab-separated format: "Límite de crédito\t1.750,00 EUR"
-  const creditLimitMatch = fullText.match(/Límite de crédito[\s\t]+([\d.,]+)\s*EUR/i);
+  // Handle both CSV format (with commas and quotes) and tab-separated format
+  // CSV format: "Límite de crédito,"1.750,00 EUR",..."
+  // Tab format: "Límite de crédito\t1.750,00 EUR"
+  
+  // Try CSV format first (with quotes): "Límite de crédito","1.750,00 EUR"
+  let creditLimitMatch = fullText.match(/Límite de crédito[,\s\t]+"?([\d.,]+)\s*EUR"?/i);
+  if (!creditLimitMatch) {
+    // Try without quotes
+    creditLimitMatch = fullText.match(/Límite de crédito[,\s\t]+([\d.,]+)\s*EUR/i);
+  }
   if (creditLimitMatch) {
     result.creditCard.creditLimit = parseAmount(creditLimitMatch[1]);
   }
   
-  const debtMatch = fullText.match(/Saldo dispuesto:[\s\t]+([\d.,]+)\s*EUR/i);
+  // Saldo dispuesto
+  let debtMatch = fullText.match(/Saldo dispuesto:?[,\s\t]+"?([\d.,]+)\s*EUR"?/i);
+  if (!debtMatch) {
+    debtMatch = fullText.match(/Saldo dispuesto:?[,\s\t]+([\d.,]+)\s*EUR/i);
+  }
   if (debtMatch) {
     const debt = parseAmount(debtMatch[1]);
     result.creditCard.currentDebt = debt;
     result.creditCard.balance = -debt; // Negative = debt
   }
   
-  const availableMatch = fullText.match(/Saldo disponible:[\s\t]+([\d.,]+)\s*EUR/i);
+  // Saldo disponible
+  let availableMatch = fullText.match(/Saldo disponible:?[,\s\t]+"?([\d.,]+)\s*EUR"?/i);
+  if (!availableMatch) {
+    availableMatch = fullText.match(/Saldo disponible:?[,\s\t]+([\d.,]+)\s*EUR/i);
+  }
   if (availableMatch) {
     result.creditCard.availableCredit = parseAmount(availableMatch[1]);
   }
@@ -2536,23 +2558,37 @@ function parseSabadellCreditCard(lines, fullText) {
     result.creditCard.monthlyPayment = parseAmount(monthlyPaymentMatch[1]);
   }
   
-  // Updated to handle format: "Tarjeta:\t4106________1010"
-  const cardNumberMatch = fullText.match(/Tarjeta:[\s\t]*([\d_]+)/i);
+  // Tarjeta - handle CSV format: "Tarjeta:","4106________1010"
+  let cardNumberMatch = fullText.match(/Tarjeta:?[,\s\t]+"?([\d_]+)"?/i);
+  if (!cardNumberMatch) {
+    cardNumberMatch = fullText.match(/Tarjeta:?[,\s\t]+([\d_]+)/i);
+  }
   if (cardNumberMatch) {
     result.creditCard.cardNumber = cardNumberMatch[1];
   }
   
-  // Updated to handle format: "Contrato\t004014368331"
-  const contractMatch = fullText.match(/Contrato[\s\t]+([\d]+)/i);
+  // Contrato - handle CSV format: "Contrato","004014368331"
+  let contractMatch = fullText.match(/Contrato[,\s\t]+"?([\d]+)"?/i);
+  if (!contractMatch) {
+    contractMatch = fullText.match(/Contrato[,\s\t]+([\d]+)/i);
+  }
   if (contractMatch) {
     result.creditCard.contractNumber = contractMatch[1];
   }
   
   // Extract card type (e.g., "VISA CLASSIC BSAB")
-  const cardTypeMatch = fullText.match(/VISA[^\n\t]*/i);
+  const cardTypeMatch = fullText.match(/VISA[^\n\t,]*/i);
   if (cardTypeMatch) {
     result.creditCard.cardType = cardTypeMatch[0].trim();
   }
+  
+  console.error('💳 Extracted credit card info:', {
+    creditLimit: result.creditCard.creditLimit,
+    currentDebt: result.creditCard.currentDebt,
+    availableCredit: result.creditCard.availableCredit,
+    contractNumber: result.creditCard.contractNumber,
+    cardNumber: result.creditCard.cardNumber
+  });
   
   console.error('💳 Parsing Sabadell Credit Card CSV format');
   console.error('💳 Credit Limit:', result.creditCard.creditLimit);
