@@ -19,15 +19,15 @@ export const formatCurrency = (amount, options = {}) => {
     return showSymbol ? '0,00 €' : '0,00';
   }
 
-  // Use Intl.NumberFormat with Spanish locale for European format
-  const formatter = new Intl.NumberFormat('es-ES', {
-    style: showSymbol ? 'currency' : 'decimal',
-    currency: currency,
+  // Format number with European format (point for thousands, comma for decimals)
+  const formatted = new Intl.NumberFormat('es-ES', {
+    style: 'decimal',
     minimumFractionDigits: minimumFractionDigits,
     maximumFractionDigits: maximumFractionDigits
-  });
+  }).format(num);
 
-  return formatter.format(num);
+  // Add currency symbol at the end if needed
+  return showSymbol ? `${formatted} €` : formatted;
 };
 
 /**
