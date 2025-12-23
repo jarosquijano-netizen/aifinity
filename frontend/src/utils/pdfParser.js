@@ -736,10 +736,13 @@ export async function parseCSVTransactions(file) {
     
     // Check if it's a credit card statement (CSV format)
     const isCreditCard = detectSabadellCreditCardFormat(text);
+    console.error('🔍 Credit card detection:', { isCreditCard, textPreview: text.substring(0, 500) });
     
     if (isCreditCard) {
       console.log('💳 Detected: Sabadell Credit Card format');
-      return parseSabadellCreditCard(lines, text);
+      const result = parseSabadellCreditCard(lines, text);
+      console.error(`✅ Credit card parser returned ${result.transactions.length} transactions`);
+      return result;
     }
     
     // Check for Sabadell text format FIRST (copy-paste from website) - multi-line format
@@ -837,17 +840,29 @@ export async function parseCSVTransactions(file) {
  * Detect if CSV is Sabadell CREDIT CARD statement
  */
 function detectSabadellCreditCardFormat(text) {
-  // Check for credit card specific indicators
-  const hasMovimientosCredito = text.includes('MOVIMIENTOS DE CREDITO') || text.includes('MOVIMIENTOS DE CREDITO');
+  // Check for credit card specific indicators (case insensitive)
+  const textUpper = text.toUpperCase();
+  const hasMovimientosCredito = textUpper.includes('MOVIMIENTOS DE CREDITO');
   const hasSaldoDispuesto = text.includes('Saldo dispuesto') || text.includes('Saldo dispuesto:');
-  const hasLimite = text.includes('Límite de crédito') || text.includes('Límite de crédito:');
+  const hasLimite = text.includes('Límite de crédito') || text.includes('Límite de crédito:') || textUpper.includes('LIMITE DE CREDITO');
   const hasFormaPago = text.includes('Forma pago mensual') || text.includes('Forma pago mensual:');
-  const hasVisaAndLimite = text.includes('VISA') && (text.includes('Límite') || text.includes('Límite de'));
-  const hasSaldosMovimientos = text.includes('Saldos y movimientos');
+  const hasVisaAndLimite = textUpper.includes('VISA') && (textUpper.includes('LIMITE') || text.includes('Límite'));
+  const hasSaldosMovimientos = text.includes('Saldos y movimientos') || textUpper.includes('SALDOS Y MOVIMIENTOS');
   const hasContrato = text.includes('Contrato') && /\d{10,}/.test(text); // Contract number pattern
   
+  console.error('🔍 Credit card detection details:', {
+    hasMovimientosCredito,
+    hasSaldoDispuesto,
+    hasLimite,
+    hasVisaAndLimite,
+    hasSaldosMovimientos,
+    hasContrato
+  });
+  
   // Must have at least MOVIMIENTOS DE CREDITO and one other indicator
-  return hasMovimientosCredito && (hasSaldoDispuesto || hasLimite || hasVisaAndLimite || hasContrato || hasSaldosMovimientos);
+  const result = hasMovimientosCredito && (hasSaldoDispuesto || hasLimite || hasVisaAndLimite || hasContrato || hasSaldosMovimientos);
+  console.error('🔍 Credit card detection result:', result);
+  return result;
 }
 
 /**
@@ -2592,6 +2607,11 @@ function parseSabadellCreditCard(lines, fullText) {
     if (inTransactionSection) {
       const fields = parseCSVLine(line);
       
+      // Debug first few transaction lines
+      if (result.transactions.length < 3) {
+        console.error(`🔍 Parsing transaction line ${i}:`, { line: line.substring(0, 100), fields, fieldsLength: fields.length });
+      }
+      
       // Format: FECHA, CONCEPTO, LOCALIDAD, (empty), IMPORTE, EUR
       // Need at least: date, concept
       if (fields.length >= 2) {
@@ -2623,21 +2643,39 @@ function parseSabadellCreditCard(lines, fullText) {
             }
           }
           
-          // If not found, search through all fields
+          // If not found, search through all fields (check fields 3 onwards)
+          if (amount === null) {
+            for (let j = 3; j < fields.length; j++) {
+              const field = fields[j]?.trim();
+              if (!field || field === '') continue;
+              
+              // Check if this field is a number (with comma as decimal separator)
+              if (field.match(/^-?[\d.,]+$/)) {
+                const nextField = fields[j + 1]?.trim() || '';
+                // Check if next field contains EUR or if this is the last numeric field
+                if (nextField.toUpperCase().includes('EUR') || 
+                    (j === fields.length - 2 && !fields[j + 1]?.trim()) ||
+                    (j === fields.length - 1)) {
+                  amount = parseAmount(field);
+                  amountFieldIndex = j;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Also check if EUR is in the same field as the amount (e.g., "12,00 EUR")
           if (amount === null) {
             for (let j = 3; j < fields.length; j++) {
               const field = fields[j]?.trim();
               if (!field) continue;
               
-              // Check if this field is a number
-              if (field.match(/^-?[\d.,]+$/)) {
-                const nextField = fields[j + 1]?.trim() || '';
-                // Check if next field contains EUR
-                if (nextField.toUpperCase().includes('EUR') || j === fields.length - 2) {
-                  amount = parseAmount(field);
-                  amountFieldIndex = j;
-                  break;
-                }
+              // Check if field contains both number and EUR (e.g., "12,00 EUR")
+              const eurMatch = field.match(/([\d.,]+)\s*EUR/i);
+              if (eurMatch) {
+                amount = parseAmount(eurMatch[1]);
+                amountFieldIndex = j;
+                break;
               }
             }
           }
