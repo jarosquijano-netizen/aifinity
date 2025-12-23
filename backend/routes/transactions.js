@@ -417,6 +417,24 @@ router.get('/last-upload', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
     
+    // Ensure table exists
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS last_uploads (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          account_id INTEGER,
+          transaction_ids INTEGER[],
+          previous_balance DECIMAL(12, 2),
+          previous_balance_source VARCHAR(50),
+          uploaded_at TIMESTAMP DEFAULT NOW(),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+    } catch (tableError) {
+      console.error('⚠️ Error creating last_uploads table (may already exist):', tableError.message);
+    }
+    
     // Get last upload info
     const result = await pool.query(
       `SELECT id, user_id, account_id, transaction_ids, previous_balance, previous_balance_source, uploaded_at
@@ -426,6 +444,8 @@ router.get('/last-upload', optionalAuth, async (req, res) => {
        LIMIT 1`,
       [userId]
     );
+    
+    console.log(`🔍 Last upload query result: ${result.rows.length} rows found for userId: ${userId}`);
     
     if (result.rows.length === 0) {
       return res.json({ 

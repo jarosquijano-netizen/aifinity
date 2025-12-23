@@ -53,10 +53,14 @@ function Upload({ onUploadComplete }) {
 
   const fetchLastUpload = async () => {
     try {
+      console.log('🔍 Fetching last upload...');
       const data = await getLastUpload();
+      console.log('📋 Last upload data:', data);
       if (data.hasLastUpload) {
+        console.log('✅ Last upload found:', data);
         setLastUpload(data);
       } else {
+        console.log('ℹ️ No last upload found');
         setLastUpload(null);
       }
     } catch (err) {
@@ -449,6 +453,59 @@ function Upload({ onUploadComplete }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* Last Upload Info - Show at top */}
+      {lastUpload && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Último Upload</h3>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Se subieron <strong>{lastUpload.transactionCount}</strong> transacciones
+                {lastUpload.account && (
+                  <> a la cuenta <strong>{lastUpload.account.name}</strong></>
+                )}
+                {lastUpload.uploadedAt && (
+                  <> el {new Date(lastUpload.uploadedAt).toLocaleString('es-ES')}</>
+                )}
+              </p>
+              {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="font-medium mb-1">Ejemplos de transacciones:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {lastUpload.sampleTransactions.slice(0, 3).map((t, idx) => (
+                      <li key={idx}>
+                        {new Date(t.date).toLocaleDateString('es-ES')} - {t.description.substring(0, 40)}
+                        {t.description.length > 40 && '...'} - {t.amount > 0 ? '+' : ''}€{Math.abs(t.amount).toFixed(2)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleRevertLastUpload}
+              disabled={reverting}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-4"
+            >
+              {reverting ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  <span>Revirtiendo...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Revertir</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Upload Area */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="text-3xl font-bold text-gradient mb-2">{t('uploadTitle')}</h2>
@@ -756,59 +813,6 @@ function Upload({ onUploadComplete }) {
         )}
 
         {/* Success Message */}
-        {/* Last Upload Info */}
-        {lastUpload && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 mb-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Último Upload</h3>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  Se subieron <strong>{lastUpload.transactionCount}</strong> transacciones
-                  {lastUpload.account && (
-                    <> a la cuenta <strong>{lastUpload.account.name}</strong></>
-                  )}
-                  {lastUpload.uploadedAt && (
-                    <> el {new Date(lastUpload.uploadedAt).toLocaleString('es-ES')}</>
-                  )}
-                </p>
-                {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    <p className="font-medium mb-1">Ejemplos de transacciones:</p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      {lastUpload.sampleTransactions.slice(0, 3).map((t, idx) => (
-                        <li key={idx}>
-                          {new Date(t.date).toLocaleDateString('es-ES')} - {t.description.substring(0, 40)}
-                          {t.description.length > 40 && '...'} - {t.amount > 0 ? '+' : ''}€{Math.abs(t.amount).toFixed(2)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={handleRevertLastUpload}
-                disabled={reverting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-4"
-              >
-                {reverting ? (
-                  <>
-                    <Loader className="h-4 w-4 animate-spin" />
-                    <span>Revirtiendo...</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="h-4 w-4" />
-                    <span>Revertir</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
         {results && (
           <div className="mt-4 p-4 bg-green-50 rounded-lg flex items-start space-x-3">
             <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
