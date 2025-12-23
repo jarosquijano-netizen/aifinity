@@ -1218,13 +1218,17 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Category is required' });
     }
 
+    // Normalize category to hierarchical format
+    const normalizedCategory = normalizeCategory(category);
+
     // Auto-set computable = false for NC and Transferencias categories unless explicitly overridden
     let finalComputable = computable;
-    const categoryLower = (category || '').toLowerCase();
-    const isTransferCategory = category === 'Transferencias' || 
+    const categoryLower = (normalizedCategory || '').toLowerCase();
+    const isTransferCategory = normalizedCategory === 'Finanzas > Transferencias' || 
+                               normalizedCategory === 'Transferencias' ||
                                categoryLower.includes('transferencia') ||
                                categoryLower.includes('transferencias');
-    const isNCCategory = category === 'NC' || category === 'nc';
+    const isNCCategory = normalizedCategory === 'NC' || normalizedCategory === 'nc';
     
     if (isNCCategory || isTransferCategory) {
       if (computable === undefined) {
@@ -1241,6 +1245,14 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
+    // Get transactions to learn from their descriptions
+    const transactionsResult = await client.query(
+      `SELECT DISTINCT description FROM transactions 
+       WHERE id = ANY($1) AND (user_id IS NULL OR user_id = $2)
+       AND description IS NOT NULL AND description != ''`,
+      [transactionIds, userId]
+    );
+
     // Update all selected transactions
     const updateQuery = `
       UPDATE transactions
@@ -1251,11 +1263,49 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
     `;
 
     const result = await client.query(updateQuery, [
-      category,
+      normalizedCategory,
       finalComputable,
       transactionIds,
       userId
     ]);
+
+    // Save learned category mappings for all unique descriptions
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS transaction_category_mappings (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          description_pattern TEXT NOT NULL,
+          category VARCHAR(255) NOT NULL,
+          usage_count INTEGER DEFAULT 1,
+          last_used TIMESTAMP DEFAULT NOW(),
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(user_id, description_pattern)
+        )
+      `);
+      
+      for (const row of transactionsResult.rows) {
+        const normalizedDescription = row.description
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, ' ')
+          .substring(0, 200);
+        
+        await client.query(`
+          INSERT INTO transaction_category_mappings (user_id, description_pattern, category, usage_count, last_used)
+          VALUES ($1, $2, $3, 1, NOW())
+          ON CONFLICT (user_id, description_pattern) 
+          DO UPDATE SET 
+            category = EXCLUDED.category,
+            usage_count = transaction_category_mappings.usage_count + 1,
+            last_used = NOW()
+        `, [userId, normalizedDescription, normalizedCategory]);
+      }
+      
+      console.log(`💾 Saved ${transactionsResult.rows.length} category mappings from bulk update`);
+    } catch (mappingError) {
+      console.error('⚠️ Error saving category mappings (non-critical):', mappingError);
+    }
 
     await client.query('COMMIT');
 
