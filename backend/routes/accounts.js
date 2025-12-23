@@ -623,7 +623,24 @@ router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) =>
       const keepId = transactionIds[0]; // Keep the oldest (first) transaction
       const deleteIds = transactionIds.slice(1); // Delete the rest
       
-      if (dup.account_id) {
+      // Handle account_ids - could be array or single value
+      if (dup.account_ids) {
+        let accountIds = dup.account_ids;
+        if (typeof accountIds === 'string') {
+          try {
+            accountIds = JSON.parse(accountIds);
+          } catch (e) {
+            accountIds = [accountIds];
+          }
+        }
+        if (Array.isArray(accountIds)) {
+          accountIds.forEach(accId => {
+            if (accId) affectedAccounts.add(accId);
+          });
+        } else if (accountIds) {
+          affectedAccounts.add(accountIds);
+        }
+      } else if (dup.account_id) {
         affectedAccounts.add(dup.account_id);
       }
 
@@ -661,23 +678,20 @@ router.post('/cleanup-transaction-duplicates', optionalAuth, async (req, res) =>
     // Delete duplicate transactions
     console.log('🗑️  Deleting duplicate transactions...', { count: duplicatesToDelete.length });
     
-    if (duplicatesToDelete.length === 0) {
-      await client.query('ROLLBACK');
-      transactionStarted = false;
-      client.release();
-      return res.json({ 
-        message: 'No duplicates to delete',
-        duplicatesFound: 0,
-        duplicatesRemoved: 0
-      });
-    }
-    
+    // Also collect account_ids from transactions being deleted to ensure we recalculate all affected accounts
     const deleteResult = await client.query(
       `DELETE FROM transactions 
        WHERE id = ANY($1::int[])
        RETURNING id, account_id`,
       [duplicatesToDelete]
     );
+    
+    // Add account_ids from deleted transactions to affectedAccounts
+    deleteResult.rows.forEach(row => {
+      if (row.account_id) {
+        affectedAccounts.add(row.account_id);
+      }
+    });
 
     console.log(`✅ Successfully deleted ${deleteResult.rowCount} duplicate transaction(s)`);
 
