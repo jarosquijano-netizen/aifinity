@@ -134,24 +134,41 @@ function Insights() {
       
       for (const dup of duplicatesFound) {
         try {
-          console.log(`🗑️ Deleting duplicates from account ${dup.checkingAccount.id} (${dup.checkingAccount.name}), keeping account ${dup.card.id} (${dup.card.name})`);
-          const result = await deleteDuplicateTransactions(
-            dup.checkingAccount.id, 
-            dup.card.id
-          );
-          console.log(`✅ Deleted ${result.deleted} duplicates for ${dup.card.name}`);
+          const checkingId = parseInt(dup.checkingAccount.id);
+          const cardId = parseInt(dup.card.id);
+          
+          console.log(`🗑️ Deleting duplicates:`, {
+            fromAccount: { id: checkingId, name: dup.checkingAccount.name, type: dup.checkingAccount.account_type },
+            toAccount: { id: cardId, name: dup.card.name, type: dup.card.account_type },
+            count: dup.count
+          });
+          
+          if (isNaN(checkingId) || isNaN(cardId)) {
+            throw new Error(`Invalid account IDs: checking=${checkingId}, card=${cardId}`);
+          }
+          
+          const result = await deleteDuplicateTransactions(checkingId, cardId);
+          console.log(`✅ Deleted ${result.deleted} duplicates for ${dup.card.name}`, result);
           totalDeleted += result.deleted || 0;
         } catch (err) {
           console.error(`❌ Error deleting duplicates for ${dup.card.name}:`, err);
+          console.error(`❌ Error details:`, {
+            response: err.response?.data,
+            status: err.response?.status,
+            message: err.message,
+            stack: err.stack
+          });
           const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error desconocido';
           errors.push(`${dup.card.name}: ${errorMsg}`);
         }
       }
       
       if (errors.length > 0) {
-        alert(`⚠️ Se eliminaron ${totalDeleted} transacciones duplicadas, pero hubo errores:\n\n${errors.join('\n')}`);
-      } else {
+        alert(`⚠️ Se eliminaron ${totalDeleted} transacciones duplicadas, pero hubo errores:\n\n${errors.join('\n')}\n\nRevisa la consola para más detalles.`);
+      } else if (totalDeleted > 0) {
         alert(`✅ Se eliminaron ${totalDeleted} transacciones duplicadas de la cuenta corriente.\n\nLas transacciones se mantienen en las tarjetas de crédito correctas.`);
+      } else {
+        alert(`ℹ️ No se eliminaron transacciones. Puede que ya no existan duplicados.`);
       }
       
       // Refresh data
@@ -159,8 +176,13 @@ function Insights() {
       setDuplicateInfo(null);
     } catch (err) {
       console.error('Error deleting duplicates:', err);
+      console.error('Error details:', {
+        response: err.response?.data,
+        status: err.response?.status,
+        message: err.message
+      });
       const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Error desconocido';
-      alert('Error al eliminar duplicados: ' + errorMsg);
+      alert('Error al eliminar duplicados: ' + errorMsg + '\n\nRevisa la consola para más detalles.');
     } finally {
       setCheckingDuplicates(false);
     }
