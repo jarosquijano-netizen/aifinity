@@ -1478,25 +1478,48 @@ router.delete('/duplicates/:fromAccountId/:toAccountId', optionalAuth, async (re
   
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    const { fromAccountId, toAccountId } = req.params;
+    const fromAccountId = parseInt(req.params.fromAccountId);
+    const toAccountId = parseInt(req.params.toAccountId);
     
-    console.log(`🗑️ Deleting duplicates from account ${fromAccountId}, keeping account ${toAccountId}`);
+    console.log(`🗑️ Deleting duplicates from account ${fromAccountId}, keeping account ${toAccountId} (userId: ${userId})`);
+    
+    if (isNaN(fromAccountId) || isNaN(toAccountId)) {
+      return res.status(400).json({ 
+        error: 'Invalid account IDs',
+        fromAccountId: req.params.fromAccountId,
+        toAccountId: req.params.toAccountId
+      });
+    }
     
     await client.query('BEGIN');
     
     // Verify accounts exist and belong to user
     const accountCheck = await client.query(
-      `SELECT id, name FROM bank_accounts 
-       WHERE id IN ($1, $2) 
-       AND (user_id = $3 OR (user_id IS NULL AND $3 IS NULL))`,
-      [fromAccountId, toAccountId, userId]
+      `SELECT id, name, account_type, user_id FROM bank_accounts 
+       WHERE id IN ($1, $2)`,
+      [fromAccountId, toAccountId]
     );
     
-    if (accountCheck.rows.length !== 2) {
+    console.log(`📋 Found ${accountCheck.rows.length} accounts:`, accountCheck.rows.map(a => ({
+      id: a.id,
+      name: a.name,
+      type: a.account_type,
+      user_id: a.user_id
+    })));
+    
+    // Filter accounts that belong to user (or are shared)
+    const userAccounts = accountCheck.rows.filter(acc => 
+      acc.user_id === userId || (acc.user_id === null && userId === null)
+    );
+    
+    if (userAccounts.length !== 2) {
       await client.query('ROLLBACK');
+      console.error(`❌ Account verification failed: found ${accountCheck.rows.length} accounts, ${userAccounts.length} belong to user`);
       return res.status(404).json({ 
         error: 'One or both accounts not found or do not belong to user',
-        foundAccounts: accountCheck.rows.length
+        foundAccounts: accountCheck.rows.length,
+        userAccounts: userAccounts.length,
+        accounts: accountCheck.rows.map(a => ({ id: a.id, name: a.name, user_id: a.user_id }))
       });
     }
     
