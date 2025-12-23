@@ -53,6 +53,16 @@ export const getTransactions = async () => {
   return response.data;
 };
 
+export const getLastUpload = async () => {
+  const response = await api.get('/transactions/last-upload');
+  return response.data;
+};
+
+export const revertLastUpload = async () => {
+  const response = await api.delete('/transactions/revert-last-upload');
+  return response.data;
+};
+
 export const deleteTransaction = async (transactionId) => {
   const response = await api.delete(`/transactions/${transactionId}`);
   return response.data;

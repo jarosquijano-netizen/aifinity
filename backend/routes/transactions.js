@@ -295,17 +295,21 @@ router.post('/upload', optionalAuth, async (req, res) => {
       insertedTransactions.push(result.rows[0]);
     }
 
+    // Store previous balance before updating (for revert functionality)
+    let previousBalance = null;
+    let previousBalanceSource = null;
+    
     // Update account balance if lastBalance provided and account_id exists
     // IMPORTANT: This REPLACES the balance (does not add to it)
     // The balance from CSV represents the actual account balance after all transactions
     if (account_id && lastBalance !== undefined && lastBalance !== null) {
-      // Get current balance for logging
+      // Get current balance for logging and revert
       const currentBalanceResult = await client.query(
         `SELECT balance, balance_source FROM bank_accounts WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
         [account_id, userId]
       );
-      const currentBalance = currentBalanceResult.rows[0]?.balance || 0;
-      const previousSource = currentBalanceResult.rows[0]?.balance_source || 'unknown';
+      previousBalance = currentBalanceResult.rows[0]?.balance || 0;
+      previousBalanceSource = currentBalanceResult.rows[0]?.balance_source || 'unknown';
       
       // REPLACE balance (do not add) - CSV balance is the absolute value
       await client.query(
@@ -315,7 +319,46 @@ router.post('/upload', optionalAuth, async (req, res) => {
         [lastBalance, account_id, userId]
       );
       
-      console.log(`✅ Updated balance for account ${account_id}: €${currentBalance} → €${lastBalance} (source: ${previousSource} → csv)`);
+      console.log(`✅ Updated balance for account ${account_id}: €${previousBalance} → €${lastBalance} (source: ${previousBalanceSource} → csv)`);
+    }
+    
+    // Store last upload info for revert functionality
+    // Create or update last_uploads table entry
+    const transactionIds = insertedTransactions.map(t => t.id);
+    if (transactionIds.length > 0) {
+      // Check if last_uploads table exists, if not create it
+      try {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS last_uploads (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            account_id INTEGER,
+            transaction_ids INTEGER[],
+            previous_balance DECIMAL(12, 2),
+            previous_balance_source VARCHAR(50),
+            uploaded_at TIMESTAMP DEFAULT NOW(),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        `);
+        
+        // Delete previous last upload for this user
+        await client.query(
+          `DELETE FROM last_uploads WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)`,
+          [userId]
+        );
+        
+        // Insert new last upload record
+        await client.query(
+          `INSERT INTO last_uploads (user_id, account_id, transaction_ids, previous_balance, previous_balance_source)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [userId, account_id, transactionIds, previousBalance, previousBalanceSource]
+        );
+        
+        console.log(`📝 Stored last upload info: ${transactionIds.length} transactions, account ${account_id}`);
+      } catch (tableError) {
+        console.error('⚠️ Error creating/storing last upload info (non-critical):', tableError);
+        // Don't fail the upload if this fails
+      }
     }
 
     // Update summaries
@@ -341,7 +384,13 @@ router.post('/upload', optionalAuth, async (req, res) => {
       skipped: skippedDuplicates,
       skippedInvalid: skippedInvalid,
       transactions: insertedTransactions,
-      balanceUpdated: account_id && lastBalance !== undefined
+      balanceUpdated: account_id && lastBalance !== undefined,
+      uploadInfo: {
+        accountId: account_id,
+        transactionIds: insertedTransactions.map(t => t.id),
+        previousBalance: previousBalance,
+        previousBalanceSource: previousBalanceSource
+      }
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -357,6 +406,171 @@ router.post('/upload', optionalAuth, async (req, res) => {
       error: 'Failed to upload transactions',
       message: error.message,
       details: error.detail || error.hint || 'Check server logs'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// Get last upload info
+router.get('/last-upload', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    
+    // Get last upload info
+    const result = await pool.query(
+      `SELECT id, user_id, account_id, transaction_ids, previous_balance, previous_balance_source, uploaded_at
+       FROM last_uploads
+       WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)
+       ORDER BY uploaded_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({ 
+        hasLastUpload: false,
+        message: 'No last upload found'
+      });
+    }
+    
+    const lastUpload = result.rows[0];
+    
+    // Get account info
+    let accountInfo = null;
+    if (lastUpload.account_id) {
+      const accountResult = await pool.query(
+        `SELECT id, name, account_type, balance FROM bank_accounts WHERE id = $1`,
+        [lastUpload.account_id]
+      );
+      if (accountResult.rows.length > 0) {
+        accountInfo = accountResult.rows[0];
+      }
+    }
+    
+    // Get transaction count and sample
+    let transactionCount = 0;
+    let sampleTransactions = [];
+    if (lastUpload.transaction_ids && lastUpload.transaction_ids.length > 0) {
+      transactionCount = lastUpload.transaction_ids.length;
+      const sampleResult = await pool.query(
+        `SELECT id, date, description, amount, category, type
+         FROM transactions
+         WHERE id = ANY($1)
+         ORDER BY date DESC
+         LIMIT 5`,
+        [lastUpload.transaction_ids]
+      );
+      sampleTransactions = sampleResult.rows;
+    }
+    
+    res.json({
+      hasLastUpload: true,
+      uploadId: lastUpload.id,
+      accountId: lastUpload.account_id,
+      account: accountInfo,
+      transactionCount: transactionCount,
+      transactionIds: lastUpload.transaction_ids || [],
+      previousBalance: lastUpload.previous_balance,
+      previousBalanceSource: lastUpload.previous_balance_source,
+      uploadedAt: lastUpload.uploaded_at,
+      sampleTransactions: sampleTransactions
+    });
+  } catch (error) {
+    console.error('Error getting last upload:', error);
+    res.status(500).json({ error: 'Failed to get last upload info' });
+  }
+});
+
+// Revert last upload
+router.delete('/revert-last-upload', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    
+    await client.query('BEGIN');
+    
+    // Get last upload info
+    const lastUploadResult = await client.query(
+      `SELECT id, user_id, account_id, transaction_ids, previous_balance, previous_balance_source
+       FROM last_uploads
+       WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)
+       ORDER BY uploaded_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [userId]
+    );
+    
+    if (lastUploadResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No last upload found to revert' });
+    }
+    
+    const lastUpload = lastUploadResult.rows[0];
+    const transactionIds = lastUpload.transaction_ids || [];
+    
+    if (transactionIds.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No transactions to revert' });
+    }
+    
+    // Delete transactions
+    const deleteResult = await client.query(
+      `DELETE FROM transactions
+       WHERE id = ANY($1)
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))
+       RETURNING id`,
+      [transactionIds, userId]
+    );
+    
+    const deletedCount = deleteResult.rows.length;
+    console.log(`🗑️ Deleted ${deletedCount} transactions from last upload`);
+    
+    // Restore previous balance if it was updated
+    if (lastUpload.account_id && lastUpload.previous_balance !== null) {
+      await client.query(
+        `UPDATE bank_accounts
+         SET balance = $1, 
+             balance_updated_at = NOW(),
+             balance_source = $2
+         WHERE id = $3 AND (user_id IS NULL OR user_id = $4)`,
+        [
+          lastUpload.previous_balance,
+          lastUpload.previous_balance_source || 'manual',
+          lastUpload.account_id,
+          userId
+        ]
+      );
+      console.log(`↩️ Restored balance for account ${lastUpload.account_id}: ${lastUpload.previous_balance}`);
+    }
+    
+    // Delete last upload record
+    await client.query(
+      `DELETE FROM last_uploads WHERE id = $1`,
+      [lastUpload.id]
+    );
+    
+    // Update summaries
+    try {
+      await updateSummaries(client, userId);
+    } catch (summaryError) {
+      console.error('⚠️ Error updating summaries (non-critical):', summaryError);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      message: 'Last upload reverted successfully',
+      deletedTransactions: deletedCount,
+      balanceRestored: lastUpload.account_id && lastUpload.previous_balance !== null
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error reverting last upload:', error);
+    res.status(500).json({ 
+      error: 'Failed to revert last upload',
+      message: error.message
     });
   } finally {
     client.release();

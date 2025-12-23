@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard } from 'lucide-react';
+import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard, RotateCcw, Trash2 } from 'lucide-react';
 import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
-import { uploadTransactions, getAccounts } from '../utils/api';
+import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 
 function Upload({ onUploadComplete }) {
@@ -16,12 +16,15 @@ function Upload({ onUploadComplete }) {
   const [selectedAccount, setSelectedAccount] = useState('');
   const [showAccountSelector, setShowAccountSelector] = useState(false);
   const [parsedTransactionsData, setParsedTransactionsData] = useState(null); // Store parsed data before account selection
+  const [lastUpload, setLastUpload] = useState(null);
+  const [reverting, setReverting] = useState(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const { t } = useLanguage();
 
   useEffect(() => {
     fetchAccounts();
+    fetchLastUpload();
   }, []);
 
   // Debug: Log when showAccountSelector changes
@@ -45,6 +48,48 @@ function Upload({ onUploadComplete }) {
     } catch (err) {
       console.error('❌ Failed to fetch accounts:', err);
       setAccounts([]);
+    }
+  };
+
+  const fetchLastUpload = async () => {
+    try {
+      const data = await getLastUpload();
+      if (data.hasLastUpload) {
+        setLastUpload(data);
+      } else {
+        setLastUpload(null);
+      }
+    } catch (err) {
+      console.error('❌ Failed to fetch last upload:', err);
+      setLastUpload(null);
+    }
+  };
+
+  const handleRevertLastUpload = async () => {
+    if (!lastUpload || !window.confirm(`¿Estás seguro de que quieres revertir el último upload?\n\nSe eliminarán ${lastUpload.transactionCount} transacciones${lastUpload.account ? ` de la cuenta "${lastUpload.account.name}"` : ''} y se restaurará el balance anterior.`)) {
+      return;
+    }
+
+    setReverting(true);
+    setError('');
+    
+    try {
+      await revertLastUpload();
+      setLastUpload(null);
+      setResults(null);
+      setError('');
+      alert('✅ Último upload revertido exitosamente. Las transacciones han sido eliminadas y el balance restaurado.');
+      // Refresh accounts to update balances
+      await fetchAccounts();
+      // Trigger refresh in parent component
+      if (onUploadComplete) {
+        onUploadComplete();
+      }
+    } catch (err) {
+      console.error('❌ Error reverting last upload:', err);
+      setError(err.response?.data?.error || err.message || 'Error al revertir el último upload');
+    } finally {
+      setReverting(false);
     }
   };
 
@@ -377,9 +422,10 @@ function Upload({ onUploadComplete }) {
         creditCard: creditCardData
       });
 
-      // Clear files after successful upload
+      // Clear files after successful upload and refresh last upload info
       setTimeout(() => {
         setFiles([]);
+        fetchLastUpload(); // Refresh last upload info
         onUploadComplete();
       }, 2000);
 
@@ -710,6 +756,59 @@ function Upload({ onUploadComplete }) {
         )}
 
         {/* Success Message */}
+        {/* Last Upload Info */}
+        {lastUpload && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 mb-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Último Upload</h3>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  Se subieron <strong>{lastUpload.transactionCount}</strong> transacciones
+                  {lastUpload.account && (
+                    <> a la cuenta <strong>{lastUpload.account.name}</strong></>
+                  )}
+                  {lastUpload.uploadedAt && (
+                    <> el {new Date(lastUpload.uploadedAt).toLocaleString('es-ES')}</>
+                  )}
+                </p>
+                {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <p className="font-medium mb-1">Ejemplos de transacciones:</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {lastUpload.sampleTransactions.slice(0, 3).map((t, idx) => (
+                        <li key={idx}>
+                          {new Date(t.date).toLocaleDateString('es-ES')} - {t.description.substring(0, 40)}
+                          {t.description.length > 40 && '...'} - {t.amount > 0 ? '+' : ''}€{Math.abs(t.amount).toFixed(2)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleRevertLastUpload}
+                disabled={reverting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-4"
+              >
+                {reverting ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    <span>Revirtiendo...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Revertir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {results && (
           <div className="mt-4 p-4 bg-green-50 rounded-lg flex items-start space-x-3">
             <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
