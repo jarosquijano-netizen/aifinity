@@ -5,6 +5,7 @@ import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts,
 import { useChartTheme } from './DarkModeChart';
 import api from '../utils/api';
 import TransferModal from './TransferModal';
+import { formatCurrency, formatCurrencyDecimals, formatCurrencyNumber } from '../utils/currencyFormat';
 import {
   DndContext,
   closestCenter,
@@ -382,13 +383,13 @@ function Dashboard({ refreshTrigger }) {
           </div>
           <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
             <p className={`${cardSize.valueSize} font-bold text-gray-900 dark:text-gray-100`}>
-              €{data.actualIncome?.toFixed(2) || '0.00'}
+              {formatCurrency(data.actualIncome || 0)}
             </p>
             {isLarge && expectedIncome > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-500 dark:text-gray-400">Expected:</span>
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">€{expectedIncome.toFixed(0)}</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">{formatCurrencyDecimals(expectedIncome, 0)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-500 dark:text-gray-400">Progress:</span>
@@ -419,7 +420,7 @@ function Dashboard({ refreshTrigger }) {
                         </p>
                       </div>
                       <span className="font-semibold text-green-600 dark:text-green-400 ml-2">
-                        €{parseFloat(t.amount).toFixed(2)}
+                        {formatCurrency(parseFloat(t.amount))}
                       </span>
                     </div>
                   ))}
@@ -433,7 +434,7 @@ function Dashboard({ refreshTrigger }) {
                 {currentMonthIncomeTransactions.slice(0, 2).map((t, idx) => (
                   <div key={idx} className="flex justify-between items-center text-[10px]">
                     <span className="text-gray-600 dark:text-gray-400 truncate max-w-[120px]">{t.description || 'Sin descripción'}</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">€{parseFloat(t.amount).toFixed(0)}</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrencyDecimals(parseFloat(t.amount), 0)}</span>
                   </div>
                 ))}
               </div>
@@ -451,7 +452,7 @@ function Dashboard({ refreshTrigger }) {
           </div>
           <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
             <p className={`${cardSize.valueSize} font-bold text-gray-900 dark:text-gray-100`}>
-              €{(data.actualExpenses !== undefined ? data.actualExpenses : 0).toFixed(2)}
+              {formatCurrency(data.actualExpenses !== undefined ? data.actualExpenses : 0)}
             </p>
             {isLarge && data.actualIncome > 0 && data.actualExpenses !== undefined && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -464,7 +465,7 @@ function Dashboard({ refreshTrigger }) {
                 <p className="text-[9px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wide mb-1">Mayor gasto:</p>
                 <div className="flex justify-between items-center">
                   <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{topExpenseCategory.name}</span>
-                  <span className="text-[11px] font-bold text-red-600 dark:text-red-400">€{topExpenseCategory.value.toFixed(0)}</span>
+                  <span className="text-[11px] font-bold text-red-600 dark:text-red-400">{formatCurrencyDecimals(topExpenseCategory.value, 0)}</span>
                 </div>
               </div>
             )}
@@ -491,7 +492,7 @@ function Dashboard({ refreshTrigger }) {
             </div>
             <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
               <p className={`${cardSize.valueSize} font-bold ${actualBalance >= 0 ? 'text-success' : 'text-danger'}`}>
-                €{actualBalance.toFixed(2)}
+                {formatCurrency(actualBalance)}
               </p>
               
               {/* Expected Income & Ratio */}
@@ -499,7 +500,7 @@ function Dashboard({ refreshTrigger }) {
                 <div className="mt-2 space-y-1">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-500 dark:text-gray-400">Expected Income:</span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">€{expectedIncome.toFixed(0)}</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{formatCurrencyDecimals(expectedIncome, 0)}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-500 dark:text-gray-400">Income Ratio:</span>
@@ -586,7 +587,7 @@ function Dashboard({ refreshTrigger }) {
             {/* Savings Total */}
             <div className={isLarge ? 'mb-3' : 'mb-1'}>
               <p className={`${cardSize.valueSize} font-bold text-green-700 dark:text-green-300`}>
-                €{totalSavings.toFixed(2)}
+                {formatCurrency(totalSavings)}
               </p>
               {isLarge && (
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -676,7 +677,7 @@ function Dashboard({ refreshTrigger }) {
                   {statusIcon}
                 </div>
                 <p className={`${cardSize.valueSize} font-bold text-red-600 dark:text-red-400`}>
-                  €{totalDebt.toFixed(2)}
+                  {formatCurrency(totalDebt)}
                 </p>
               </div>
               
@@ -703,11 +704,11 @@ function Dashboard({ refreshTrigger }) {
                 <div className="space-y-2 mt-2 pt-3 border-t border-red-200 dark:border-red-700">
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600 dark:text-gray-400">Límite Total:</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">€{totalCreditLimit.toFixed(0)}</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrencyDecimals(totalCreditLimit, 0)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600 dark:text-gray-400">Crédito Disponible:</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">€{totalAvailableCredit.toFixed(0)}</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrencyDecimals(totalAvailableCredit, 0)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600 dark:text-gray-400">Tarjetas:</span>
@@ -718,11 +719,11 @@ function Dashboard({ refreshTrigger }) {
                 <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-red-200 dark:border-red-700">
                   <div>
                     <p className="text-[9px] text-gray-500 dark:text-gray-400">Disponible</p>
-                    <p className="text-[11px] font-bold text-green-600 dark:text-green-400">€{totalAvailableCredit.toFixed(0)}</p>
+                    <p className="text-[11px] font-bold text-green-600 dark:text-green-400">{formatCurrencyDecimals(totalAvailableCredit, 0)}</p>
                   </div>
                   <div>
                     <p className="text-[9px] text-gray-500 dark:text-gray-400">Límite</p>
-                    <p className="text-[11px] font-bold text-gray-700 dark:text-gray-300">€{totalCreditLimit.toFixed(0)}</p>
+                    <p className="text-[11px] font-bold text-gray-700 dark:text-gray-300">{formatCurrencyDecimals(totalCreditLimit, 0)}</p>
                   </div>
                 </div>
               )}
@@ -751,7 +752,7 @@ function Dashboard({ refreshTrigger }) {
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-red-600 dark:text-red-400">
-                            €{debt.toFixed(0)}
+                            {formatCurrencyDecimals(debt, 0)}
                           </span>
                           <span className={`text-[9px] ${
                             util > 70 ? 'text-red-600' : 
@@ -781,7 +782,7 @@ function Dashboard({ refreshTrigger }) {
           </div>
           <div className={isLarge ? 'flex-1 flex flex-col justify-center' : ''}>
             <p className={`${cardSize.valueSize} font-bold text-gray-900 dark:text-gray-100`}>
-              €{getDailyAvgExpense().toFixed(2)}
+              {formatCurrency(getDailyAvgExpense())}
             </p>
             {isLarge && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -794,7 +795,7 @@ function Dashboard({ refreshTrigger }) {
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-gray-500 dark:text-gray-400">Proyección mensual:</span>
                   <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
-                    €{(getDailyAvgExpense() * 30).toFixed(0)}
+                    {formatCurrencyDecimals(getDailyAvgExpense() * 30, 0)}
                   </span>
                 </div>
               </div>
@@ -815,7 +816,7 @@ function Dashboard({ refreshTrigger }) {
               {categoryData[0]?.name || 'N/A'}
             </p>
             <p className={`${cardSize.labelSize} text-gray-500 dark:text-gray-400 mt-1`}>
-              €{categoryData[0]?.value.toFixed(2) || '0.00'}
+              {formatCurrency(categoryData[0]?.value || 0)}
             </p>
           </div>
         </div>
@@ -843,7 +844,7 @@ function Dashboard({ refreshTrigger }) {
                 stroke={chartTheme.axisColor}
               />
               <Tooltip 
-                formatter={(value) => `€${value.toFixed(2)}`}
+                formatter={(value) => formatCurrency(value)}
                 contentStyle={{ 
                   borderRadius: '12px', 
                   border: `1px solid ${chartTheme.tooltipBorder}`,
@@ -881,7 +882,7 @@ function Dashboard({ refreshTrigger }) {
                 ))}
               </Pie>
                 <Tooltip 
-                  formatter={(value) => `€${value.toFixed(2)}`}
+                  formatter={(value) => formatCurrency(value)}
                   contentStyle={{ 
                     borderRadius: '12px', 
                     border: `1px solid ${chartTheme.tooltipBorder}`,
@@ -894,7 +895,7 @@ function Dashboard({ refreshTrigger }) {
                   height={36}
                   formatter={(value, entry) => (
                     <span style={{ color: chartTheme.textColor, fontSize: '14px', fontWeight: '600' }}>
-                      {value}: €{entry.payload.value.toFixed(2)}
+                      {value}: {formatCurrency(entry.payload.value)}
                     </span>
                   )}
                 />
@@ -983,7 +984,7 @@ function Dashboard({ refreshTrigger }) {
                   <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Presupuesto</p>
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                      €{totalBudget.toFixed(2)}
+                      {formatCurrency(totalBudget)}
                     </p>
                   </div>
                   <div className={`text-center p-3 rounded-lg ${
@@ -999,7 +1000,7 @@ function Dashboard({ refreshTrigger }) {
                         ? 'text-gradient-success' 
                         : 'text-red-600'
                     }`}>
-                      €{Math.abs(remaining).toFixed(2)}
+                      {formatCurrency(Math.abs(remaining))}
                     </p>
                   </div>
                 </div>
@@ -1037,7 +1038,7 @@ function Dashboard({ refreshTrigger }) {
               />
               <YAxis 
                 tick={{ fill: chartTheme.textColor, fontSize: 12 }}
-                tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`}
+                tickFormatter={(value) => formatCurrencyDecimals(value/1000, 0) + 'k'}
                 stroke={chartTheme.axisColor}
               />
               <Tooltip 
@@ -1050,10 +1051,10 @@ function Dashboard({ refreshTrigger }) {
                 labelStyle={{ color: chartTheme.tooltipText, fontWeight: 'bold' }}
                 formatter={(value, name) => {
                   if (name === 'Ingresos') {
-                    return [`€${value.toFixed(2)}`, 'Ingresos'];
+                    return [formatCurrency(value), 'Ingresos'];
                   }
                   if (name === 'Gastos') {
-                    return [`€${value.toFixed(2)}`, 'Gastos'];
+                    return [formatCurrency(value), 'Gastos'];
                   }
                   return [value, name];
                 }}
@@ -1168,11 +1169,11 @@ function Dashboard({ refreshTrigger }) {
                         </div>
                         <div className="text-right">
                           <p className={`text-lg font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            €{balance.toFixed(2)}
+                            {formatCurrency(balance)}
                           </p>
                           {account.account_type === 'credit' && account.credit_limit && (
                             <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                              Límite: €{parseFloat(account.credit_limit).toFixed(0)}
+                              Límite: {formatCurrencyDecimals(parseFloat(account.credit_limit), 0)}
                             </p>
                           )}
                         </div>
@@ -1190,10 +1191,9 @@ function Dashboard({ refreshTrigger }) {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Balance Total:</span>
                 <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  €{accounts
+                  {formatCurrency(accounts
                     .filter(acc => !acc.exclude_from_stats)
-                    .reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0)
-                    .toFixed(2)}
+                    .reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0))}
                 </span>
               </div>
             </div>
