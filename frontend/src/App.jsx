@@ -17,16 +17,21 @@ import { useSessionTimeout } from './hooks/useSessionTimeout';
 function App() {
   // Initialize activeTab from URL hash, fallback to 'dashboard' when logged in
   const getInitialTab = () => {
-    const hash = window.location.hash.replace('#/', '').replace('#', '');
-    const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
-    if (validTabs.includes(hash)) {
-      return hash;
+    try {
+      const hash = window.location.hash.replace('#/', '').replace('#', '');
+      const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
+      if (hash && validTabs.includes(hash)) {
+        return hash;
+      }
+      // Default to dashboard if no hash (for logged-in users)
+      return 'dashboard';
+    } catch (error) {
+      console.error('Error getting initial tab:', error);
+      return 'dashboard';
     }
-    // Default to dashboard if no hash (for logged-in users)
-    return 'dashboard';
   };
 
-  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [activeTab, setActiveTab] = useState(() => getInitialTab());
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -53,25 +58,41 @@ function App() {
 
   // Update URL hash when activeTab changes
   useEffect(() => {
-    if (user) {
-      // Only update hash if user is logged in
-      window.location.hash = `#/${activeTab}`;
+    if (user && activeTab) {
+      try {
+        // Only update hash if user is logged in
+        const newHash = `#/${activeTab}`;
+        if (window.location.hash !== newHash) {
+          window.location.hash = newHash;
+        }
+      } catch (error) {
+        console.error('Error updating hash:', error);
+      }
     }
   }, [activeTab, user]);
 
   // Listen for hash changes (back/forward browser buttons)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#/', '').replace('#', '');
-      const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
-      if (validTabs.includes(hash)) {
-        setActiveTab(hash);
+      try {
+        const hash = window.location.hash.replace('#/', '').replace('#', '');
+        const validTabs = ['dashboard', 'transactions', 'trends', 'insights', 'budget', 'upload', 'settings'];
+        if (hash && validTabs.includes(hash)) {
+          setActiveTab(hash);
+        } else if (!hash && user) {
+          // If hash is empty but user is logged in, default to dashboard
+          setActiveTab('dashboard');
+        }
+      } catch (error) {
+        console.error('Error handling hash change:', error);
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
+    // Also check initial hash on mount
+    handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     console.log('🔍 Checking stored auth...');
