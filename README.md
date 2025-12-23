@@ -275,6 +275,12 @@ ING,2024-01-16,Salary,Monthly salary,2500.00,income
 - Backend: Change `PORT` in `backend/.env`
 - Frontend: Change `server.port` in `frontend/vite.config.js`
 
+## 📝 Deployment Rules
+
+**⚠️ IMPORTANTE**: Este proyecto actualmente tiene **despliegue automático directo a producción**. Todos los cambios en la rama `main` se despliegan inmediatamente.
+
+Ver [DEPLOYMENT_RULES.md](./DEPLOYMENT_RULES.md) para más detalles sobre las reglas de despliegue actuales y futuras.
+
 ## 🚀 Deployment
 
 ### Backend (Render/Railway)
