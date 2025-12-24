@@ -925,6 +925,77 @@ function Insights() {
               </div>
             </div>
 
+            {/* Spending Insights */}
+            {spendingInsights.length > 0 && (
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Lightbulb className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {language === 'es' ? 'Insights de Gastos' : 'Spending Insights'}
+                    </h2>
+                  </div>
+                  <div className="space-y-4">
+                    {spendingInsights.map((insight, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-lg border p-4 ${
+                          insight.type === 'success'
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+                            : insight.type === 'warning'
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+                            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {insight.type === 'success' ? (
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                          ) : insight.type === 'warning' ? (
+                            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                          ) : (
+                            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{insight.title}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{insight.message}</p>
+                            {insight.categories && insight.categories.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {insight.categories.slice(0, 3).map((cat, catIdx) => (
+                                  <div key={catIdx} className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-700 dark:text-gray-300">{cat.name}</span>
+                                    {cat.over !== undefined && (
+                                      <span className="text-red-600 dark:text-red-400 font-semibold">
+                                        +{formatCurrency(cat.over)}
+                                      </span>
+                                    )}
+                                    {cat.vsExpected !== undefined && (
+                                      <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                        {cat.vsExpected > 0 ? '+' : ''}{cat.vsExpected.toFixed(1)}%
+                                      </span>
+                                    )}
+                                    {cat.amount !== undefined && (
+                                      <span className="text-gray-600 dark:text-gray-400 font-semibold">
+                                        {formatCurrency(cat.amount)}
+                                      </span>
+                                    )}
+                                    {cat.usage !== undefined && (
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                        {cat.usage.toFixed(0)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Spending by Category */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
               <div className="p-6">
