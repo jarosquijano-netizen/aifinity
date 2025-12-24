@@ -517,8 +517,8 @@ function Insights() {
     })
     .sort((a, b) => b.amount - a.amount);
 
-  // Show categories to match the height of Spending Insights section (approximately 4 insight cards)
-  const topCategories = categoryExpenses.slice(0, 8);
+  // Show all categories with scroll enabled to match the height of Spending Insights section
+  const topCategories = categoryExpenses;
 
   // Calculate spending insights
   const calculateSpendingInsights = () => {
