@@ -808,20 +808,20 @@ function Insights() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 mb-6">
-        <div className="container mx-auto px-4 py-6">
+      <header className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 mb-4">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('financialInsights')}</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">{t('financialInsightsDescription')}</p>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('financialInsights')}</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">{t('financialInsightsDescription')}</p>
             </div>
             <button
               onClick={fetchAllData}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Sparkles className="h-4 w-4" />
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <Sparkles className="h-3.5 w-3.5" />
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               {t('updateInsights')}
             </button>
           </div>
