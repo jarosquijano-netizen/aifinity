@@ -830,112 +830,15 @@ function Insights() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Spending Capacity Section - Always Visible */}
-        <section className="mb-8">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-br from-purple-50/50 dark:from-purple-900/10 to-transparent">
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <DollarSign className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('spendingCapacity')}</h2>
-              </div>
-              <div className="grid gap-4 md:grid-cols-3 mb-6">
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('totalBalanceAccounts')}</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(balanceDisponible)}</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('pendingExpectedIncome')}</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(ingresoEsperadoPendiente)}</p>
-                  {expectedIncome > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {actualIncome >= expectedIncome 
-                        ? (language === 'es' ? 'Ingreso completo recibido' : 'Full income received')
-                        : (language === 'es' 
-                          ? `Faltan ${formatCurrency(expectedIncome - actualIncome)} de ${formatCurrency(expectedIncome)}`
-                          : `${formatCurrency(expectedIncome - actualIncome)} remaining of ${formatCurrency(expectedIncome)}`
-                        )
-                      }
-                    </p>
-                  )}
-                  {expectedIncome === 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      {language === 'es' ? 'No configurado en Ajustes' : 'Not configured in Settings'}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 p-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('safeSpendingCapacity')}</p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(capacidadSegura)}</p>
-                </div>
-              </div>
-
-              <div className={`rounded-lg border p-4 ${
-                recommendationType === 'danger'
-                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-                  : recommendationType === 'warning'
-                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
-                  : 'bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-700'
-              }`}>
-                <div className="flex items-start gap-3">
-                  {recommendationType === 'danger' ? (
-                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                  ) : recommendationType === 'warning' ? (
-                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                  ) : (
-                    <Target className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
-                  )}
-                  <div>
-                    <p className={`font-semibold mb-1 ${
-                      recommendationType === 'danger'
-                        ? 'text-red-900 dark:text-red-100'
-                        : recommendationType === 'warning'
-                        ? 'text-amber-900 dark:text-amber-100'
-                        : 'text-gray-900 dark:text-gray-100'
-                    }`}>
-                      {t('recommendation')}
-                    </p>
-                    {gastoDiarioSeguro > 0 ? (
-                      <>
-                        <p className={`${
-                          recommendationType === 'danger'
-                            ? 'text-red-900 dark:text-red-100'
-                            : recommendationType === 'warning'
-                            ? 'text-amber-900 dark:text-amber-100'
-                            : 'text-gray-900 dark:text-gray-100'
-                        }`}>
-                          {t('canSpendSafely')} <span className={`font-bold ${
-                            recommendationType === 'danger'
-                              ? 'text-red-600 dark:text-red-400'
-                              : recommendationType === 'warning'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-purple-600 dark:text-purple-400'
-                          }`}>{formatCurrency(gastoDiarioSeguro)}{t('perDay')}</span>
-                        </p>
-                        <p className={`text-sm mt-1 ${
-                          recommendationType === 'danger'
-                            ? 'text-red-800 dark:text-red-200'
-                            : recommendationType === 'warning'
-                            ? 'text-amber-800 dark:text-amber-200'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}>
-                          {recommendationMessage}
-                        </p>
-                      </>
-                    ) : (
-                      <p className={`text-sm ${
-                        recommendationType === 'danger'
-                          ? 'text-red-800 dark:text-red-200'
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {recommendationMessage}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Spending Status Header - Always Visible */}
+        <SpendingStatusHeader
+          balance={balanceDisponible}
+          monthlyBudget={budgetTotal}
+          totalSpent={budgetSpent}
+          expectedIncome={expectedIncome}
+          actualIncome={actualIncome}
+          language={language}
+        />
 
         {/* Tabs */}
         <div className="mb-6">
