@@ -172,14 +172,14 @@ function App() {
       />
       
       {/* Menu Section - Full Width */}
-      <div className="w-full px-4 pt-4 md:pt-6">
-        <div className="w-full md:container md:mx-auto md:max-w-[95%] 2xl:max-w-[1800px] mb-8 animate-fadeIn">
+      <div className="w-full px-4 pt-2">
+        <div className="w-full md:container md:mx-auto md:max-w-[95%] 2xl:max-w-[1800px] mb-4 animate-fadeIn">
           <PremiumTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8 max-w-[95%] 2xl:max-w-[1800px]">
-        <div className="mt-6">
+      <main className="container mx-auto px-4 py-6 max-w-[95%] 2xl:max-w-[1800px]">
+        <div className="mt-4">
           {activeTab === 'dashboard' && (
             <Dashboard key={refreshTrigger} />
           )}
