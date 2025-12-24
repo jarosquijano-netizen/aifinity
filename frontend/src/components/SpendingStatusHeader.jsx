@@ -87,12 +87,12 @@ const SpendingStatusHeader = ({
     <div className={`rounded-xl border-2 ${config.borderColor} ${config.bgColor} p-6 mb-6 transition-all`}>
       {/* Header - Clickable to collapse/expand */}
       <div 
-        className="flex items-center justify-between mb-6 cursor-pointer"
+        className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1">
           <StatusIcon className={`w-8 h-8 ${config.iconColor}`} />
-          <div>
+          <div className="flex-1">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {language === 'es' ? 'Estado de Gastos del Mes' : 'This Month\'s Spending Status'} {config.emoji}
             </h2>
@@ -105,17 +105,19 @@ const SpendingStatusHeader = ({
           <div className={`px-4 py-2 rounded-lg ${config.statusBg} ${config.textColor} font-bold text-sm`}>
             {config.status}
           </div>
-          {isCollapsed ? (
-            <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          ) : (
-            <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          )}
+          <div className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+            {isCollapsed ? (
+              <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            )}
+          </div>
         </div>
       </div>
 
       {/* Collapsible Content */}
       {!isCollapsed && (
-        <>
+        <div className="mt-6">
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -217,7 +219,7 @@ const SpendingStatusHeader = ({
           </div>
         </div>
       </div>
-        </>
+        </div>
       )}
     </div>
   );
