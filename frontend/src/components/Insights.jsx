@@ -1049,6 +1049,125 @@ function Insights() {
               </div>
             </div>
 
+            {/* Situation Analysis */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-emerald-200 dark:border-emerald-700">
+              <div className="p-6">
+                <div className="flex items-center gap-2 mb-6">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('situationAnalysis')}</h2>
+                </div>
+                <div className="space-y-4">
+                  {expectedIncome > 0 && (
+                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 p-4">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('incomeUpToDate')}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {language === 'es' ? `Has recibido ${formatCurrency(actualIncome)} de ${formatCurrency(expectedIncome)} esperados (${incomeRatio.toFixed(1)}%)` : `You have received ${formatCurrency(actualIncome)} of ${formatCurrency(expectedIncome)} expected (${incomeRatio.toFixed(1)}%)`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {budgetTotal > 0 && (
+                    <div className={`rounded-lg border p-4 ${
+                      budgetUsage >= 100
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                        : budgetUsage >= 90
+                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+                        : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        {budgetUsage >= 100 ? (
+                          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                        ) : budgetUsage >= 90 ? (
+                          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div>
+                          <p className={`font-semibold ${
+                            budgetUsage >= 100
+                              ? 'text-red-900 dark:text-red-100'
+                              : budgetUsage >= 90
+                              ? 'text-amber-900 dark:text-amber-100'
+                              : 'text-gray-900 dark:text-gray-100'
+                          }`}>
+                            {budgetUsage >= 100
+                              ? (language === 'es' ? 'Presupuesto Excedido' : 'Budget Exceeded')
+                              : budgetUsage >= 90
+                              ? (language === 'es' ? 'Presupuesto Cerca del Límite' : 'Budget Near Limit')
+                              : t('budgetUnderControl')
+                            }
+                          </p>
+                          <p className={`text-sm mt-1 ${
+                            budgetUsage >= 100
+                              ? 'text-red-800 dark:text-red-200'
+                              : budgetUsage >= 90
+                              ? 'text-amber-800 dark:text-amber-200'
+                              : 'text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {language === 'es' 
+                              ? `Has gastado ${formatCurrency(budgetSpent)} de ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`
+                              : `You have spent ${formatCurrency(budgetSpent)} of ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`
+                            }
+                            {budgetUsage >= 100 && (
+                              <span className="block mt-1 font-semibold">
+                                {language === 'es' 
+                                  ? `Exceso: ${formatCurrency(budgetSpent - budgetTotal)}`
+                                  : `Over budget by: ${formatCurrency(budgetSpent - budgetTotal)}`
+                                }
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {budgetTotal > 0 && daysRemaining > 0 && (
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('monthEndPrediction')}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {language === 'es' 
+                              ? `${t('atCurrentRate')} (${formatCurrency(dailySpendRate)}/día), ${t('youWillSpend')} ${formatCurrency(projectedMonthEndSpend)} (${projectedBudgetUsage.toFixed(1)}%)`
+                              : `${t('atCurrentRate')} (${formatCurrency(dailySpendRate)}/day), ${t('youWillSpend')} ${formatCurrency(projectedMonthEndSpend)} (${projectedBudgetUsage.toFixed(1)}%)`}
+                          </p>
+                          {projectedBudgetUsage > 100 && (
+                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mt-2">
+                              {t('warningOverspending')} {formatCurrency(projectedMonthEndSpend - budgetTotal)}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{daysRemaining} {t('remainingDays')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-4">
+                    <div className="flex items-start gap-3">
+                      <TrendingDown className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{t('lowSavings')}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {t('youHaveSavings', { amount: totalSavings.toFixed(2) })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'spending' && (
+          <div className="space-y-8">
             {/* Spending Insights */}
             {spendingInsights.length > 0 && (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
@@ -1201,7 +1320,11 @@ function Insights() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
+        {activeTab === 'debt' && (
+          <div className="space-y-8">
             {/* Card Analysis */}
             {creditCards.length > 0 && (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
@@ -1299,122 +1422,6 @@ function Insights() {
                 </div>
               </div>
             )}
-          </div>
-
-            {/* Situation Analysis */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-emerald-200 dark:border-emerald-700">
-              <div className="p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('situationAnalysis')}</h2>
-                </div>
-                <div className="space-y-4">
-                  {expectedIncome > 0 && (
-                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 p-4">
-                      <div className="flex items-start gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('incomeUpToDate')}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {language === 'es' ? `Has recibido ${formatCurrency(actualIncome)} de ${formatCurrency(expectedIncome)} esperados (${incomeRatio.toFixed(1)}%)` : `You have received ${formatCurrency(actualIncome)} of ${formatCurrency(expectedIncome)} expected (${incomeRatio.toFixed(1)}%)`}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {budgetTotal > 0 && (
-                    <div className={`rounded-lg border p-4 ${
-                      budgetUsage >= 100
-                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-                        : budgetUsage >= 90
-                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
-                        : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        {budgetUsage >= 100 ? (
-                          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                        ) : budgetUsage >= 90 ? (
-                          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                        ) : (
-                          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
-                        )}
-                        <div>
-                          <p className={`font-semibold ${
-                            budgetUsage >= 100
-                              ? 'text-red-900 dark:text-red-100'
-                              : budgetUsage >= 90
-                              ? 'text-amber-900 dark:text-amber-100'
-                              : 'text-gray-900 dark:text-gray-100'
-                          }`}>
-                            {budgetUsage >= 100
-                              ? (language === 'es' ? 'Presupuesto Excedido' : 'Budget Exceeded')
-                              : budgetUsage >= 90
-                              ? (language === 'es' ? 'Presupuesto Cerca del Límite' : 'Budget Near Limit')
-                              : t('budgetUnderControl')
-                            }
-                          </p>
-                          <p className={`text-sm mt-1 ${
-                            budgetUsage >= 100
-                              ? 'text-red-800 dark:text-red-200'
-                              : budgetUsage >= 90
-                              ? 'text-amber-800 dark:text-amber-200'
-                              : 'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {language === 'es' 
-                              ? `Has gastado ${formatCurrency(budgetSpent)} de ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`
-                              : `You have spent ${formatCurrency(budgetSpent)} of ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`
-                            }
-                            {budgetUsage >= 100 && (
-                              <span className="block mt-1 font-semibold">
-                                {language === 'es' 
-                                  ? `Exceso: ${formatCurrency(budgetSpent - budgetTotal)}`
-                                  : `Over budget by: ${formatCurrency(budgetSpent - budgetTotal)}`
-                                }
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {budgetTotal > 0 && daysRemaining > 0 && (
-                    <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-4">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('monthEndPrediction')}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {language === 'es' 
-                              ? `${t('atCurrentRate')} (${formatCurrency(dailySpendRate)}/día), ${t('youWillSpend')} ${formatCurrency(projectedMonthEndSpend)} (${projectedBudgetUsage.toFixed(1)}%)`
-                              : `${t('atCurrentRate')} (${formatCurrency(dailySpendRate)}/day), ${t('youWillSpend')} ${formatCurrency(projectedMonthEndSpend)} (${projectedBudgetUsage.toFixed(1)}%)`}
-                          </p>
-                          {projectedBudgetUsage > 100 && (
-                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mt-2">
-                              {t('warningOverspending')} {formatCurrency(projectedMonthEndSpend - budgetTotal)}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{daysRemaining} {t('remainingDays')}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-4">
-                    <div className="flex items-start gap-3">
-                      <TrendingDown className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">{t('lowSavings')}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {t('youHaveSavings', { amount: totalSavings.toFixed(2) })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Credit Summary */}
             {creditCards.length > 0 && (
