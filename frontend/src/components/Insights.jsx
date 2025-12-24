@@ -1202,12 +1202,56 @@ function Insights() {
                   )}
 
                   {budgetTotal > 0 && (
-                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 p-4">
+                    <div className={`rounded-lg border p-4 ${
+                      budgetUsage >= 100
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                        : budgetUsage >= 90
+                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+                        : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+                    }`}>
                       <div className="flex items-start gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                        {budgetUsage >= 100 ? (
+                          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                        ) : budgetUsage >= 90 ? (
+                          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                        )}
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{t('budgetUnderControl')}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{language === 'es' ? `Has gastado ${formatCurrency(budgetSpent)} de ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)` : `You have spent ${formatCurrency(budgetSpent)} of ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`}</p>
+                          <p className={`font-semibold ${
+                            budgetUsage >= 100
+                              ? 'text-red-900 dark:text-red-100'
+                              : budgetUsage >= 90
+                              ? 'text-amber-900 dark:text-amber-100'
+                              : 'text-gray-900 dark:text-gray-100'
+                          }`}>
+                            {budgetUsage >= 100
+                              ? (language === 'es' ? 'Presupuesto Excedido' : 'Budget Exceeded')
+                              : budgetUsage >= 90
+                              ? (language === 'es' ? 'Presupuesto Cerca del Límite' : 'Budget Near Limit')
+                              : t('budgetUnderControl')
+                            }
+                          </p>
+                          <p className={`text-sm mt-1 ${
+                            budgetUsage >= 100
+                              ? 'text-red-800 dark:text-red-200'
+                              : budgetUsage >= 90
+                              ? 'text-amber-800 dark:text-amber-200'
+                              : 'text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {language === 'es' 
+                              ? `Has gastado ${formatCurrency(budgetSpent)} de ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`
+                              : `You have spent ${formatCurrency(budgetSpent)} of ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`
+                            }
+                            {budgetUsage >= 100 && (
+                              <span className="block mt-1 font-semibold">
+                                {language === 'es' 
+                                  ? `Exceso: ${formatCurrency(budgetSpent - budgetTotal)}`
+                                  : `Over budget by: ${formatCurrency(budgetSpent - budgetTotal)}`
+                                }
+                              </span>
+                            )}
+                          </p>
                         </div>
                       </div>
                     </div>
