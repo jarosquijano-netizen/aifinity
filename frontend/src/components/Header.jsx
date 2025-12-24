@@ -15,7 +15,7 @@ function Header({ user, onLogout, clerkUserButton, onLogoClick }) {
 
   return (
     <header className="bg-white dark:bg-gray-900 backdrop-blur-xl shadow-premium border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300">
-      <div className="container mx-auto px-4 py-3 max-w-[95%] 2xl:max-w-[1800px]">
+      <div className="container mx-auto px-4 py-2 max-w-[95%] 2xl:max-w-[1800px]">
         <div className="flex items-center justify-between">
           {/* Logo & Brand */}
           <div 
