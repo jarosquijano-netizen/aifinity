@@ -1082,7 +1082,7 @@ function Insights() {
                       {language === 'es' ? 'Insights de Gastos' : 'Spending Insights'}
                     </h2>
                   </div>
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {spendingInsights.map((insight, idx) => (
                       <div
                         key={idx}
