@@ -3,6 +3,7 @@ import { Lightbulb, TrendingUp, TrendingDown, AlertCircle, Info, Loader, DollarS
 import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory, getAccounts, getSettings, findDuplicateTransactions, deleteDuplicateTransactions } from '../utils/api';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
+import { formatCurrency, formatCurrencyDecimals } from '../utils/currencyFormat';
 
 function Insights() {
   const [data, setData] = useState(null);
@@ -644,18 +645,18 @@ function Insights() {
               <div className="grid gap-4 md:grid-cols-3 mb-6">
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('totalBalanceAccounts')}</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">€{balanceDisponible.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(balanceDisponible)}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('pendingExpectedIncome')}</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">€{ingresoEsperadoPendiente.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(ingresoEsperadoPendiente)}</p>
                   {expectedIncome > 0 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {actualIncome >= expectedIncome 
                         ? (language === 'es' ? 'Ingreso completo recibido' : 'Full income received')
                         : (language === 'es' 
-                          ? `Faltan €${(expectedIncome - actualIncome).toFixed(2)} de €${expectedIncome.toFixed(2)}`
-                          : `€${(expectedIncome - actualIncome).toFixed(2)} remaining of €${expectedIncome.toFixed(2)}`
+                          ? `Faltan ${formatCurrency(expectedIncome - actualIncome)} de ${formatCurrency(expectedIncome)}`
+                          : `${formatCurrency(expectedIncome - actualIncome)} remaining of ${formatCurrency(expectedIncome)}`
                         )
                       }
                     </p>
@@ -668,7 +669,7 @@ function Insights() {
                 </div>
                 <div className="rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 p-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('safeSpendingCapacity')}</p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">€{capacidadSegura.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(capacidadSegura)}</p>
                 </div>
               </div>
 
@@ -678,7 +679,7 @@ function Insights() {
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t('recommendation')}</p>
                     <p className="text-gray-900 dark:text-gray-100">
-                      {t('canSpendSafely')} <span className="font-bold text-purple-600 dark:text-purple-400">€{gastoDiarioSeguro.toFixed(2)}{t('perDay')}</span>
+                      {t('canSpendSafely')} <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(gastoDiarioSeguro)}{t('perDay')}</span>
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       {t('basedOnRemainingDays', { days: diasRestantesMes })}
@@ -707,7 +708,7 @@ function Insights() {
                       <span className="text-sm text-gray-600 dark:text-gray-400">
                         {t('expectedMonthlyIncome')} <span className="text-xs">{t('configured')}</span>
                       </span>
-                      <span className="text-lg font-semibold text-purple-600 dark:text-purple-400">€{expectedIncome.toFixed(2)}</span>
+                      <span className="text-lg font-semibold text-purple-600 dark:text-purple-400">{formatCurrency(expectedIncome)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
@@ -723,13 +724,13 @@ function Insights() {
                         {incomeRatio.toFixed(1)}% {t('ofExpected')}
                       </span>
                     </div>
-                    <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">€{actualIncome.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(actualIncome)}</span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {t('totalExpenses')} <span className="text-xs">(€{dailyAvgExpense.toFixed(2)}{t('perDayLabel')})</span>
+                      {t('totalExpenses')} <span className="text-xs">({formatCurrency(dailyAvgExpense)}{t('perDayLabel')})</span>
                     </span>
-                    <span className="text-lg font-semibold text-red-600 dark:text-red-400">€{monthlyExpenses.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(monthlyExpenses)}</span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-2">
@@ -743,21 +744,21 @@ function Insights() {
                       </span>
                     </div>
                     <span className={`text-xl font-bold ${netBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                      €{netBalance.toFixed(2)}
+                      {formatCurrency(netBalance)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       {t('realBalanceAccounts')} <span className="text-xs">({data.accounts.length} {t('accounts')})</span>
                     </span>
-                    <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">€{totalAccountsBalance.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(totalAccountsBalance)}</span>
                   </div>
                   <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-600 dark:text-gray-400">{t('savingsInAccounts')}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-500">({savingsAccounts.length} {t('savingsAccounts')})</span>
                     </div>
-                    <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">€{totalSavings.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(totalSavings)}</span>
                   </div>
 
                   <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 p-4 mt-4">
@@ -805,7 +806,7 @@ function Insights() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">€{item.amount.toFixed(2)}</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(item.amount)}</span>
                             <span className="text-xs text-gray-500 dark:text-gray-400 w-12 text-right">{item.percentage.toFixed(1)}%</span>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                               statusColor === 'success'
@@ -896,12 +897,12 @@ function Insights() {
                           <div className="grid grid-cols-3 gap-2 text-xs">
                             <div>
                               <p className="text-gray-600 dark:text-gray-400">{t('debt')}</p>
-                              <p className="font-semibold text-red-600 dark:text-red-400">€{debt.toFixed(2)}</p>
+                              <p className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(debt)}</p>
                             </div>
                             <div>
                               <p className="text-gray-600 dark:text-gray-400">{t('limit')}</p>
                               {limit > 0 ? (
-                                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">€{limit.toFixed(0)}</p>
+                                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatCurrencyDecimals(limit, 0)}</p>
                               ) : (
                                 <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('notSet') || 'Not set'}</p>
                               )}
@@ -942,7 +943,7 @@ function Insights() {
                         <div>
                           <p className="font-semibold text-gray-900 dark:text-gray-100">{t('incomeUpToDate')}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {language === 'es' ? `Has recibido €${actualIncome.toFixed(2)} de €${expectedIncome.toFixed(2)} esperados (${incomeRatio.toFixed(1)}%)` : `You have received €${actualIncome.toFixed(2)} of €${expectedIncome.toFixed(2)} expected (${incomeRatio.toFixed(1)}%)`}
+                            {language === 'es' ? `Has recibido ${formatCurrency(actualIncome)} de ${formatCurrency(expectedIncome)} esperados (${incomeRatio.toFixed(1)}%)` : `You have received ${formatCurrency(actualIncome)} of ${formatCurrency(expectedIncome)} expected (${incomeRatio.toFixed(1)}%)`}
                           </p>
                         </div>
                       </div>
@@ -955,7 +956,7 @@ function Insights() {
                         <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                         <div>
                           <p className="font-semibold text-gray-900 dark:text-gray-100">{t('budgetUnderControl')}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{language === 'es' ? `Has gastado €${budgetSpent.toFixed(2)} de €${budgetTotal.toFixed(2)} (${budgetUsage.toFixed(1)}%)` : `You have spent €${budgetSpent.toFixed(2)} of €${budgetTotal.toFixed(2)} (${budgetUsage.toFixed(1)}%)`}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{language === 'es' ? `Has gastado ${formatCurrency(budgetSpent)} de ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)` : `You have spent ${formatCurrency(budgetSpent)} of ${formatCurrency(budgetTotal)} (${budgetUsage.toFixed(1)}%)`}</p>
                         </div>
                       </div>
                     </div>
@@ -969,12 +970,12 @@ function Insights() {
                           <p className="font-semibold text-gray-900 dark:text-gray-100">{t('monthEndPrediction')}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             {language === 'es' 
-                              ? `${t('atCurrentRate')} (€${dailySpendRate.toFixed(2)}/día), ${t('youWillSpend')} €${projectedMonthEndSpend.toFixed(2)} (${projectedBudgetUsage.toFixed(1)}%)`
-                              : `${t('atCurrentRate')} (€${dailySpendRate.toFixed(2)}/day), ${t('youWillSpend')} €${projectedMonthEndSpend.toFixed(2)} (${projectedBudgetUsage.toFixed(1)}%)`}
+                              ? `${t('atCurrentRate')} (${formatCurrency(dailySpendRate)}/día), ${t('youWillSpend')} ${formatCurrency(projectedMonthEndSpend)} (${projectedBudgetUsage.toFixed(1)}%)`
+                              : `${t('atCurrentRate')} (${formatCurrency(dailySpendRate)}/day), ${t('youWillSpend')} ${formatCurrency(projectedMonthEndSpend)} (${projectedBudgetUsage.toFixed(1)}%)`}
                           </p>
                           {projectedBudgetUsage > 100 && (
                             <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mt-2">
-                              {t('warningOverspending')} €{(projectedMonthEndSpend - budgetTotal).toFixed(2)}
+                              {t('warningOverspending')} {formatCurrency(projectedMonthEndSpend - budgetTotal)}
                             </p>
                           )}
                           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{daysRemaining} {t('remainingDays')}</p>
@@ -1009,13 +1010,13 @@ function Insights() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="rounded-lg border border-red-200 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10 p-4">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('totalDebt')}</p>
-                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">€{totalDebt.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totalDebt)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{creditCards.length} {t('creditCards')}</p>
                     </div>
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('totalLimit')}</p>
-                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">€{totalCreditLimit.toFixed(2)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{t('available')} €{totalAvailableCredit.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatCurrency(totalCreditLimit)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{t('available')} {formatCurrency(totalAvailableCredit)}</p>
                     </div>
                     <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('utilization')}</p>
@@ -1032,7 +1033,7 @@ function Insights() {
                     </div>
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('minimumPayment')}</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">€{minimumPayments.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(minimumPayments)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{t('perMonth')}</p>
                     </div>
                   </div>
@@ -1072,7 +1073,7 @@ function Insights() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="font-semibold text-gray-900 dark:text-gray-100">{card.name}</span>
                               <span className="text-sm text-red-600 dark:text-red-400 font-medium">
-                                {language === 'es' ? 'Deuda:' : 'Debt:'} €{debt.toFixed(2)}
+                                {language === 'es' ? 'Deuda:' : 'Debt:'} {formatCurrency(debt)}
                               </span>
                             </div>
                             
@@ -1131,7 +1132,7 @@ function Insights() {
                                     {language === 'es' ? 'Interés total' : 'Total interest'}
                                   </p>
                                   <p className="font-bold text-amber-600 dark:text-amber-400 text-lg">
-                                    €{result.totalInterest.toFixed(2)}
+                                    {formatCurrency(result.totalInterest)}
                                   </p>
                                 </div>
                                 <div className="text-center">
@@ -1139,7 +1140,7 @@ function Insights() {
                                     {language === 'es' ? 'Total pagado' : 'Total paid'}
                                   </p>
                                   <p className="font-bold text-gray-900 dark:text-gray-100 text-lg">
-                                    €{result.totalPaid.toFixed(2)}
+                                    {formatCurrency(result.totalPaid)}
                                   </p>
                                 </div>
                               </div>
@@ -1183,12 +1184,12 @@ function Insights() {
                             {language === 'es' ? 'Interés total' : 'Total interest'}
                           </p>
                           <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
-                            €{aggregatedResults.totalInterest.toFixed(2)}
+                            {formatCurrency(aggregatedResults.totalInterest)}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                             {language === 'es' 
-                              ? `€${(aggregatedResults.totalInterest / aggregatedResults.totalMonths).toFixed(2)}/mes`
-                              : `€${(aggregatedResults.totalInterest / aggregatedResults.totalMonths).toFixed(2)}/month`}
+                              ? `${formatCurrency(aggregatedResults.totalInterest / aggregatedResults.totalMonths)}/mes`
+                              : `${formatCurrency(aggregatedResults.totalInterest / aggregatedResults.totalMonths)}/month`}
                           </p>
                         </div>
                         <div className="text-center">
@@ -1196,12 +1197,12 @@ function Insights() {
                             {language === 'es' ? 'Total a pagar' : 'Total to pay'}
                           </p>
                           <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                            €{aggregatedResults.totalPaid.toFixed(2)}
+                            {formatCurrency(aggregatedResults.totalPaid)}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                             {language === 'es' 
-                              ? `Deuda: €${totalDebt.toFixed(2)}`
-                              : `Debt: €${totalDebt.toFixed(2)}`}
+                              ? `Deuda: ${formatCurrency(totalDebt)}`
+                              : `Debt: ${formatCurrency(totalDebt)}`}
                           </p>
                         </div>
                       </div>
@@ -1226,7 +1227,7 @@ function Insights() {
                         <div>
                           <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('estimatedInterestCost')}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {t('withAverageRate')} <span className="font-bold text-purple-600 dark:text-purple-400">€{monthlyInterestCost.toFixed(2)}{t('perMonthInterest')}</span> ({language === 'es' ? `€${annualInterestCost.toFixed(2)}/año` : `€${annualInterestCost.toFixed(2)}/year`}). {t('payingMinimum')}
+                            {t('withAverageRate')} <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(monthlyInterestCost)}{t('perMonthInterest')}</span> ({language === 'es' ? `${formatCurrency(annualInterestCost)}/año` : `${formatCurrency(annualInterestCost)}/year`}). {t('payingMinimum')}
                           </p>
                         </div>
                       </div>
@@ -1275,10 +1276,10 @@ function Insights() {
                             <div>
                               <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('paymentProjection')}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {t('ifYouPay')} <span className="font-bold text-emerald-700 dark:text-emerald-400">€{doubleMinimum.toFixed(2)}{t('perMonth')}</span>{" "}
+                                {t('ifYouPay')} <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(doubleMinimum)}{t('perMonth')}</span>{" "}
                                 ({t('doubleMinimum')}), {language === 'es' ? 'podrías estar libre de deuda en aproximadamente' : 'you could be debt-free in approximately'} {" "}
                                 <span className="font-bold text-emerald-700 dark:text-emerald-400">{monthsToPayoff} {t('months')}</span>, {t('payingInterest')} {" "}
-                                <span className="font-bold">€{totalInterestPaid.toFixed(2)}</span> {t('inInterest')}.
+                                <span className="font-bold">{formatCurrency(totalInterestPaid)}</span> {t('inInterest')}.
                               </p>
                             </div>
                           </div>
