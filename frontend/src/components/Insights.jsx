@@ -1071,7 +1071,7 @@ function Insights() {
         )}
 
         {activeTab === 'spending' && (
-          <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Spending Insights */}
             {spendingInsights.length > 0 && (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
@@ -1082,7 +1082,7 @@ function Insights() {
                       {language === 'es' ? 'Insights de Gastos' : 'Spending Insights'}
                     </h2>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-4">
                     {spendingInsights.map((insight, idx) => (
                       <div
                         key={idx}
