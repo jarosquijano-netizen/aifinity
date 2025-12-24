@@ -4,12 +4,14 @@ import { getSummary, getBudgetOverview, getTrends, sendAIChat, getAIChatHistory,
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency, formatCurrencyDecimals } from '../utils/currencyFormat';
+import Tabs from './Tabs';
 
 function Insights() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { t, language } = useLanguage();
+  const [activeTab, setActiveTab] = useState('daytoday'); // 'daytoday', 'spending', 'debt', 'scenarios'
 
   // Chatbot state
   const [chatMessages, setChatMessages] = useState([]);
@@ -827,7 +829,7 @@ function Insights() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Spending Capacity Section */}
+        {/* Spending Capacity Section - Always Visible */}
         <section className="mb-8">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-br from-purple-50/50 dark:from-purple-900/10 to-transparent">
             <div className="p-6">
@@ -934,10 +936,23 @@ function Insights() {
           </div>
         </section>
 
-        {/* Two Column Layout */}
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Left Column */}
-          <div className="space-y-8">
+        {/* Tabs */}
+        <div className="mb-6">
+          <Tabs 
+            tabs={[
+              { id: 'daytoday', label: language === 'es' ? 'Día a Día' : 'Day to Day' },
+              { id: 'spending', label: language === 'es' ? 'Gastos' : 'Spending' },
+              { id: 'debt', label: language === 'es' ? 'Deuda' : 'Debt' },
+              { id: 'scenarios', label: language === 'es' ? 'Escenarios Financieros' : 'Financial Scenarios' }
+            ]} 
+            activeTab={activeTab} 
+            onChange={setActiveTab} 
+          />
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'daytoday' && (
+          <div className="grid gap-8 lg:grid-cols-2">
             {/* Financial Status */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
               <div className="p-6">
@@ -1286,8 +1301,6 @@ function Insights() {
             )}
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-8">
             {/* Situation Analysis */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 border-emerald-200 dark:border-emerald-700">
               <div className="p-6">
@@ -1695,7 +1708,27 @@ function Insights() {
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        {activeTab === 'scenarios' && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {language === 'es' ? 'Escenarios Financieros' : 'Financial Scenarios'}
+                </h2>
+              </div>
+              <div className="text-center py-12">
+                <p className="text-gray-500 dark:text-gray-400 text-lg">
+                  {language === 'es' 
+                    ? 'Esta sección estará disponible próximamente'
+                    : 'This section will be available soon'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* AI Assistant Button */}
