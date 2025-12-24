@@ -1,5 +1,5 @@
-import React from 'react';
-import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertCircle, CheckCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../utils/currencyFormat';
 
 const SpendingStatusHeader = ({ 
@@ -10,6 +10,7 @@ const SpendingStatusHeader = ({
   actualIncome = 0,
   language = 'es'
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   // Calculate metrics
   const budgetRemaining = monthlyBudget - totalSpent;
   const isOverBudget = budgetRemaining < 0;
@@ -84,8 +85,11 @@ const SpendingStatusHeader = ({
 
   return (
     <div className={`rounded-xl border-2 ${config.borderColor} ${config.bgColor} p-6 mb-6 transition-all`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Header - Clickable to collapse/expand */}
+      <div 
+        className="flex items-center justify-between mb-6 cursor-pointer"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
         <div className="flex items-center gap-3">
           <StatusIcon className={`w-8 h-8 ${config.iconColor}`} />
           <div>
@@ -97,10 +101,21 @@ const SpendingStatusHeader = ({
             </p>
           </div>
         </div>
-        <div className={`px-4 py-2 rounded-lg ${config.statusBg} ${config.textColor} font-bold text-sm`}>
-          {config.status}
+        <div className="flex items-center gap-3">
+          <div className={`px-4 py-2 rounded-lg ${config.statusBg} ${config.textColor} font-bold text-sm`}>
+            {config.status}
+          </div>
+          {isCollapsed ? (
+            <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          ) : (
+            <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          )}
         </div>
       </div>
+
+      {/* Collapsible Content */}
+      {!isCollapsed && (
+        <>
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -202,6 +217,8 @@ const SpendingStatusHeader = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
