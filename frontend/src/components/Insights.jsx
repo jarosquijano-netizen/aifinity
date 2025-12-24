@@ -426,15 +426,12 @@ function Insights() {
   const expectedIncome = data.expectedIncome || 0;
   const incomeRatio = expectedIncome > 0 ? (actualIncome / expectedIncome * 100) : 0;
   
-  // Calculate total balance - include ALL accounts (same as Dashboard)
-  // This shows the real total balance across all accounts for transparency
-  const totalAccountsBalance = data.accounts.reduce((sum, acc) => {
+  // Calculate total balance - EXCLUDE accounts marked as exclude_from_stats
+  const accountsIncluded = data.accounts.filter(acc => !acc.exclude_from_stats);
+  const totalAccountsBalance = accountsIncluded.reduce((sum, acc) => {
     const balance = parseFloat(acc.balance || 0);
     return sum + balance;
   }, 0);
-  
-  // For savings calculation, still exclude accounts marked as exclude_from_stats
-  const accountsIncluded = data.accounts.filter(acc => !acc.exclude_from_stats);
   
   const savingsAccounts = data.accounts.filter(acc => 
     (acc.account_type === 'savings' || acc.account_type === 'investment') && !acc.exclude_from_stats
@@ -692,13 +689,73 @@ function Insights() {
 
   const aggregatedResults = creditCards.length > 0 ? calculateAggregatedResults() : null;
 
-  // Total balance available - includes ALL accounts (same as Dashboard)
+  // Total balance available - EXCLUDES accounts marked as exclude_from_stats
   const balanceDisponible = totalAccountsBalance;
   
   // Calculate pending expected income: remaining expected income for the month
-  // If actual income >= expected income, show 0 (already received all expected)
-  // Otherwise, show the difference
+  // Get from expectedIncome in settings (already loaded from settings)
   const ingresoEsperadoPendiente = expectedIncome > 0 ? Math.max(0, expectedIncome - actualIncome) : 0;
+  
+  // Calculate remaining budget for the month
+  const budgetRemaining = budgetTotal > 0 ? Math.max(0, budgetTotal - budgetSpent) : 0;
+  
+  // Calculate safe spending capacity considering:
+  // 1. Remaining budget (most important constraint)
+  // 2. Available balance (with 20% buffer for safety)
+  // 3. Pending expected income
+  const diasRestantesMes = daysRemaining;
+  
+  // If over budget, safe capacity should be based on remaining budget, not total balance
+  let capacidadSegura = 0;
+  let gastoDiarioSeguro = 0;
+  let recommendationMessage = '';
+  let recommendationType = 'info'; // 'info', 'warning', 'danger'
+  
+  if (budgetTotal > 0) {
+    // We have a budget - prioritize budget remaining
+    if (budgetSpent >= budgetTotal) {
+      // Already over budget
+      capacidadSegura = 0;
+      gastoDiarioSeguro = 0;
+      recommendationMessage = language === 'es' 
+        ? `Has excedido tu presupuesto en ${formatCurrency(budgetSpent - budgetTotal)}. Se recomienda no gastar más este mes.`
+        : `You have exceeded your budget by ${formatCurrency(budgetSpent - budgetTotal)}. It's recommended not to spend more this month.`;
+      recommendationType = 'danger';
+    } else {
+      // Under budget - safe capacity is remaining budget (with small buffer)
+      const buffer = budgetRemaining * 0.1; // 10% buffer
+      capacidadSegura = Math.max(0, budgetRemaining - buffer);
+      gastoDiarioSeguro = diasRestantesMes > 0 ? capacidadSegura / diasRestantesMes : 0;
+      
+      // Also consider available balance as a constraint
+      const availableFromBalance = balanceDisponible * 0.8; // 80% of balance as safety
+      const finalCapacity = Math.min(capacidadSegura, availableFromBalance + ingresoEsperadoPendiente);
+      
+      if (finalCapacity < capacidadSegura) {
+        // Balance is the limiting factor
+        capacidadSegura = Math.max(0, finalCapacity);
+        gastoDiarioSeguro = diasRestantesMes > 0 ? capacidadSegura / diasRestantesMes : 0;
+        recommendationMessage = language === 'es'
+          ? `Puedes gastar de forma segura hasta ${formatCurrency(gastoDiarioSeguro)} por día basado en tu presupuesto restante y balance disponible.`
+          : `You can safely spend up to ${formatCurrency(gastoDiarioSeguro)} per day based on your remaining budget and available balance.`;
+        recommendationType = 'info';
+      } else {
+        // Budget is the limiting factor (good!)
+        recommendationMessage = language === 'es'
+          ? `Puedes gastar de forma segura hasta ${formatCurrency(gastoDiarioSeguro)} por día basado en tu presupuesto restante (${formatCurrency(budgetRemaining)}).`
+          : `You can safely spend up to ${formatCurrency(gastoDiarioSeguro)} per day based on your remaining budget (${formatCurrency(budgetRemaining)}).`;
+        recommendationType = 'info';
+      }
+    }
+  } else {
+    // No budget set - use balance-based calculation (fallback)
+    capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
+    gastoDiarioSeguro = diasRestantesMes > 0 ? capacidadSegura / diasRestantesMes : 0;
+    recommendationMessage = language === 'es'
+      ? `Puedes gastar de forma segura hasta ${formatCurrency(gastoDiarioSeguro)} por día basado en tu balance disponible. Considera configurar un presupuesto para mejores recomendaciones.`
+      : `You can safely spend up to ${formatCurrency(gastoDiarioSeguro)} per day based on your available balance. Consider setting up a budget for better recommendations.`;
+    recommendationType = 'warning';
+  }
   
   // Debug logging for balance and income calculations
   console.log('💰 Balance & Income Calculations:', {
@@ -708,16 +765,18 @@ function Insights() {
     expectedIncome,
     actualIncome,
     ingresoEsperadoPendiente,
+    budgetTotal,
+    budgetSpent,
+    budgetRemaining,
+    capacidadSegura,
+    gastoDiarioSeguro,
     currentMonth: new Date().toISOString().slice(0, 7),
-    accountsBreakdown: data.accounts.map(acc => ({
+    accountsBreakdown: accountsIncluded.map(acc => ({
       name: acc.name,
       balance: acc.balance,
       exclude_from_stats: acc.exclude_from_stats
     }))
   });
-  const diasRestantesMes = daysRemaining;
-  const capacidadSegura = Math.max(0, (balanceDisponible * 0.8) + ingresoEsperadoPendiente);
-  const gastoDiarioSeguro = capacidadSegura / Math.max(1, diasRestantesMes);
   
   // Debug logging (remove in production)
   console.log('Expected Income Calculation:', {
