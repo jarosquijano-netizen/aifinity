@@ -10,7 +10,7 @@ function Tabs({ tabs, activeTab, onChange }) {
           className={`
             px-6 py-2.5 rounded-md font-medium transition-all duration-200
             ${activeTab === tab.id
-              ? 'bg-primary text-white shadow-sm'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
             }
           `}
