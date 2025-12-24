@@ -5,6 +5,7 @@ import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency, formatCurrencyDecimals } from '../utils/currencyFormat';
 import Tabs from './Tabs';
+import SpendingStatusHeader from './SpendingStatusHeader';
 
 function Insights() {
   const [data, setData] = useState(null);
