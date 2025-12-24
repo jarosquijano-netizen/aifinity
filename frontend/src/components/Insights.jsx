@@ -517,8 +517,8 @@ function Insights() {
     })
     .sort((a, b) => b.amount - a.amount);
 
-  // Show more categories to match the height of Spending Insights section
-  const topCategories = categoryExpenses.slice(0, 15);
+  // Show categories to match the height of Spending Insights section (approximately 4 insight cards)
+  const topCategories = categoryExpenses.slice(0, 8);
 
   // Calculate spending insights
   const calculateSpendingInsights = () => {
@@ -1151,7 +1151,7 @@ function Insights() {
                   <PieChart className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('expensesByCategory')}</h2>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                   {topCategories.map((item) => {
                     // Improved logic: prioritize budget comparison over percentage
                     let statusColor = 'success';
