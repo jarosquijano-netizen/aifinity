@@ -866,17 +866,67 @@ function Insights() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border border-purple-200 dark:border-purple-700 p-4">
+              <div className={`rounded-lg border p-4 ${
+                recommendationType === 'danger'
+                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                  : recommendationType === 'warning'
+                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+                  : 'bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-700'
+              }`}>
                 <div className="flex items-start gap-3">
-                  <Target className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                  {recommendationType === 'danger' ? (
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  ) : recommendationType === 'warning' ? (
+                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <Target className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                  )}
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t('recommendation')}</p>
-                    <p className="text-gray-900 dark:text-gray-100">
-                      {t('canSpendSafely')} <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(gastoDiarioSeguro)}{t('perDay')}</span>
+                    <p className={`font-semibold mb-1 ${
+                      recommendationType === 'danger'
+                        ? 'text-red-900 dark:text-red-100'
+                        : recommendationType === 'warning'
+                        ? 'text-amber-900 dark:text-amber-100'
+                        : 'text-gray-900 dark:text-gray-100'
+                    }`}>
+                      {t('recommendation')}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {t('basedOnRemainingDays', { days: diasRestantesMes })}
-                    </p>
+                    {gastoDiarioSeguro > 0 ? (
+                      <>
+                        <p className={`${
+                          recommendationType === 'danger'
+                            ? 'text-red-900 dark:text-red-100'
+                            : recommendationType === 'warning'
+                            ? 'text-amber-900 dark:text-amber-100'
+                            : 'text-gray-900 dark:text-gray-100'
+                        }`}>
+                          {t('canSpendSafely')} <span className={`font-bold ${
+                            recommendationType === 'danger'
+                              ? 'text-red-600 dark:text-red-400'
+                              : recommendationType === 'warning'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-purple-600 dark:text-purple-400'
+                          }`}>{formatCurrency(gastoDiarioSeguro)}{t('perDay')}</span>
+                        </p>
+                        <p className={`text-sm mt-1 ${
+                          recommendationType === 'danger'
+                            ? 'text-red-800 dark:text-red-200'
+                            : recommendationType === 'warning'
+                            ? 'text-amber-800 dark:text-amber-200'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {recommendationMessage}
+                        </p>
+                      </>
+                    ) : (
+                      <p className={`text-sm ${
+                        recommendationType === 'danger'
+                          ? 'text-red-800 dark:text-red-200'
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {recommendationMessage}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
