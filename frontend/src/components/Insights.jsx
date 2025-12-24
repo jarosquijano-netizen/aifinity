@@ -443,16 +443,150 @@ function Insights() {
   
   const dailyAvgExpense = monthlyExpenses / Math.max(1, daysElapsed);
 
+  // Create a map of budget data by category name
+  const budgetMap = {};
+  if (data.budget?.categories) {
+    data.budget.categories.forEach(cat => {
+      const catName = cat.category || cat.name;
+      if (catName) {
+        budgetMap[catName] = {
+          budget: parseFloat(cat.budget || 0),
+          spent: parseFloat(cat.spent || 0),
+          is_annual: cat.is_annual || false
+        };
+      }
+    });
+  }
+
+  // Helper function to match category names (handles hierarchical categories)
+  const matchCategory = (expenseCategory, budgetCategory) => {
+    if (expenseCategory === budgetCategory) return true;
+    // Check if expense category is a subcategory of budget category
+    if (expenseCategory.includes(' > ')) {
+      const subcategory = expenseCategory.split(' > ')[1];
+      if (subcategory === budgetCategory) return true;
+    }
+    if (budgetCategory.includes(' > ')) {
+      const budgetSubcategory = budgetCategory.split(' > ')[1];
+      if (budgetSubcategory === expenseCategory) return true;
+    }
+    return false;
+  };
+
   const categoryExpenses = data.summary.categories
     .filter(cat => cat.type === 'expense')
-    .map(cat => ({
-      name: cat.category,
-      amount: parseFloat(cat.total),
-      percentage: monthlyExpenses > 0 ? (parseFloat(cat.total) / monthlyExpenses * 100) : 0
-    }))
+    .map(cat => {
+      const catName = cat.category;
+      const amount = parseFloat(cat.total);
+      const percentage = monthlyExpenses > 0 ? (amount / monthlyExpenses * 100) : 0;
+      
+      // Find matching budget (check exact match and hierarchical matches)
+      let budgetData = null;
+      for (const budgetCatName in budgetMap) {
+        if (matchCategory(catName, budgetCatName)) {
+          budgetData = budgetMap[budgetCatName];
+          break;
+        }
+      }
+      
+      // Calculate budget usage
+      const budget = budgetData?.budget || 0;
+      const budgetSpent = budgetData?.spent || amount; // Use budget spent if available, otherwise use expense amount
+      const isAnnual = budgetData?.is_annual || false;
+      
+      // For annual budgets, calculate monthly equivalent
+      const monthlyBudget = isAnnual ? (budget / 12) : budget;
+      
+      // Calculate usage percentage (considering days elapsed in month)
+      const monthProgress = daysElapsed / daysInMonth; // 0 to 1
+      const expectedSpent = monthlyBudget * monthProgress;
+      const budgetUsage = monthlyBudget > 0 ? (budgetSpent / monthlyBudget * 100) : 0;
+      const vsExpected = monthlyBudget > 0 ? ((budgetSpent - expectedSpent) / monthlyBudget * 100) : 0;
+      
+      return {
+        name: catName,
+        amount: amount,
+        percentage: percentage,
+        budget: monthlyBudget,
+        budgetSpent: budgetSpent,
+        budgetUsage: budgetUsage,
+        vsExpected: vsExpected,
+        hasBudget: monthlyBudget > 0,
+        isAnnual: isAnnual
+      };
+    })
     .sort((a, b) => b.amount - a.amount);
 
   const topCategories = categoryExpenses.slice(0, 5);
+
+  // Calculate spending insights
+  const calculateSpendingInsights = () => {
+    const insights = [];
+    
+    // Insight 1: Categories over budget
+    const overBudget = categoryExpenses.filter(cat => cat.hasBudget && cat.budgetUsage > 100);
+    if (overBudget.length > 0) {
+      const totalOver = overBudget.reduce((sum, cat) => sum + Math.max(0, cat.budgetSpent - cat.budget), 0);
+      insights.push({
+        type: 'warning',
+        title: language === 'es' ? 'Categorías sobre presupuesto' : 'Categories over budget',
+        message: language === 'es' 
+          ? `${overBudget.length} categoría${overBudget.length > 1 ? 's' : ''} ha${overBudget.length > 1 ? 'n' : ''} excedido su presupuesto. Total excedido: ${formatCurrency(totalOver)}`
+          : `${overBudget.length} categor${overBudget.length > 1 ? 'ies' : 'y'} ha${overBudget.length > 1 ? 've' : 's'} exceeded its budget. Total over: ${formatCurrency(totalOver)}`,
+        categories: overBudget.map(cat => ({ name: cat.name, over: cat.budgetSpent - cat.budget }))
+      });
+    }
+    
+    // Insight 2: Categories spending faster than expected
+    const spendingFast = categoryExpenses.filter(cat => cat.hasBudget && cat.vsExpected > 20);
+    if (spendingFast.length > 0) {
+      insights.push({
+        type: 'info',
+        title: language === 'es' ? 'Gastando más rápido de lo esperado' : 'Spending faster than expected',
+        message: language === 'es'
+          ? `${spendingFast.length} categoría${spendingFast.length > 1 ? 's' : ''} está${spendingFast.length > 1 ? 'n' : ''} gastando más rápido de lo esperado para este punto del mes`
+          : `${spendingFast.length} categor${spendingFast.length > 1 ? 'ies' : 'y'} ${spendingFast.length > 1 ? 'are' : 'is'} spending faster than expected for this point in the month`,
+        categories: spendingFast.map(cat => ({ name: cat.name, vsExpected: cat.vsExpected }))
+      });
+    }
+    
+    // Insight 3: Largest expense categories
+    const top3Expenses = topCategories.slice(0, 3);
+    if (top3Expenses.length > 0) {
+      const totalTop3 = top3Expenses.reduce((sum, cat) => sum + cat.amount, 0);
+      const top3Percentage = monthlyExpenses > 0 ? (totalTop3 / monthlyExpenses * 100) : 0;
+      insights.push({
+        type: 'info',
+        title: language === 'es' ? 'Principales categorías de gasto' : 'Top spending categories',
+        message: language === 'es'
+          ? `Las 3 categorías principales representan el ${top3Percentage.toFixed(1)}% de tus gastos totales (${formatCurrency(totalTop3)})`
+          : `The top 3 categories represent ${top3Percentage.toFixed(1)}% of your total expenses (${formatCurrency(totalTop3)})`,
+        categories: top3Expenses.map(cat => ({ name: cat.name, amount: cat.amount }))
+      });
+    }
+    
+    // Insight 4: Well-managed categories
+    const wellManaged = categoryExpenses.filter(cat => 
+      cat.hasBudget && 
+      cat.budgetUsage <= 80 && 
+      cat.vsExpected <= 10 &&
+      cat.amount > 0
+    );
+    if (wellManaged.length > 0) {
+      insights.push({
+        type: 'success',
+        title: language === 'es' ? 'Categorías bien gestionadas' : 'Well-managed categories',
+        message: language === 'es'
+          ? `${wellManaged.length} categoría${wellManaged.length > 1 ? 's' : ''} está${wellManaged.length > 1 ? 'n' : ''} dentro del presupuesto y en línea con el progreso esperado`
+          : `${wellManaged.length} categor${wellManaged.length > 1 ? 'ies' : 'y'} ${wellManaged.length > 1 ? 'are' : 'is'} within budget and on track with expected progress`,
+        categories: wellManaged.map(cat => ({ name: cat.name, usage: cat.budgetUsage }))
+      });
+    }
+    
+    return insights;
+  };
+
+  const spendingInsights = calculateSpendingInsights();
 
   const creditCards = data.accounts.filter(acc => acc.account_type === 'credit' && !acc.exclude_from_stats);
   const totalDebt = creditCards.reduce((sum, card) => {
@@ -800,14 +934,52 @@ function Insights() {
                 </div>
                 <div className="space-y-4">
                   {topCategories.map((item) => {
-                    const statusColor = item.percentage < 15 ? 'success' : item.percentage < 25 ? 'warning' : 'destructive';
+                    // Improved logic: prioritize budget comparison over percentage
+                    let statusColor = 'success';
+                    let statusText = t('well');
+                    
+                    if (item.hasBudget) {
+                      // Use budget-based logic
+                      if (item.budgetUsage > 100) {
+                        statusColor = 'destructive';
+                        statusText = t('high');
+                      } else if (item.budgetUsage > 90 || item.vsExpected > 15) {
+                        statusColor = 'warning';
+                        statusText = t('review');
+                      } else if (item.budgetUsage <= 80 && item.vsExpected <= 10) {
+                        statusColor = 'success';
+                        statusText = t('well');
+                      } else {
+                        statusColor = 'warning';
+                        statusText = t('review');
+                      }
+                    } else {
+                      // Fallback to percentage-based logic if no budget
+                      if (item.percentage < 15) {
+                        statusColor = 'success';
+                        statusText = t('well');
+                      } else if (item.percentage < 25) {
+                        statusColor = 'warning';
+                        statusText = t('review');
+                      } else {
+                        statusColor = 'destructive';
+                        statusText = t('high');
+                      }
+                    }
+                    
                     return (
                       <div key={item.name} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(item.amount)}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 w-12 text-right">{item.percentage.toFixed(1)}%</span>
+                            {item.hasBudget ? (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 w-16 text-right">
+                                {item.budgetUsage.toFixed(0)}% {language === 'es' ? 'presup.' : 'budget'}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 w-12 text-right">{item.percentage.toFixed(1)}%</span>
+                            )}
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                               statusColor === 'success'
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-800'
@@ -815,11 +987,19 @@ function Insights() {
                                 ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800'
                                 : 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
                             }`}>
-                              {statusColor === 'success' ? t('well') : statusColor === 'warning' ? t('review') : t('high')}
+                              {statusText}
                             </span>
                           </div>
                         </div>
-                        <ProgressBar value={item.percentage} />
+                        <ProgressBar value={item.hasBudget ? Math.min(100, item.budgetUsage) : item.percentage} />
+                        {item.hasBudget && (
+                          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <span>{language === 'es' ? 'Presupuesto:' : 'Budget:'} {formatCurrency(item.budget)}</span>
+                            {item.isAnnual && (
+                              <span className="text-xs text-blue-600 dark:text-blue-400">({language === 'es' ? 'Anual' : 'Annual'})</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
