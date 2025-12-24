@@ -517,7 +517,8 @@ function Insights() {
     })
     .sort((a, b) => b.amount - a.amount);
 
-  const topCategories = categoryExpenses.slice(0, 5);
+  // Show more categories to match the height of Spending Insights section
+  const topCategories = categoryExpenses.slice(0, 15);
 
   // Calculate spending insights
   const calculateSpendingInsights = () => {
