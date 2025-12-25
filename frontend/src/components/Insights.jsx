@@ -1727,50 +1727,12 @@ function Insights() {
                   };
                 });
             })()}
-            mortgage={(() => {
-              // Check if there's a mortgage account or large housing expense
-              if (!data.accounts) return null;
-              
-              // Look for mortgage account or large housing-related account
-              const mortgageAccount = data.accounts.find(acc => 
-                acc.name?.toLowerCase().includes('mortgage') ||
-                acc.name?.toLowerCase().includes('hipoteca') ||
-                (acc.account_type === 'loan' && parseFloat(acc.balance || 0) > 50000)
-              );
-              
-              if (mortgageAccount) {
-                const balance = parseFloat(mortgageAccount.balance || 0);
-                // Estimate monthly payment (rough calculation)
-                const estimatedPayment = balance * 0.005; // Rough estimate
-                
-                return {
-                  monthlyPayment: estimatedPayment,
-                  balance: balance,
-                  interestRate: 3.5, // Default estimate
-                  term: 30
-                };
-              }
-              
-              // Check budget for large housing expense
-              const housingBudget = data.budget?.categories?.find(cat => {
-                const catName = (cat.category || cat.name || '').toLowerCase();
-                return catName.includes('housing') || 
-                       catName.includes('vivienda') ||
-                       catName.includes('rent') ||
-                       catName.includes('alquiler');
-              });
-              
-              if (housingBudget && housingBudget.budget > 1000) {
-                return {
-                  monthlyPayment: parseFloat(housingBudget.budget || 0),
-                  balance: 200000, // Estimate
-                  interestRate: 3.5,
-                  term: 30
-                };
-              }
-              
-              return null;
-            })()}
+            mortgage={{
+              monthlyPayment: 975, // Fixed mortgage payment as specified
+              balance: 200000, // Estimate
+              interestRate: 3.5,
+              term: 30
+            }}
           />
         )}
       </main>
