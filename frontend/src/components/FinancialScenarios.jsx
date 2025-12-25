@@ -110,6 +110,7 @@ const FinancialScenarios = ({
   const budgetAfterIncome = newTotalIncome - totalFixedCosts;
   const savingsCapacity = newTotalIncome - safeMonthlyBudget;
   const essentialsOnlyCapacity = newTotalIncome - essentialsOnlyBudget;
+  const essentialsOnlySurplus = newTotalIncome - essentialsOnlyBudget;
 
   // Categorize spending recommendations
   const getSpendingRecommendations = () => {
