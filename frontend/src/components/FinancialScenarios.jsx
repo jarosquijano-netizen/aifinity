@@ -102,6 +102,99 @@ const FinancialScenarios = ({
     }
   };
 
+  // Reset all sliders
+  const resetSliders = () => {
+    setSalary1Change(0);
+    setSalary2Change(0);
+    setOtherIncomeChange(0);
+    setActiveScenario(null);
+  };
+
+  // Income slider component
+  const IncomeSlider = ({ label, icon: Icon, currentAmount, change, onChange, color, isOtherIncome = false }) => {
+    // Special handling for other income when base is 0
+    let newAmount, difference;
+    if (isOtherIncome && currentAmount === 0 && change > 0) {
+      // Treat change as absolute amount when base is 0
+      newAmount = change;
+      difference = change;
+    } else {
+      newAmount = currentAmount * (1 + change / 100);
+      difference = newAmount - currentAmount;
+    }
+    
+    return (
+      <div className={`bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-5 border-2 ${
+        color === 'blue' ? 'border-blue-200 dark:border-blue-800' : 
+        color === 'purple' ? 'border-purple-200 dark:border-purple-800' : 
+        'border-green-200 dark:border-green-800'
+      }`}>
+        <div className="flex items-center gap-2 mb-3">
+          <Icon className={`w-5 h-5 ${
+            color === 'blue' ? 'text-blue-600 dark:text-blue-400' : 
+            color === 'purple' ? 'text-purple-600 dark:text-purple-400' : 
+            'text-green-600 dark:text-green-400'
+          }`} />
+          <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{label}</h4>
+        </div>
+        <div className="mb-4">
+          <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+            <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {formatCurrency(newAmount)}
+            </span>
+            {change !== 0 && (
+              <span className={`text-xs sm:text-sm font-semibold ${
+                difference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {difference >= 0 ? '+' : ''}{formatCurrency(difference)}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">
+            Current: {formatCurrency(currentAmount)}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Adjust:</span>
+            <span className={`text-base sm:text-lg font-bold ${
+              change > 0 ? 'text-green-600 dark:text-green-400' : 
+              change < 0 ? 'text-red-600 dark:text-red-400' : 
+              'text-gray-600 dark:text-gray-400'
+            }`}>
+              {change > 0 ? '+' : ''}{change}%
+            </span>
+          </div>
+          <input 
+            type="range" 
+            min="-100" 
+            max="100" 
+            step="5" 
+            value={change} 
+            onChange={(e) => {
+              const newValue = Number(e.target.value);
+              onChange(newValue);
+              setActiveScenario(null); // Clear scenario when manually adjusting
+            }}
+            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, 
+                #ef4444 0%, 
+                #ef4444 ${Math.max(0, change + 100)}%, 
+                #e5e7eb ${Math.max(0, change + 100)}%, 
+                #e5e7eb 100%)`
+            }}
+          />
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>-100%</span>
+            <span>0%</span>
+            <span>+100%</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Calculate current incomes with safety checks
   const currentSalary1 = Number(salary1) || 0;
   const currentSalary2 = Number(salary2) || 0;
@@ -117,9 +210,14 @@ const FinancialScenarios = ({
   const newSalary2 = Math.max(0, currentSalary2 * (1 + salary2ChangeSafe / 100));
   
   // Special handling for other income
+  // If base is 0 and change is positive, treat as absolute amount
+  // Otherwise use percentage
   let newOtherIncome;
   if (activeScenario === 'side_income') {
     newOtherIncome = currentOtherIncome + 1000;
+  } else if (currentOtherIncome === 0 && otherIncomeChangeSafe > 0) {
+    // If base is 0 and we're adding, treat change as absolute amount
+    newOtherIncome = otherIncomeChangeSafe;
   } else {
     newOtherIncome = Math.max(0, currentOtherIncome * (1 + otherIncomeChangeSafe / 100));
   }
@@ -454,8 +552,53 @@ const FinancialScenarios = ({
         </div>
       </div>
 
-      {/* Impact Alert - ONLY SHOW WHEN SCENARIO IS ACTIVE */}
-      {activeScenario && (
+      {/* Income Sources Control Panel with Sliders */}
+      <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border-2 border-blue-200 dark:border-blue-800">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Briefcase className="w-5 h-5" />
+            Household Income Sources
+          </h3>
+          {(salary1Change !== 0 || salary2Change !== 0 || otherIncomeChange !== 0) && (
+            <button 
+              onClick={resetSliders}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white dark:bg-slate-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
+            >
+              Reset All
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          <IncomeSlider 
+            label="Salary 1 (Primary)" 
+            icon={User} 
+            currentAmount={currentSalary1} 
+            change={salary1Change} 
+            onChange={setSalary1Change} 
+            color="blue" 
+          />
+          <IncomeSlider 
+            label="Salary 2 (Secondary)" 
+            icon={Users} 
+            currentAmount={currentSalary2} 
+            change={salary2Change} 
+            onChange={setSalary2Change} 
+            color="purple" 
+          />
+          <IncomeSlider 
+            label="Other Income" 
+            icon={DollarSign} 
+            currentAmount={currentOtherIncome} 
+            change={otherIncomeChange} 
+            onChange={setOtherIncomeChange} 
+            color="green"
+            isOtherIncome={true}
+          />
+        </div>
+      </div>
+
+      {/* Impact Alert - SHOW WHEN SCENARIO IS ACTIVE OR SLIDERS ARE ADJUSTED */}
+      {(activeScenario || salary1Change !== 0 || salary2Change !== 0 || otherIncomeChange !== 0) && (
         <div className={`mb-6 sm:mb-8 rounded-xl border-2 p-4 sm:p-6 ${
           isDecrease 
             ? 'bg-red-50 dark:bg-red-900/20 border-red-400' 
@@ -696,8 +839,8 @@ const FinancialScenarios = ({
         </div>
       </div>
 
-      {/* Recommendations - ONLY SHOW WHEN SCENARIO IS ACTIVE */}
-      {activeScenario && scenarioData && scenarioData.recommendations && scenarioData.recommendations.length > 0 && (
+      {/* Recommendations - SHOW WHEN SCENARIO IS ACTIVE OR SLIDERS ARE ADJUSTED */}
+      {(activeScenario || salary1Change !== 0 || salary2Change !== 0 || otherIncomeChange !== 0) && scenarioData && scenarioData.recommendations && scenarioData.recommendations.length > 0 && (
         <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2 sm:gap-3 mb-4">
             {scenarioData.icon && <scenarioData.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
@@ -869,8 +1012,8 @@ const FinancialScenarios = ({
         </div>
       )}
 
-      {/* Call to Action when no scenario selected */}
-      {!activeScenario && (
+      {/* Call to Action when no scenario selected and no sliders adjusted */}
+      {!activeScenario && salary1Change === 0 && salary2Change === 0 && otherIncomeChange === 0 && (
         <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 sm:p-8 text-center border-2 border-blue-200 dark:border-blue-800">
           <Zap className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
