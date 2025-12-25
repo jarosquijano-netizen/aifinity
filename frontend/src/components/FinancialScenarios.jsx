@@ -20,7 +20,7 @@ import { formatCurrency } from '../utils/currencyFormat';
 const FinancialScenarios = ({ 
   salary1 = 5000,      // Primary income
   salary2 = 3000,      // Secondary income
-  otherIncome = 1400,  // Other income (freelance, investments, etc)
+  otherIncome = 0,     // Other income (freelance, investments, etc)
   monthlyBudget = 7657.89,
   budgetCategories = [],
   debts = [],

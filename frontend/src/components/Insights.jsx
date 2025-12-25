@@ -1642,22 +1642,7 @@ function Insights() {
               }
               return actualIncome * 0.3;
             })()}
-            otherIncome={(() => {
-              // Other income - remaining 10% or from accounts
-              if (expectedIncome > 0) {
-                return expectedIncome * 0.1;
-              }
-              // Check for investment/savings accounts that might generate income
-              const investmentAccounts = data.accounts?.filter(acc => 
-                acc.account_type === 'investment' || acc.account_type === 'savings'
-              ) || [];
-              // Estimate 1% monthly return on investments (very rough estimate)
-              const investmentIncome = investmentAccounts.reduce((sum, acc) => {
-                const balance = parseFloat(acc.balance || 0);
-                return sum + (balance * 0.01);
-              }, 0);
-              return Math.max(actualIncome * 0.1, investmentIncome);
-            })()}
+            otherIncome={0}
             monthlyBudget={budgetTotal}
             budgetCategories={(() => {
               // Convert budget categories to format needed by FinancialScenarios
