@@ -3,6 +3,10 @@ import {
   TrendingUp, 
   TrendingDown, 
   AlertTriangle, 
+  CheckCircle, 
+  XCircle,
+  Scissors,
+  Minus,
   DollarSign,
   Home,
   CreditCard,
@@ -11,26 +15,92 @@ import {
   User,
   Users,
   Briefcase,
-  Scissors,
-  Minus,
-  XCircle
+  Zap,
+  Award,
+  AlertCircle
 } from 'lucide-react';
 import { formatCurrency } from '../utils/currencyFormat';
 
 const FinancialScenarios = ({ 
-  salary1 = 5000,      // Primary income
-  salary2 = 3000,      // Secondary income
-  otherIncome = 0,     // Other income (freelance, investments, etc)
+  salary1 = 5640,
+  salary2 = 2820,
+  otherIncome = 0,
   monthlyBudget = 7657.89,
   budgetCategories = [],
   debts = [],
   mortgage = null
 }) => {
-  // Individual income changes
   const [salary1Change, setSalary1Change] = useState(0);
   const [salary2Change, setSalary2Change] = useState(0);
   const [otherIncomeChange, setOtherIncomeChange] = useState(0);
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [activeScenario, setActiveScenario] = useState(null);
+
+  // Preset scenarios
+  const presetScenarios = [
+    {
+      id: 'job_loss_1',
+      name: 'Lose Primary Job',
+      icon: AlertTriangle,
+      color: 'red',
+      description: 'What if the primary earner loses their job?',
+      changes: { salary1: -100, salary2: 0, other: 0 }
+    },
+    {
+      id: 'job_loss_2',
+      name: 'Lose Secondary Job',
+      icon: AlertTriangle,
+      color: 'red',
+      description: 'What if the secondary earner loses their job?',
+      changes: { salary1: 0, salary2: -100, other: 0 }
+    },
+    {
+      id: 'salary_cut',
+      name: 'Salary Cut (20%)',
+      icon: TrendingDown,
+      color: 'orange',
+      description: 'Both salaries reduced by 20%',
+      changes: { salary1: -20, salary2: -20, other: 0 }
+    },
+    {
+      id: 'promotion_1',
+      name: 'Primary Promotion',
+      icon: Award,
+      color: 'green',
+      description: 'Primary earner gets 15% raise',
+      changes: { salary1: 15, salary2: 0, other: 0 }
+    },
+    {
+      id: 'side_income',
+      name: 'Start Side Hustle',
+      icon: Zap,
+      color: 'blue',
+      description: 'Add €1,000/month in other income',
+      changes: { salary1: 0, salary2: 0, other: 100000 } // Large % because base is 0
+    },
+    {
+      id: 'both_raise',
+      name: 'Both Get Raises',
+      icon: TrendingUp,
+      color: 'green',
+      description: '10% raise for both earners',
+      changes: { salary1: 10, salary2: 10, other: 0 }
+    }
+  ];
+
+  // Apply preset scenario
+  const applyScenario = (scenario) => {
+    setActiveScenario(scenario.id);
+    setSalary1Change(scenario.changes.salary1);
+    setSalary2Change(scenario.changes.salary2);
+    
+    // Handle other income specially since base might be 0
+    if (scenario.id === 'side_income') {
+      setOtherIncomeChange(1000); // Special handling
+    } else {
+      setOtherIncomeChange(scenario.changes.other);
+    }
+  };
 
   // Calculate current incomes with safety checks
   const currentSalary1 = Number(salary1) || 0;
@@ -45,44 +115,50 @@ const FinancialScenarios = ({
   
   const newSalary1 = Math.max(0, currentSalary1 * (1 + salary1ChangeSafe / 100));
   const newSalary2 = Math.max(0, currentSalary2 * (1 + salary2ChangeSafe / 100));
-  const newOtherIncome = Math.max(0, currentOtherIncome * (1 + otherIncomeChangeSafe / 100));
+  
+  // Special handling for other income
+  let newOtherIncome;
+  if (activeScenario === 'side_income') {
+    newOtherIncome = currentOtherIncome + 1000;
+  } else {
+    newOtherIncome = Math.max(0, currentOtherIncome * (1 + otherIncomeChangeSafe / 100));
+  }
+  
   const newTotalIncome = newSalary1 + newSalary2 + newOtherIncome;
 
-  // Calculate differences with safety checks
+  // Calculate differences
   const salary1Difference = newSalary1 - currentSalary1;
   const salary2Difference = newSalary2 - currentSalary2;
   const otherIncomeDifference = newOtherIncome - currentOtherIncome;
   const totalIncomeDifference = newTotalIncome - currentTotalIncome;
-  
-  // Ensure all values are valid numbers
-  if (isNaN(newTotalIncome) || !isFinite(newTotalIncome)) {
-    console.error('Invalid total income calculation:', { newSalary1, newSalary2, newOtherIncome });
-  }
 
   const isDecrease = totalIncomeDifference < 0;
   const isIncrease = totalIncomeDifference > 0;
 
-  // Calculate financial metrics with safety checks
-  // Essential expenses: Food for 4, Electricity, Housing, Transport, Health, Insurance
+  // Calculate financial metrics with safety checks - USE ACTUAL BUDGET DATA
   const safeBudgetCategories = Array.isArray(budgetCategories) ? budgetCategories : [];
   const safeDebts = Array.isArray(debts) ? debts : [];
   
+  // Get Food budget from actual budget categories
   const essentialFoodFor4 = safeBudgetCategories
     .filter(cat => {
       const catName = (cat?.name || '').toLowerCase();
       return catName.includes('food') || catName.includes('comida') || 
              catName.includes('groceries') || catName.includes('supermercado');
     })
-    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0) || 700; // Default 700 EUR for 4 people if not found
+    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0) || 600; // Default 600 EUR if not found
   
+  // Get Electricity/Utilities budget from actual budget categories
   const essentialElectricity = safeBudgetCategories
     .filter(cat => {
       const catName = (cat?.name || '').toLowerCase();
       return catName.includes('electricity') || catName.includes('electricidad') ||
-             catName.includes('utilities') || catName.includes('servicios');
+             catName.includes('utilities') || catName.includes('servicios') ||
+             catName.includes('internet');
     })
     .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0) || 150; // Default 150 EUR if not found
   
+  // Get other essential expenses (excluding food and electricity)
   const otherEssentials = safeBudgetCategories
     .filter(cat => {
       const catName = (cat?.name || '').toLowerCase();
@@ -90,29 +166,32 @@ const FinancialScenarios = ({
              !catName.includes('food') && !catName.includes('comida') &&
              !catName.includes('groceries') && !catName.includes('supermercado') &&
              !catName.includes('electricity') && !catName.includes('electricidad') &&
-             !catName.includes('utilities') && !catName.includes('servicios');
+             !catName.includes('utilities') && !catName.includes('servicios') &&
+             !catName.includes('internet');
     })
     .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0);
   
-  const totalEssentials = essentialFoodFor4 + essentialElectricity + otherEssentials;
+  const totalEssentials = safeBudgetCategories
+    .filter(cat => cat?.priority === 'essential')
+    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0);
   
   const totalDiscretionary = safeBudgetCategories
     .filter(cat => cat?.priority === 'discretionary')
     .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0);
 
   const totalDebts = safeDebts.reduce((sum, debt) => sum + (Number(debt?.monthlyPayment) || 0), 0);
-  // Set mortgage to 975 EUR as specified
-  const mortgagePayment = 975;
+  
+  // Use actual mortgage payment from system, or default to 975
+  const mortgagePayment = Number(mortgage?.monthlyPayment) || 975;
 
   const totalFixedCosts = totalEssentials + totalDebts + mortgagePayment;
   const essentialsOnlyBudget = mortgagePayment + essentialFoodFor4 + essentialElectricity + otherEssentials + totalDebts;
   const safeMonthlyBudget = Number(monthlyBudget) || 0;
   const budgetAfterIncome = newTotalIncome - totalFixedCosts;
   const savingsCapacity = newTotalIncome - safeMonthlyBudget;
-  const essentialsOnlyCapacity = newTotalIncome - essentialsOnlyBudget;
   const essentialsOnlySurplus = newTotalIncome - essentialsOnlyBudget;
 
-  // Categorize spending recommendations
+  // Get spending recommendations
   const getSpendingRecommendations = () => {
     if (isIncrease) {
       return {
@@ -150,11 +229,6 @@ const FinancialScenarios = ({
     } else if (isDecrease) {
       const deficit = budgetAfterIncome < 0 ? Math.abs(budgetAfterIncome) : 0;
       const severity = deficit > newTotalIncome * 0.3 ? 'severe' : deficit > 0 ? 'moderate' : 'mild';
-      
-      // Calculate essentials-only budget recommendation
-      const essentialsOnlyBudgetTotal = mortgagePayment + essentialFoodFor4 + essentialElectricity + otherEssentials + totalDebts;
-      const canAffordEssentialsOnly = newTotalIncome >= essentialsOnlyBudgetTotal;
-      const essentialsOnlySurplus = newTotalIncome - essentialsOnlyBudgetTotal;
 
       // Sort discretionary categories by amount (highest first)
       const discretionarySorted = [...safeBudgetCategories]
@@ -166,20 +240,21 @@ const FinancialScenarios = ({
       
       // First recommendation: Switch to essentials-only budget if income is reduced
       if (isDecrease && newTotalIncome < safeMonthlyBudget && safeMonthlyBudget > 0) {
-        const cutAmount = safeMonthlyBudget - essentialsOnlyBudgetTotal;
+        const cutAmount = safeMonthlyBudget - essentialsOnlyBudget;
         const cutPercentage = safeMonthlyBudget > 0 ? ((cutAmount / safeMonthlyBudget) * 100) : 0;
+        const canAffordEssentialsOnly = newTotalIncome >= essentialsOnlyBudget;
         
         recommendations.push({
           action: 'essentials_only',
           priority: 'critical',
           category: 'Essentials-Only Budget',
           currentAmount: safeMonthlyBudget,
-          newAmount: essentialsOnlyBudgetTotal,
+          newAmount: essentialsOnlyBudget,
           cutAmount: cutAmount,
           cutPercentage: cutPercentage,
           description: canAffordEssentialsOnly 
-            ? `Switch to essentials-only budget: ${formatCurrency(essentialsOnlyBudgetTotal)}/month. This covers: Mortgage (${formatCurrency(mortgagePayment)}), Food for 4 (${formatCurrency(essentialFoodFor4)}), Electricity (${formatCurrency(essentialElectricity)}), Other essentials (${formatCurrency(otherEssentials)}), and Debts (${formatCurrency(totalDebts)}). Remaining: ${formatCurrency(essentialsOnlySurplus)}`
-            : `Income too low for essentials-only budget. Need ${formatCurrency(essentialsOnlyBudgetTotal - newTotalIncome)} more/month.`,
+            ? `Switch to essentials-only budget: ${formatCurrency(essentialsOnlyBudget)}/month. This covers: Mortgage (${formatCurrency(mortgagePayment)}), Food (${formatCurrency(essentialFoodFor4)}), Electricity (${formatCurrency(essentialElectricity)}), Other essentials (${formatCurrency(otherEssentials)}), and Debts (${formatCurrency(totalDebts)}). Remaining: ${formatCurrency(essentialsOnlySurplus)}`
+            : `Income too low for essentials-only budget. Need ${formatCurrency(essentialsOnlyBudget - newTotalIncome)} more/month.`,
           icon: AlertTriangle,
           breakdown: {
             mortgage: mortgagePayment,
@@ -187,21 +262,21 @@ const FinancialScenarios = ({
             electricity: essentialElectricity,
             otherEssentials: otherEssentials,
             debts: totalDebts,
-            total: essentialsOnlyBudgetTotal
+            total: essentialsOnlyBudget
           }
         });
       }
       
       let remainingToCut = Math.abs(totalIncomeDifference);
-      const alreadyCut = safeMonthlyBudget - essentialsOnlyBudgetTotal;
+      const alreadyCut = safeMonthlyBudget - essentialsOnlyBudget;
       remainingToCut = Math.max(0, remainingToCut - alreadyCut);
 
       // Phase 1: Cut discretionary spending (if still needed after essentials-only)
       if (remainingToCut > 0) {
         discretionarySorted.forEach(cat => {
-          if (remainingToCut > 0) {
+          if (remainingToCut > 0 && cat.amount > 0) {
             const cutAmount = Math.min(cat.amount, remainingToCut);
-            const cutPercentage = (cutAmount / cat.amount) * 100;
+            const cutPercentage = cat.amount > 0 ? (cutAmount / cat.amount) * 100 : 0;
             
             recommendations.push({
               action: cutPercentage >= 90 ? 'eliminate' : cutPercentage >= 50 ? 'reduce_major' : 'reduce_minor',
@@ -222,24 +297,16 @@ const FinancialScenarios = ({
         });
       }
 
-      // Phase 2: If still need to cut, look at essentials (only if severe)
+      // Phase 2: If still need to cut, look at essentials
       if (remainingToCut > 0 && severity === 'severe') {
         const essentialsSorted = [...safeBudgetCategories]
-          .filter(cat => {
-            const catName = (cat?.name || '').toLowerCase();
-            return cat?.priority === 'essential' && cat?.canReduce &&
-                   !catName.includes('mortgage') && !catName.includes('hipoteca');
-          })
+          .filter(cat => cat?.priority === 'essential' && cat?.canReduce)
           .map(cat => ({ ...cat, amount: Number(cat?.amount) || 0 }))
           .sort((a, b) => b.amount - a.amount);
 
         essentialsSorted.forEach(cat => {
-          if (remainingToCut > 0) {
-            // Food and electricity can be reduced but not eliminated
-            const catName = (cat.name || '').toLowerCase();
-            const isFoodOrElectricity = catName.includes('food') || catName.includes('comida') ||
-                                       catName.includes('electricity') || catName.includes('electricidad');
-            const maxCut = isFoodOrElectricity ? cat.amount * 0.2 : cat.amount * 0.3; // Max 20% for food/electricity, 30% for others
+          if (remainingToCut > 0 && cat.amount > 0) {
+            const maxCut = cat.amount * 0.3; // Max 30% cut on essentials
             const cutAmount = Math.min(maxCut, remainingToCut);
             
             recommendations.push({
@@ -249,10 +316,8 @@ const FinancialScenarios = ({
               currentAmount: cat.amount,
               newAmount: cat.amount - cutAmount,
               cutAmount: cutAmount,
-              cutPercentage: (cutAmount / cat.amount) * 100,
-              description: isFoodOrElectricity
-                ? `Reduce by ${(cutAmount / cat.amount * 100).toFixed(0)}% (e.g., meal planning, energy efficiency)`
-                : `Find ways to reduce (e.g., cheaper alternatives, negotiate bills)`,
+              cutPercentage: cat.amount > 0 ? (cutAmount / cat.amount) * 100 : 0,
+              description: `Find ways to reduce (e.g., cheaper alternatives, negotiate bills)`,
               icon: AlertTriangle
             });
             
@@ -265,33 +330,24 @@ const FinancialScenarios = ({
         status: 'decrease',
         color: 'red',
         icon: TrendingDown,
-        title: 'Income Reduction Impact',
+        title: 'Required Budget Adjustments',
         severity: severity,
-        recommendations: recommendations,
-        essentialsOnlyBudget: essentialsOnlyBudgetTotal,
-        canAffordEssentialsOnly: canAffordEssentialsOnly
+        recommendations: recommendations
       };
     }
 
     return null;
   };
 
-  // Safely get spending recommendations
-  let scenarioData = null;
-  try {
-    scenarioData = getSpendingRecommendations();
-  } catch (error) {
-    console.error('Error calculating spending recommendations:', error);
-    scenarioData = null;
-  }
+  const scenarioData = getSpendingRecommendations();
 
-  // Get status color and config
+  // Get status config
   const getStatusConfig = () => {
     if (budgetAfterIncome < 0) {
       return {
         color: 'red',
         bgColor: 'bg-red-50 dark:bg-red-900/20',
-        borderColor: 'border-red-300 dark:border-red-700',
+        borderColor: 'border-red-400',
         textColor: 'text-red-700 dark:text-red-400',
         label: 'DEFICIT',
         emoji: '🔴'
@@ -300,7 +356,7 @@ const FinancialScenarios = ({
       return {
         color: 'yellow',
         bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-        borderColor: 'border-yellow-300 dark:border-yellow-700',
+        borderColor: 'border-yellow-400',
         textColor: 'text-yellow-700 dark:text-yellow-400',
         label: 'TIGHT',
         emoji: '🟡'
@@ -309,7 +365,7 @@ const FinancialScenarios = ({
       return {
         color: 'green',
         bgColor: 'bg-green-50 dark:bg-green-900/20',
-        borderColor: 'border-green-300 dark:border-green-700',
+        borderColor: 'border-green-400',
         textColor: 'text-green-700 dark:text-green-400',
         label: 'HEALTHY',
         emoji: '🟢'
@@ -319,317 +375,229 @@ const FinancialScenarios = ({
 
   const statusConfig = getStatusConfig();
 
-  // Income slider component
-  const IncomeSlider = ({ 
-    label, 
-    icon: Icon, 
-    currentAmount, 
-    change, 
-    onChange, 
-    color 
-  }) => {
-    const newAmount = currentAmount * (1 + change / 100);
-    const difference = newAmount - currentAmount;
-    
-    return (
-      <div className={`bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-5 border-2 ${color === 'blue' ? 'border-blue-200 dark:border-blue-700' : color === 'purple' ? 'border-purple-200 dark:border-purple-700' : 'border-green-200 dark:border-green-700'}`}>
-        <div className="flex items-center gap-2 mb-3">
-          <Icon className={`w-5 h-5 ${color === 'blue' ? 'text-blue-600 dark:text-blue-400' : color === 'purple' ? 'text-purple-600 dark:text-purple-400' : 'text-green-600 dark:text-green-400'}`} />
-          <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">{label}</h4>
-        </div>
-        
-        <div className="mb-4">
-          <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-            <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatCurrency(newAmount)}
-            </span>
-            {change !== 0 && (
-              <span className={`text-xs sm:text-sm font-semibold ${difference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {difference >= 0 ? '+' : ''}{formatCurrency(difference)}
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            Current: {formatCurrency(currentAmount)}
-          </div>
-        </div>
+  // Get Food category from budget for display
+  const foodCategory = safeBudgetCategories.find(c => {
+    const name = (c?.name || '').toLowerCase();
+    return name.includes('food') || name.includes('comida') || 
+           name.includes('groceries') || name.includes('supermercado');
+  });
+  const foodAmount = foodCategory ? (Number(foodCategory.amount) || 0) : essentialFoodFor4;
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Adjust:</span>
-            <span className={`text-base sm:text-lg font-bold ${change > 0 ? 'text-green-600 dark:text-green-400' : change < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
-              {change > 0 ? '+' : ''}{change}%
-            </span>
-          </div>
-          
-          <input
-            type="range"
-            min="-100"
-            max="100"
-            step="5"
-            value={change}
-            onChange={(e) => {
-              const value = Number(e.target.value);
-              if (!isNaN(value) && isFinite(value)) {
-                onChange(value);
-              }
-            }}
-            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-          />
-          
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>-100%</span>
-            <span>0%</span>
-            <span>+100%</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Helper function for specific actions
-  const getSpecificActions = (category, action) => {
-    const actions = {
-      'Entertainment': {
-        'eliminate': [
-          'Cancel streaming subscriptions (Netflix, Spotify, etc.)',
-          'Stop dining out and eating at home',
-          'Postpone concerts, movies, and events'
-        ],
-        'reduce_major': [
-          'Keep one streaming service, cancel others',
-          'Limit dining out to once per month',
-          'Look for free entertainment options'
-        ],
-        'reduce_minor': [
-          'Share streaming subscriptions with family',
-          'Use discount codes for dining',
-          'Choose cheaper entertainment venues'
-        ]
-      },
-      'Shopping': {
-        'eliminate': [
-          'Stop all non-essential purchases',
-          'Freeze clothing and accessory buying',
-          'Cancel subscriptions boxes'
-        ],
-        'reduce_major': [
-          'Only buy absolute necessities',
-          'Use what you already own',
-          'Wait 30 days before any purchase'
-        ],
-        'reduce_minor': [
-          'Shop sales and clearance only',
-          'Use cashback and discount apps',
-          'Buy second-hand when possible'
-        ]
-      },
-      'Transport': {
-        'eliminate': [
-          'Sell second car if you have one',
-          'Use public transportation exclusively',
-          'Bike or walk when possible'
-        ],
-        'reduce_major': [
-          'Reduce car usage by 50%',
-          'Carpool for commuting',
-          'Combine trips to save fuel'
-        ],
-        'reduce_minor': [
-          'Compare fuel prices',
-          'Maintain car for better efficiency',
-          'Consider cheaper insurance'
-        ]
-      },
-      'Food': {
-        'reduce_minor': [
-          'Meal plan and batch cook',
-          'Buy store brands instead of name brands',
-          'Shop at discount supermarkets',
-          'Reduce meat consumption',
-          'Use coupons and loyalty programs'
-        ]
-      },
-      'Utilities': {
-        'reduce_minor': [
-          'Lower thermostat in winter, raise in summer',
-          'Unplug devices when not in use',
-          'Switch to LED bulbs',
-          'Take shorter showers',
-          'Negotiate with service providers'
-        ]
-      },
-      'Savings': {
-        'increase_savings': [
-          'Open high-yield savings account',
-          'Automate transfers to savings',
-          'Build 6-month emergency fund',
-          'Consider investment options'
-        ]
-      },
-      'Debt Payments': {
-        'accelerate_debt': [
-          'Focus on highest interest debt first',
-          'Make bi-weekly payments instead of monthly',
-          'Round up payments to nearest hundred',
-          'Avoid taking on new debt'
-        ]
-      },
-      'Lifestyle': {
-        'improve_lifestyle': [
-          'Invest in quality items that last',
-          'Consider hobby or skill development',
-          'Modest upgrades to living space',
-          'Maintain balance between saving and enjoying'
-        ]
-      },
-      'Essentials-Only Budget': {
-        'essentials_only': [
-          'Eliminate all discretionary spending (entertainment, shopping, dining out)',
-          'Focus only on: Mortgage (€975), Food for 4, Electricity, Other essentials, and Debt payments',
-          'This is your survival budget - covers only absolute necessities',
-          'Any remaining income can go to emergency savings',
-          'Review monthly to ensure you stay within this budget'
-        ]
-      }
-    };
-
-    return actions[category]?.[action] || [
-      'Review this category carefully',
-      'Look for cost-saving alternatives',
-      'Consider if this expense is necessary'
-    ];
-  };
+  // Get Electricity category from budget for display
+  const electricityCategory = safeBudgetCategories.find(c => {
+    const name = (c?.name || '').toLowerCase();
+    return name.includes('electricity') || name.includes('electricidad') ||
+           name.includes('utilities') || name.includes('servicios') ||
+           name.includes('internet');
+  });
+  const electricityAmount = electricityCategory ? (Number(electricityCategory.amount) || 0) : essentialElectricity;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6 space-y-6 sm:space-y-8">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6">
       {/* Header */}
-      <div>
+      <div className="mb-6 sm:mb-8">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           Financial Scenarios 📊
         </h2>
         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-          Adjust each income source to see how changes affect your budget, debts, and financial health
+          Choose a scenario to see how income changes affect your finances
         </p>
       </div>
 
-      {/* Income Sources Control Panel */}
-      <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 sm:p-6 border-2 border-blue-200 dark:border-blue-700">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 flex items-center gap-2">
-          <Briefcase className="w-5 h-5" />
-          Household Income Sources
+      {/* Preset Scenarios - PROMINENTLY DISPLAYED */}
+      <div className="mb-6 sm:mb-8">
+        <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+          🎯 Quick Scenarios - Click to See Impact
         </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
-          <IncomeSlider
-            label="Salary 1 (Primary)"
-            icon={User}
-            currentAmount={currentSalary1}
-            change={salary1Change}
-            onChange={setSalary1Change}
-            color="blue"
-          />
-          
-          <IncomeSlider
-            label="Salary 2 (Secondary)"
-            icon={Users}
-            currentAmount={currentSalary2}
-            change={salary2Change}
-            onChange={setSalary2Change}
-            color="purple"
-          />
-          
-          <IncomeSlider
-            label="Other Income"
-            icon={DollarSign}
-            currentAmount={currentOtherIncome}
-            change={otherIncomeChange}
-            onChange={setOtherIncomeChange}
-            color="green"
-          />
-        </div>
-
-        {/* Quick Reset Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              setSalary1Change(0);
-              setSalary2Change(0);
-              setOtherIncomeChange(0);
-            }}
-            className="px-3 sm:px-4 py-2 bg-white dark:bg-slate-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
-          >
-            Reset All to Current
-          </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {presetScenarios.map((scenario) => {
+            const Icon = scenario.icon;
+            const isActive = activeScenario === scenario.id;
+            
+            return (
+              <button
+                key={scenario.id}
+                onClick={() => applyScenario(scenario)}
+                className={`p-3 sm:p-4 rounded-lg border-2 text-left transition-all transform hover:scale-105 ${
+                  isActive 
+                    ? scenario.color === 'red' ? 'border-red-500 bg-red-50 dark:bg-red-900/20 shadow-lg' :
+                      scenario.color === 'orange' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg' :
+                      scenario.color === 'green' ? 'border-green-500 bg-green-50 dark:bg-green-900/20 shadow-lg' :
+                      'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-700 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <Icon className={`w-5 h-5 sm:w-6 sm:h-6 mt-0.5 flex-shrink-0 ${
+                    scenario.color === 'red' ? 'text-red-500' :
+                    scenario.color === 'orange' ? 'text-orange-500' :
+                    scenario.color === 'green' ? 'text-green-500' :
+                    'text-blue-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 mb-1">
+                      {scenario.name}
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {scenario.description}
+                    </p>
+                    {isActive && (
+                      <div className="mt-2 text-xs font-semibold text-green-600 dark:text-green-400">
+                        ✓ Active Scenario
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Total Income Comparison */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        {/* Current Total Income */}
-        <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 sm:p-5 border border-gray-200 dark:border-gray-700">
+      {/* Impact Alert - ONLY SHOW WHEN SCENARIO IS ACTIVE */}
+      {activeScenario && (
+        <div className={`mb-6 sm:mb-8 rounded-xl border-2 p-4 sm:p-6 ${
+          isDecrease 
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-400' 
+            : isIncrease 
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-400' 
+            : 'bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+        }`}>
+          <div className="flex items-start gap-3 sm:gap-4">
+            {isDecrease && <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 flex-shrink-0" />}
+            {isIncrease && <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 flex-shrink-0" />}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                {isDecrease ? '⚠️ Financial Impact Warning' : '🎉 Positive Financial Impact'}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Income Change</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${
+                    totalIncomeDifference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {totalIncomeDifference >= 0 ? '+' : ''}{formatCurrency(totalIncomeDifference)}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {currentTotalIncome > 0 ? ((totalIncomeDifference / currentTotalIncome) * 100).toFixed(1) : '0'}% change
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">New Monthly Outcome</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${
+                    savingsCapacity >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {savingsCapacity >= 0 ? 'Surplus' : 'Deficit'}
+                  </p>
+                  <p className="text-base sm:text-lg font-semibold">
+                    {formatCurrency(Math.abs(savingsCapacity))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Financial Status</p>
+                  <div className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg ${statusConfig.bgColor} border-2 ${statusConfig.borderColor}`}>
+                    <span className="text-xl sm:text-2xl">{statusConfig.emoji}</span>
+                    <span className={`font-bold text-sm sm:text-base ${statusConfig.textColor}`}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {isDecrease && budgetAfterIncome < 0 && (
+                <div className="bg-white dark:bg-slate-700 rounded-lg p-3 sm:p-4 border-l-4 border-red-500">
+                  <p className="text-xs sm:text-sm font-semibold text-red-800 dark:text-red-300 mb-2">
+                    🚨 Critical Action Required
+                  </p>
+                  <p className="text-xs sm:text-sm text-red-700 dark:text-red-400">
+                    You would be <strong>{formatCurrency(Math.abs(budgetAfterIncome))}</strong> short each month.
+                    Scroll down to see which expenses you need to cut.
+                  </p>
+                </div>
+              )}
+
+              {isIncrease && (
+                <div className="bg-white dark:bg-slate-700 rounded-lg p-3 sm:p-4 border-l-4 border-green-500">
+                  <p className="text-xs sm:text-sm font-semibold text-green-800 dark:text-green-300 mb-2">
+                    💡 Smart Money Move
+                  </p>
+                  <p className="text-xs sm:text-sm text-green-700 dark:text-green-400">
+                    With this extra income, you could save <strong>{formatCurrency(totalIncomeDifference * 0.5)}</strong> monthly
+                    while still enjoying a better lifestyle. See recommendations below.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Income Sources Comparison */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        {/* Current Income */}
+        <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4 sm:p-6 border-2 border-gray-200 dark:border-gray-600">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-400">Current Total Income</span>
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Current Income</h3>
             <span className="px-2 sm:px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs font-bold">
               BASELINE
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             {formatCurrency(currentTotalIncome)}
           </div>
-          <div className="space-y-2 text-xs sm:text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                <User className="w-4 h-4" /> Salary 1:
-              </span>
-              <span className="font-semibold">{formatCurrency(currentSalary1)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                <Users className="w-4 h-4" /> Salary 2:
-              </span>
-              <span className="font-semibold">{formatCurrency(currentSalary2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                <DollarSign className="w-4 h-4" /> Other:
-              </span>
-              <span className="font-semibold">{formatCurrency(currentOtherIncome)}</span>
-            </div>
-            <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Savings Capacity:</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">
-                  {formatCurrency(currentTotalIncome - safeMonthlyBudget)}
-                </span>
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Salary 1:</span>
               </div>
+              <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{formatCurrency(currentSalary1)}</span>
+            </div>
+            <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-600" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Salary 2:</span>
+              </div>
+              <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{formatCurrency(currentSalary2)}</span>
+            </div>
+            <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Other:</span>
+              </div>
+              <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{formatCurrency(currentOtherIncome)}</span>
             </div>
           </div>
         </div>
 
-        {/* New Total Income */}
-        <div className={`rounded-lg p-4 sm:p-5 border-2 ${statusConfig.borderColor} ${statusConfig.bgColor}`}>
+        {/* Scenario Income */}
+        <div className={`rounded-xl p-4 sm:p-6 border-2 ${statusConfig.borderColor} ${statusConfig.bgColor}`}>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Scenario Total Income</span>
-            <span className={`px-2 sm:px-3 py-1 ${statusConfig.textColor} bg-white dark:bg-slate-800 rounded-full text-xs font-bold`}>
-              {statusConfig.label} {statusConfig.emoji}
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Scenario Income</h3>
+            <span className={`px-2 sm:px-3 py-1 bg-white dark:bg-slate-800 ${statusConfig.textColor} rounded-full text-xs font-bold flex items-center gap-1`}>
+              {statusConfig.emoji} {statusConfig.label}
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+          <div className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             {formatCurrency(newTotalIncome)}
           </div>
-          <div className={`text-xs sm:text-sm font-semibold mb-4 ${isIncrease ? 'text-green-600 dark:text-green-400' : isDecrease ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
-            {isIncrease && <TrendingUp className="inline w-4 h-4 mr-1" />}
-            {isDecrease && <TrendingDown className="inline w-4 h-4 mr-1" />}
-            {totalIncomeDifference >= 0 ? '+' : ''}{formatCurrency(totalIncomeDifference)} from current
+          <div className={`text-base sm:text-lg font-semibold mb-4 sm:mb-6 ${
+            totalIncomeDifference > 0 ? 'text-green-600 dark:text-green-400' : 
+            totalIncomeDifference < 0 ? 'text-red-600 dark:text-red-400' : 
+            'text-gray-600 dark:text-gray-400'
+          }`}>
+            {totalIncomeDifference > 0 && <TrendingUp className="inline w-4 h-4 sm:w-5 sm:h-5 mr-1" />}
+            {totalIncomeDifference < 0 && <TrendingDown className="inline w-4 h-4 sm:w-5 sm:h-5 mr-1" />}
+            {totalIncomeDifference >= 0 ? '+' : ''}{formatCurrency(totalIncomeDifference)}
           </div>
-          <div className="space-y-2 text-xs sm:text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <User className="w-4 h-4" /> Salary 1:
-              </span>
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Salary 1:</span>
+              </div>
               <div className="text-right">
-                <span className="font-semibold">{formatCurrency(newSalary1)}</span>
+                <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{formatCurrency(newSalary1)}</span>
                 {salary1Change !== 0 && (
                   <span className={`ml-2 text-xs ${salary1Difference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     ({salary1Change > 0 ? '+' : ''}{salary1Change}%)
@@ -637,12 +605,13 @@ const FinancialScenarios = ({
                 )}
               </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Users className="w-4 h-4" /> Salary 2:
-              </span>
+            <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-600" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Salary 2:</span>
+              </div>
               <div className="text-right">
-                <span className="font-semibold">{formatCurrency(newSalary2)}</span>
+                <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{formatCurrency(newSalary2)}</span>
                 {salary2Change !== 0 && (
                   <span className={`ml-2 text-xs ${salary2Difference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     ({salary2Change > 0 ? '+' : ''}{salary2Change}%)
@@ -650,345 +619,245 @@ const FinancialScenarios = ({
                 )}
               </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <DollarSign className="w-4 h-4" /> Other:
-              </span>
+            <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Other:</span>
+              </div>
               <div className="text-right">
-                <span className="font-semibold">{formatCurrency(newOtherIncome)}</span>
-                {otherIncomeChange !== 0 && (
+                <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{formatCurrency(newOtherIncome)}</span>
+                {otherIncomeDifference !== 0 && (
                   <span className={`ml-2 text-xs ${otherIncomeDifference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    ({otherIncomeChange > 0 ? '+' : ''}{otherIncomeChange}%)
+                    ({otherIncomeDifference >= 0 ? '+' : ''}{formatCurrency(otherIncomeDifference)})
                   </span>
                 )}
               </div>
             </div>
-            <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
-              <div className="flex justify-between">
-                <span className="text-gray-700 dark:text-gray-300">After Fixed Costs:</span>
-                <span className={`font-semibold ${budgetAfterIncome < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                  {formatCurrency(budgetAfterIncome)}
-                </span>
-              </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-gray-700 dark:text-gray-300">New Savings Capacity:</span>
-                <span className={`font-semibold ${savingsCapacity < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                  {formatCurrency(savingsCapacity)}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Income Change Breakdown */}
-      {(salary1Change !== 0 || salary2Change !== 0 || otherIncomeChange !== 0) && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 sm:p-5 border border-blue-200 dark:border-blue-700">
-          <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">💰 Income Changes Breakdown</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {salary1Change !== 0 && (
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Salary 1 Impact</span>
-                </div>
-                <div className={`text-xl sm:text-2xl font-bold ${salary1Difference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {salary1Difference >= 0 ? '+' : ''}{formatCurrency(salary1Difference)}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {salary1Change > 0 ? '+' : ''}{salary1Change}% change
-                </div>
-              </div>
-            )}
-            
-            {salary2Change !== 0 && (
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Salary 2 Impact</span>
-                </div>
-                <div className={`text-xl sm:text-2xl font-bold ${salary2Difference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {salary2Difference >= 0 ? '+' : ''}{formatCurrency(salary2Difference)}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {salary2Change > 0 ? '+' : ''}{salary2Change}% change
-                </div>
-              </div>
-            )}
-            
-            {otherIncomeChange !== 0 && (
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Other Income Impact</span>
-                </div>
-                <div className={`text-xl sm:text-2xl font-bold ${otherIncomeDifference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {otherIncomeDifference >= 0 ? '+' : ''}{formatCurrency(otherIncomeDifference)}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {otherIncomeChange > 0 ? '+' : ''}{otherIncomeChange}% change
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Fixed Costs Breakdown */}
-      <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 sm:p-5 border border-gray-200 dark:border-gray-700">
+      {/* Fixed Costs Impact - USE ACTUAL BUDGET DATA */}
+      <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border-2 border-gray-200 dark:border-gray-600">
         <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
           <Home className="w-5 h-5" />
-          Fixed Monthly Costs
+          Fixed Monthly Costs (% of new income)
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Mortgage Payment</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 border border-gray-200 dark:border-gray-600">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Mortgage</p>
             <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(mortgagePayment)}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              {newTotalIncome > 0 ? ((mortgagePayment / newTotalIncome) * 100).toFixed(1) : 0}% of new income
-            </p>
+            <div className="mt-2">
+              <div className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+                newTotalIncome > 0 && (mortgagePayment / newTotalIncome) > 0.28 ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
+                newTotalIncome > 0 && (mortgagePayment / newTotalIncome) > 0.25 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
+                'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+              }`}>
+                {newTotalIncome > 0 ? ((mortgagePayment / newTotalIncome) * 100).toFixed(1) : '0'}%
+              </div>
+            </div>
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Food for 4</p>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(essentialFoodFor4)}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              {newTotalIncome > 0 ? ((essentialFoodFor4 / newTotalIncome) * 100).toFixed(1) : 0}% of new income
+          
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 border border-gray-200 dark:border-gray-600">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Food</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {formatCurrency(foodAmount)}
             </p>
+            <div className="mt-2">
+              <div className="inline-block px-2 py-1 rounded text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                {newTotalIncome > 0 ? ((foodAmount / newTotalIncome) * 100).toFixed(1) : '0'}%
+              </div>
+            </div>
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 border border-gray-200 dark:border-gray-600">
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Electricity</p>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(essentialElectricity)}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              {newTotalIncome > 0 ? ((essentialElectricity / newTotalIncome) * 100).toFixed(1) : 0}% of new income
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {formatCurrency(electricityAmount)}
             </p>
+            <div className="mt-2">
+              <div className="inline-block px-2 py-1 rounded text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                {newTotalIncome > 0 ? ((electricityAmount / newTotalIncome) * 100).toFixed(1) : '0'}%
+              </div>
+            </div>
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Other Essentials + Debts</p>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(otherEssentials + totalDebts)}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              Essentials: {formatCurrency(otherEssentials)} | Debts: {formatCurrency(totalDebts)}
+          
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 border border-gray-200 dark:border-gray-600">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Other + Debts</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {formatCurrency(Math.max(0, totalEssentials + totalDebts - mortgagePayment - foodAmount - electricityAmount))}
             </p>
+            <div className="mt-2">
+              <div className="inline-block px-2 py-1 rounded text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                {newTotalIncome > 0 ? (((totalEssentials + totalDebts - mortgagePayment - foodAmount - electricityAmount) / newTotalIncome) * 100).toFixed(1) : '0'}%
+              </div>
+            </div>
           </div>
         </div>
-        
-        {/* Essentials-Only Budget Summary */}
-        {isDecrease && scenarioData && scenarioData.essentialsOnlyBudget && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border-2 border-blue-300 dark:border-blue-700">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
-                Essentials-Only Budget Total
-              </h4>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                scenarioData.canAffordEssentialsOnly 
-                  ? 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200' 
-                  : 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'
-              }`}>
-                {scenarioData.canAffordEssentialsOnly ? 'AFFORDABLE' : 'INSUFFICIENT'}
-              </span>
-            </div>
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              {formatCurrency(scenarioData.essentialsOnlyBudget)}
-            </div>
-            <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 space-y-1">
-              <div className="flex justify-between">
-                <span>Mortgage:</span>
-                <span className="font-semibold">{formatCurrency(mortgagePayment)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Food for 4:</span>
-                <span className="font-semibold">{formatCurrency(essentialFoodFor4)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Electricity:</span>
-                <span className="font-semibold">{formatCurrency(essentialElectricity)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Other Essentials:</span>
-                <span className="font-semibold">{formatCurrency(otherEssentials)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Debt Payments:</span>
-                <span className="font-semibold">{formatCurrency(totalDebts)}</span>
-              </div>
-              <div className="border-t border-gray-300 dark:border-gray-600 pt-2 mt-2 flex justify-between">
-                <span className="font-bold">Remaining after essentials:</span>
-                <span className={`font-bold ${
-                  essentialsOnlySurplus >= 0 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrency(essentialsOnlySurplus)}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Recommendations */}
-      {scenarioData && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-4">
-            {scenarioData.icon && <scenarioData.icon className={`w-6 h-6 text-${scenarioData.color}-500`} />}
+      {/* Recommendations - ONLY SHOW WHEN SCENARIO IS ACTIVE */}
+      {activeScenario && scenarioData && scenarioData.recommendations && scenarioData.recommendations.length > 0 && (
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center gap-2 sm:gap-3 mb-4">
+            {scenarioData.icon && <scenarioData.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+              scenarioData.color === 'red' ? 'text-red-500' : 'text-green-500'
+            }`} />}
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
               {scenarioData.title}
             </h3>
           </div>
 
           {isDecrease && scenarioData.severity === 'severe' && (
-            <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
+            <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-3 sm:p-4 mb-4 sm:mb-6">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-semibold text-red-800 dark:text-red-300 mb-1">Critical Situation</p>
+                  <p className="font-semibold text-sm sm:text-base text-red-800 dark:text-red-300 mb-1">🚨 Critical Situation</p>
                   <p className="text-xs sm:text-sm text-red-700 dark:text-red-400">
-                    This income reduction would put you in a severe deficit. You'll need to make significant cuts
-                    to essential expenses and consider additional income sources.
+                    This income loss would require <strong>immediate and severe budget cuts</strong>. 
+                    You may need to tap into emergency savings and consider finding alternative income sources quickly.
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {scenarioData.recommendations.map((rec, index) => (
               <div
                 key={index}
                 className={`rounded-lg border-2 transition-all ${
                   rec.priority === 'critical' 
-                    ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20' 
+                    ? 'border-red-400 bg-red-50 dark:bg-red-900/20' 
                     : rec.priority === 'high'
-                    ? 'border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20'
-                    : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20'
+                    : 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
                 }`}
               >
                 <div
-                  className="p-3 sm:p-4 cursor-pointer"
+                  className="p-3 sm:p-4 cursor-pointer hover:bg-white/50 dark:hover:bg-slate-700/50 transition-colors"
                   onClick={() => setExpandedCategory(expandedCategory === index ? null : index)}
                 >
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {rec.icon && <rec.icon className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" />}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      {rec.icon && <rec.icon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" />}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">{rec.category}</h4>
-                          {rec.action === 'essentials_only' && (
-                            <span className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded text-xs font-bold">
-                              ESSENTIALS ONLY
-                            </span>
-                          )}
+                          <h4 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{rec.category}</h4>
                           {rec.action === 'eliminate' && (
                             <span className="px-2 py-0.5 bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 rounded text-xs font-bold">
-                              ELIMINATE
+                              ✂️ ELIMINATE
                             </span>
                           )}
                           {rec.action === 'reduce_major' && (
                             <span className="px-2 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded text-xs font-bold">
-                              MAJOR CUT
+                              📉 MAJOR CUT
                             </span>
                           )}
                           {rec.action === 'reduce_minor' && (
                             <span className="px-2 py-0.5 bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 rounded text-xs font-bold">
-                              REDUCE
+                              ⬇️ REDUCE
+                            </span>
+                          )}
+                          {rec.action === 'increase_savings' && (
+                            <span className="px-2 py-0.5 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 rounded text-xs font-bold">
+                              💰 SAVE MORE
+                            </span>
+                          )}
+                          {rec.action === 'essentials_only' && (
+                            <span className="px-2 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded text-xs font-bold">
+                              🏠 ESSENTIALS ONLY
                             </span>
                           )}
                         </div>
                         <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{rec.description}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        {rec.action === 'essentials_only' && rec.breakdown ? (
-                          <>
-                            <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
-                              {formatCurrency(rec.breakdown.total)}
-                            </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              Total budget
-                            </div>
-                          </>
-                        ) : rec.cutAmount !== undefined ? (
-                          <>
-                            <div className="text-lg sm:text-xl font-bold text-red-600 dark:text-red-400">
-                              -{formatCurrency(rec.cutAmount)}
-                            </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {rec.cutPercentage?.toFixed(0)}% reduction
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
-                            +{formatCurrency(rec.amount)}
+                    <div className="text-right ml-2 sm:ml-4 flex-shrink-0">
+                      {rec.cutAmount !== undefined ? (
+                        <>
+                          <div className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">
+                            -{formatCurrency(rec.cutAmount)}
                           </div>
-                        )}
-                      </div>
-                      {expandedCategory === index ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            {rec.cutPercentage?.toFixed(0)}% reduction
+                          </div>
+                        </>
                       ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        <div className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
+                          +{formatCurrency(rec.amount)}
+                        </div>
                       )}
                     </div>
+                    {expandedCategory === index ? (
+                      <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 ml-1 sm:ml-2 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 ml-1 sm:ml-2 flex-shrink-0" />
+                    )}
                   </div>
                 </div>
 
                 {expandedCategory === index && (
-                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-gray-200 dark:border-gray-700 pt-3 sm:pt-4 bg-white dark:bg-slate-800">
-                    {rec.action === 'essentials_only' && rec.breakdown && (
-                      <div className="mb-4">
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">📋 Essentials-Only Budget Breakdown:</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                          <div className="bg-gray-50 dark:bg-slate-700 rounded p-3">
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Mortgage</p>
-                            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.mortgage)}</p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-slate-700 rounded p-3">
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Food for 4</p>
-                            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.food)}</p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-slate-700 rounded p-3">
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Electricity</p>
-                            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.electricity)}</p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-slate-700 rounded p-3">
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Other Essentials</p>
-                            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.otherEssentials)}</p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-slate-700 rounded p-3 sm:col-span-2">
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Debt Payments</p>
-                            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.debts)}</p>
-                          </div>
-                        </div>
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-3 border border-blue-200 dark:border-blue-700">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Total Essentials-Only Budget:</span>
-                            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(rec.breakdown.total)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {rec.currentAmount !== undefined && rec.action !== 'essentials_only' && (
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
+                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t-2 border-gray-200 dark:border-gray-600 pt-3 sm:pt-4 bg-white dark:bg-slate-800">
+                    {rec.currentAmount !== undefined && (
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                        <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-2 sm:p-3">
                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Current Amount</p>
-                          <p className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
+                          <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                             {formatCurrency(rec.currentAmount)}
                           </p>
                         </div>
-                        <div>
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 sm:p-3">
                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">New Amount</p>
-                          <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400">
+                          <p className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
                             {formatCurrency(rec.newAmount)}
                           </p>
                         </div>
                       </div>
                     )}
                     
-                    <div className="bg-gray-50 dark:bg-slate-700 rounded p-3">
-                      <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">💡 Specific Actions:</p>
-                      <ul className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                    {rec.breakdown && (
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4 border border-purple-200 dark:border-purple-800">
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3">
+                          Essentials-Only Budget Breakdown:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Mortgage:</span>
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.mortgage)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Food:</span>
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.food)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Electricity:</span>
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.electricity)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Other Essentials:</span>
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.otherEssentials)}</span>
+                          </div>
+                          <div className="flex justify-between col-span-2 border-t border-purple-200 dark:border-purple-700 pt-2">
+                            <span className="font-bold text-gray-900 dark:text-gray-100">Total:</span>
+                            <span className="font-bold text-gray-900 dark:text-gray-100">{formatCurrency(rec.breakdown.total)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        Specific Actions You Can Take:
+                      </p>
+                      <ul className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 space-y-1 sm:space-y-2">
                         {getSpecificActions(rec.category, rec.action).map((action, i) => (
-                          <li key={i}>{action}</li>
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
+                            <span>{action}</span>
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -1000,35 +869,152 @@ const FinancialScenarios = ({
         </div>
       )}
 
-      {/* Summary Impact */}
-      {(salary1Change !== 0 || salary2Change !== 0 || otherIncomeChange !== 0) && (
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-4 sm:p-6 border border-purple-200 dark:border-purple-700">
-          <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">📈 Overall Impact Summary</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            <div>
-              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2">Financial Health:</p>
-              <div className={`text-xl sm:text-2xl font-bold ${statusConfig.textColor}`}>
-                {statusConfig.label} {statusConfig.emoji}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2">Total Income Change:</p>
-              <div className={`text-xl sm:text-2xl font-bold ${totalIncomeDifference >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {totalIncomeDifference >= 0 ? '+' : ''}{formatCurrency(totalIncomeDifference)}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2">Monthly Outcome:</p>
-              <div className={`text-xl sm:text-2xl font-bold ${savingsCapacity >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {savingsCapacity >= 0 ? 'Surplus' : 'Deficit'}: {formatCurrency(Math.abs(savingsCapacity))}
-              </div>
-            </div>
-          </div>
+      {/* Call to Action when no scenario selected */}
+      {!activeScenario && (
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 sm:p-8 text-center border-2 border-blue-200 dark:border-blue-800">
+          <Zap className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Choose a Scenario Above
+          </h3>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+            Select one of the preset scenarios to see exactly how it would impact your finances
+            and what actions you'd need to take.
+          </p>
         </div>
       )}
     </div>
   );
 };
 
-export default FinancialScenarios;
+// Helper function for specific actions
+const getSpecificActions = (category, action) => {
+  const actions = {
+    'Entertainment': {
+      'eliminate': [
+        'Cancel ALL streaming services (Netflix, Spotify, Disney+, etc.)',
+        'Stop all dining out - meal prep at home exclusively',
+        'Cancel gym membership - use free outdoor exercise or YouTube workouts',
+        'Postpone ALL concerts, movies, theater, and paid events'
+      ],
+      'reduce_major': [
+        'Keep ONLY one streaming service, cancel the rest',
+        'Limit dining out to 1-2 times per month maximum',
+        'Switch to free entertainment (parks, free concerts, hiking)',
+        'Cancel premium subscriptions, use free alternatives'
+      ],
+      'reduce_minor': [
+        'Share family streaming accounts instead of individual subscriptions',
+        'Use restaurant discount apps and coupons',
+        'Choose matinee movie times for cheaper tickets',
+        'Look for free community events and activities'
+      ]
+    },
+    'Shopping': {
+      'eliminate': [
+        'Implement a complete shopping freeze - buy NOTHING non-essential',
+        'Use only what you already own',
+        'Cancel ALL subscription boxes',
+        'Unsubscribe from marketing emails to reduce temptation'
+      ],
+      'reduce_major': [
+        'Buy only absolute necessities - no wants',
+        'Implement a 30-day waiting period before ANY purchase',
+        'Shop secondhand stores exclusively',
+        'Cancel all non-essential subscriptions immediately'
+      ],
+      'reduce_minor': [
+        'Shop clearance and sales only',
+        'Use cashback apps (Rakuten, Honey)',
+        'Buy generic/store brands',
+        'Wait for major sales events (Black Friday, end of season)'
+      ]
+    },
+    'Transport': {
+      'eliminate': [
+        'Sell your car if you have multiple vehicles',
+        'Use public transportation for ALL trips',
+        'Bike or walk whenever possible',
+        'Cancel car insurance on unused vehicles'
+      ],
+      'reduce_major': [
+        'Reduce car usage by 50% - combine trips',
+        'Set up carpooling for daily commute',
+        'Switch to cheaper car insurance provider',
+        'Cancel premium fuel - use regular gasoline'
+      ],
+      'reduce_minor': [
+        'Use GasBuddy app to find cheapest fuel prices',
+        'Keep tires properly inflated for better fuel economy',
+        'Remove excess weight from car',
+        'Maintain car regularly to prevent costly repairs'
+      ]
+    },
+    'Food': {
+      'reduce_minor': [
+        'Meal plan for the entire week before shopping',
+        'Buy store brands instead of name brands (save 30-40%)',
+        'Shop at discount supermarkets (Aldi, Lidl)',
+        'Reduce meat consumption - beans and lentils are cheaper protein',
+        'Use loyalty programs and digital coupons',
+        'Buy in bulk for non-perishables',
+        'Avoid pre-packaged convenience foods'
+      ]
+    },
+    'Utilities': {
+      'reduce_minor': [
+        'Lower thermostat by 2-3°C in winter, raise in summer',
+        'Unplug devices and appliances when not in use',
+        'Switch ALL bulbs to LED (saves €100-200/year)',
+        'Take 5-minute showers instead of baths',
+        'Call providers to negotiate better rates',
+        'Use cold water for laundry',
+        'Air dry clothes instead of using dryer'
+      ]
+    },
+    'Savings': {
+      'increase_savings': [
+        'Set up automatic transfer to high-yield savings account',
+        'Build emergency fund to 6 months of expenses',
+        'Contribute to retirement accounts (tax advantages)',
+        'Consider low-cost index fund investments',
+        'Pay yourself first - save before spending'
+      ]
+    },
+    'Debt Payments': {
+      'accelerate_debt': [
+        'Target highest interest rate debt first (avalanche method)',
+        'Make bi-weekly payments instead of monthly',
+        'Round up payments to nearest €100',
+        'Put ALL bonuses and windfalls toward debt',
+        'Call creditors to negotiate lower interest rates',
+        'Consolidate high-interest debts if possible'
+      ]
+    },
+    'Lifestyle': {
+      'improve_lifestyle': [
+        'Invest in quality items that last longer',
+        'Take a modest vacation or weekend trip',
+        'Upgrade one major home item',
+        'Invest in a hobby or skill development course',
+        'Treat yourself occasionally while maintaining balance'
+      ]
+    },
+    'Essentials-Only Budget': {
+      'essentials_only': [
+        'Prioritize mortgage, food, electricity, and other essential bills.',
+        'Temporarily halt all discretionary spending.',
+        'Explore options to reduce essential costs (e.g., energy-saving habits, cheaper food alternatives).',
+        'Consider temporary additional income sources if a deficit persists.'
+      ]
+    }
+  };
 
+  return actions[category]?.[action] || [
+    'Review this category carefully for cost-saving opportunities',
+    'Research cheaper alternatives',
+    'Track spending in this category for a month',
+    'Consider if this expense is truly necessary'
+  ];
+};
+
+export default FinancialScenarios;
