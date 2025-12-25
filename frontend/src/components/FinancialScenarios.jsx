@@ -835,6 +835,55 @@ const FinancialScenarios = ({
                 {newTotalIncome > 0 ? (((totalEssentials + totalDebts - mortgagePayment - foodAmount - electricityAmount) / newTotalIncome) * 100).toFixed(1) : '0'}%
               </div>
             </div>
+            {/* Breakdown tooltip/details */}
+            <details className="mt-2">
+              <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
+                Ver desglose
+              </summary>
+              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-1">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Incluye:</p>
+                {/* Other Essential Categories */}
+                {safeBudgetCategories
+                  .filter(cat => {
+                    const catName = (cat?.name || '').toLowerCase();
+                    return cat?.priority === 'essential' && 
+                           !catName.includes('food') && !catName.includes('comida') &&
+                           !catName.includes('groceries') && !catName.includes('supermercado') &&
+                           !catName.includes('electricity') && !catName.includes('electricidad') &&
+                           !catName.includes('utilities') && !catName.includes('servicios') &&
+                           !catName.includes('internet') &&
+                           !catName.includes('mortgage') && !catName.includes('hipoteca') &&
+                           (Number(cat?.amount) || 0) > 0;
+                  })
+                  .map((cat, idx) => (
+                    <div key={idx} className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                      <span>{cat.name}:</span>
+                      <span className="font-semibold">{formatCurrency(Number(cat?.amount) || 0)}</span>
+                    </div>
+                  ))}
+                {/* Debts */}
+                {safeDebts.length > 0 && (
+                  <>
+                    <div className="pt-1 mt-1 border-t border-gray-200 dark:border-gray-600">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Deudas:</p>
+                      {safeDebts.map((debt, idx) => (
+                        <div key={idx} className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                          <span>{debt.name || 'Debt'}:</span>
+                          <span className="font-semibold">{formatCurrency(Number(debt?.monthlyPayment) || 0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {/* Total breakdown */}
+                <div className="pt-1 mt-1 border-t border-gray-300 dark:border-gray-500">
+                  <div className="flex justify-between text-xs font-bold text-gray-900 dark:text-gray-100">
+                    <span>Total:</span>
+                    <span>{formatCurrency(Math.max(0, totalEssentials + totalDebts - mortgagePayment - foodAmount - electricityAmount))}</span>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       </div>
