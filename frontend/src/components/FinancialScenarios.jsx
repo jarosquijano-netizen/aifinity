@@ -451,6 +451,15 @@ const FinancialScenarios = ({
           'Modest upgrades to living space',
           'Maintain balance between saving and enjoying'
         ]
+      },
+      'Essentials-Only Budget': {
+        'essentials_only': [
+          'Eliminate all discretionary spending (entertainment, shopping, dining out)',
+          'Focus only on: Mortgage (€975), Food for 4, Electricity, Other essentials, and Debt payments',
+          'This is your survival budget - covers only absolute necessities',
+          'Any remaining income can go to emergency savings',
+          'Review monthly to ensure you stay within this budget'
+        ]
       }
     };
 
