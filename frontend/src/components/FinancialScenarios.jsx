@@ -32,70 +32,83 @@ const FinancialScenarios = ({
   const [otherIncomeChange, setOtherIncomeChange] = useState(0);
   const [expandedCategory, setExpandedCategory] = useState(null);
 
-  // Calculate current incomes
-  const currentSalary1 = salary1;
-  const currentSalary2 = salary2;
-  const currentOtherIncome = otherIncome;
+  // Calculate current incomes with safety checks
+  const currentSalary1 = Number(salary1) || 0;
+  const currentSalary2 = Number(salary2) || 0;
+  const currentOtherIncome = Number(otherIncome) || 0;
   const currentTotalIncome = currentSalary1 + currentSalary2 + currentOtherIncome;
 
-  // Calculate new incomes based on changes
-  const newSalary1 = currentSalary1 * (1 + salary1Change / 100);
-  const newSalary2 = currentSalary2 * (1 + salary2Change / 100);
-  const newOtherIncome = currentOtherIncome * (1 + otherIncomeChange / 100);
+  // Calculate new incomes based on changes with safety checks
+  const salary1ChangeSafe = Number(salary1Change) || 0;
+  const salary2ChangeSafe = Number(salary2Change) || 0;
+  const otherIncomeChangeSafe = Number(otherIncomeChange) || 0;
+  
+  const newSalary1 = Math.max(0, currentSalary1 * (1 + salary1ChangeSafe / 100));
+  const newSalary2 = Math.max(0, currentSalary2 * (1 + salary2ChangeSafe / 100));
+  const newOtherIncome = Math.max(0, currentOtherIncome * (1 + otherIncomeChangeSafe / 100));
   const newTotalIncome = newSalary1 + newSalary2 + newOtherIncome;
 
-  // Calculate differences
+  // Calculate differences with safety checks
   const salary1Difference = newSalary1 - currentSalary1;
   const salary2Difference = newSalary2 - currentSalary2;
   const otherIncomeDifference = newOtherIncome - currentOtherIncome;
   const totalIncomeDifference = newTotalIncome - currentTotalIncome;
+  
+  // Ensure all values are valid numbers
+  if (isNaN(newTotalIncome) || !isFinite(newTotalIncome)) {
+    console.error('Invalid total income calculation:', { newSalary1, newSalary2, newOtherIncome });
+  }
 
   const isDecrease = totalIncomeDifference < 0;
   const isIncrease = totalIncomeDifference > 0;
 
-  // Calculate financial metrics
+  // Calculate financial metrics with safety checks
   // Essential expenses: Food for 4, Electricity, Housing, Transport, Health, Insurance
-  const essentialFoodFor4 = budgetCategories
+  const safeBudgetCategories = Array.isArray(budgetCategories) ? budgetCategories : [];
+  const safeDebts = Array.isArray(debts) ? debts : [];
+  
+  const essentialFoodFor4 = safeBudgetCategories
     .filter(cat => {
-      const catName = (cat.name || '').toLowerCase();
+      const catName = (cat?.name || '').toLowerCase();
       return catName.includes('food') || catName.includes('comida') || 
              catName.includes('groceries') || catName.includes('supermercado');
     })
-    .reduce((sum, cat) => sum + cat.amount, 0) || 700; // Default 700 EUR for 4 people if not found
+    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0) || 700; // Default 700 EUR for 4 people if not found
   
-  const essentialElectricity = budgetCategories
+  const essentialElectricity = safeBudgetCategories
     .filter(cat => {
-      const catName = (cat.name || '').toLowerCase();
+      const catName = (cat?.name || '').toLowerCase();
       return catName.includes('electricity') || catName.includes('electricidad') ||
              catName.includes('utilities') || catName.includes('servicios');
     })
-    .reduce((sum, cat) => sum + cat.amount, 0) || 150; // Default 150 EUR if not found
+    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0) || 150; // Default 150 EUR if not found
   
-  const otherEssentials = budgetCategories
+  const otherEssentials = safeBudgetCategories
     .filter(cat => {
-      const catName = (cat.name || '').toLowerCase();
-      return cat.priority === 'essential' && 
+      const catName = (cat?.name || '').toLowerCase();
+      return cat?.priority === 'essential' && 
              !catName.includes('food') && !catName.includes('comida') &&
              !catName.includes('groceries') && !catName.includes('supermercado') &&
              !catName.includes('electricity') && !catName.includes('electricidad') &&
              !catName.includes('utilities') && !catName.includes('servicios');
     })
-    .reduce((sum, cat) => sum + cat.amount, 0);
+    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0);
   
   const totalEssentials = essentialFoodFor4 + essentialElectricity + otherEssentials;
   
-  const totalDiscretionary = budgetCategories
-    .filter(cat => cat.priority === 'discretionary')
-    .reduce((sum, cat) => sum + cat.amount, 0);
+  const totalDiscretionary = safeBudgetCategories
+    .filter(cat => cat?.priority === 'discretionary')
+    .reduce((sum, cat) => sum + (Number(cat?.amount) || 0), 0);
 
-  const totalDebts = debts.reduce((sum, debt) => sum + debt.monthlyPayment, 0);
+  const totalDebts = safeDebts.reduce((sum, debt) => sum + (Number(debt?.monthlyPayment) || 0), 0);
   // Set mortgage to 975 EUR as specified
   const mortgagePayment = 975;
 
   const totalFixedCosts = totalEssentials + totalDebts + mortgagePayment;
   const essentialsOnlyBudget = mortgagePayment + essentialFoodFor4 + essentialElectricity + otherEssentials + totalDebts;
+  const safeMonthlyBudget = Number(monthlyBudget) || 0;
   const budgetAfterIncome = newTotalIncome - totalFixedCosts;
-  const savingsCapacity = newTotalIncome - monthlyBudget;
+  const savingsCapacity = newTotalIncome - safeMonthlyBudget;
   const essentialsOnlyCapacity = newTotalIncome - essentialsOnlyBudget;
 
   // Categorize spending recommendations
@@ -143,22 +156,26 @@ const FinancialScenarios = ({
       const essentialsOnlySurplus = newTotalIncome - essentialsOnlyBudgetTotal;
 
       // Sort discretionary categories by amount (highest first)
-      const discretionarySorted = [...budgetCategories]
-        .filter(cat => cat.priority === 'discretionary')
+      const discretionarySorted = [...safeBudgetCategories]
+        .filter(cat => cat?.priority === 'discretionary')
+        .map(cat => ({ ...cat, amount: Number(cat?.amount) || 0 }))
         .sort((a, b) => b.amount - a.amount);
 
       const recommendations = [];
       
       // First recommendation: Switch to essentials-only budget if income is reduced
-      if (isDecrease && newTotalIncome < monthlyBudget) {
+      if (isDecrease && newTotalIncome < safeMonthlyBudget && safeMonthlyBudget > 0) {
+        const cutAmount = safeMonthlyBudget - essentialsOnlyBudgetTotal;
+        const cutPercentage = safeMonthlyBudget > 0 ? ((cutAmount / safeMonthlyBudget) * 100) : 0;
+        
         recommendations.push({
           action: 'essentials_only',
           priority: 'critical',
           category: 'Essentials-Only Budget',
-          currentAmount: monthlyBudget,
+          currentAmount: safeMonthlyBudget,
           newAmount: essentialsOnlyBudgetTotal,
-          cutAmount: monthlyBudget - essentialsOnlyBudgetTotal,
-          cutPercentage: ((monthlyBudget - essentialsOnlyBudgetTotal) / monthlyBudget) * 100,
+          cutAmount: cutAmount,
+          cutPercentage: cutPercentage,
           description: canAffordEssentialsOnly 
             ? `Switch to essentials-only budget: ${formatCurrency(essentialsOnlyBudgetTotal)}/month. This covers: Mortgage (${formatCurrency(mortgagePayment)}), Food for 4 (${formatCurrency(essentialFoodFor4)}), Electricity (${formatCurrency(essentialElectricity)}), Other essentials (${formatCurrency(otherEssentials)}), and Debts (${formatCurrency(totalDebts)}). Remaining: ${formatCurrency(essentialsOnlySurplus)}`
             : `Income too low for essentials-only budget. Need ${formatCurrency(essentialsOnlyBudgetTotal - newTotalIncome)} more/month.`,
@@ -175,7 +192,7 @@ const FinancialScenarios = ({
       }
       
       let remainingToCut = Math.abs(totalIncomeDifference);
-      const alreadyCut = monthlyBudget - essentialsOnlyBudgetTotal;
+      const alreadyCut = safeMonthlyBudget - essentialsOnlyBudgetTotal;
       remainingToCut = Math.max(0, remainingToCut - alreadyCut);
 
       // Phase 1: Cut discretionary spending (if still needed after essentials-only)
@@ -206,12 +223,13 @@ const FinancialScenarios = ({
 
       // Phase 2: If still need to cut, look at essentials (only if severe)
       if (remainingToCut > 0 && severity === 'severe') {
-        const essentialsSorted = [...budgetCategories]
+        const essentialsSorted = [...safeBudgetCategories]
           .filter(cat => {
-            const catName = (cat.name || '').toLowerCase();
-            return cat.priority === 'essential' && cat.canReduce &&
+            const catName = (cat?.name || '').toLowerCase();
+            return cat?.priority === 'essential' && cat?.canReduce &&
                    !catName.includes('mortgage') && !catName.includes('hipoteca');
           })
+          .map(cat => ({ ...cat, amount: Number(cat?.amount) || 0 }))
           .sort((a, b) => b.amount - a.amount);
 
         essentialsSorted.forEach(cat => {
@@ -257,7 +275,14 @@ const FinancialScenarios = ({
     return null;
   };
 
-  const scenarioData = getSpendingRecommendations();
+  // Safely get spending recommendations
+  let scenarioData = null;
+  try {
+    scenarioData = getSpendingRecommendations();
+  } catch (error) {
+    console.error('Error calculating spending recommendations:', error);
+    scenarioData = null;
+  }
 
   // Get status color and config
   const getStatusConfig = () => {
@@ -342,7 +367,12 @@ const FinancialScenarios = ({
             max="100"
             step="5"
             value={change}
-            onChange={(e) => onChange(Number(e.target.value))}
+            onChange={(e) => {
+              const value = Number(e.target.value);
+              if (!isNaN(value) && isFinite(value)) {
+                onChange(value);
+              }
+            }}
             className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
           />
           
@@ -569,7 +599,7 @@ const FinancialScenarios = ({
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Savings Capacity:</span>
                 <span className="font-semibold text-green-600 dark:text-green-400">
-                  {formatCurrency(currentTotalIncome - monthlyBudget)}
+                  {formatCurrency(currentTotalIncome - safeMonthlyBudget)}
                 </span>
               </div>
             </div>
