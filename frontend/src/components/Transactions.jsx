@@ -345,53 +345,55 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-gradient">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gradient">
               {t('transactions') || 'Transactions'}
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
               {filteredTransactions.length} of {transactions.length} transactions
             </p>
           </div>
           
           {/* Export Buttons */}
-          <div className="flex space-x-3">
-            <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
+            <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center justify-center space-x-2 text-sm">
               <Download className="w-4 h-4" />
-              <span>{t('exportCSV')}</span>
+              <span className="hidden sm:inline">{t('exportCSV')}</span>
+              <span className="sm:hidden">CSV</span>
             </button>
-            <button onClick={exportExcel} className="btn-secondary btn-sm flex items-center space-x-2">
+            <button onClick={exportExcel} className="btn-secondary btn-sm flex items-center justify-center space-x-2 text-sm">
               <Download className="w-4 h-4" />
-              <span>{t('exportExcel')}</span>
+              <span className="hidden sm:inline">{t('exportExcel')}</span>
+              <span className="sm:hidden">Excel</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           <input
             type="text"
             placeholder={t('searchTransactions')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-primary pl-10"
+            className="input-primary pl-9 sm:pl-10 text-sm sm:text-base"
           />
           </div>
 
           {/* Month Filter */}
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400 pointer-events-none" />
             <select
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="input-primary pl-10"
+              className="input-primary pl-9 sm:pl-10 text-sm sm:text-base"
             >
               {availableMonths.map(month => (
                 <option key={month} value={month}>
@@ -405,7 +407,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="input-primary"
+            className="input-primary text-sm sm:text-base"
           >
             <option value="all">{t('allTypes')}</option>
             <option value="income">{t('income')}</option>
@@ -416,7 +418,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="input-primary"
+            className="input-primary text-sm sm:text-base"
           >
             {categories.map(cat => (
               <option key={cat} value={cat}>
@@ -429,7 +431,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
           <select
             value={filterBank}
             onChange={(e) => setFilterBank(e.target.value)}
-            className="input-primary"
+            className="input-primary text-sm sm:text-base"
           >
             {banks.map(bank => (
               <option key={bank} value={bank}>
@@ -501,35 +503,35 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
       {/* Bulk Update Panel */}
       {showBulkPanel && (
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl p-4 mb-4 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <Tag className="w-6 h-6 text-indigo-600" />
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl p-3 sm:p-4 mb-4 shadow-lg">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+              <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 flex-shrink-0" />
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
                 Actualización Masiva
               </h3>
-              <span className="px-3 py-1 bg-indigo-600 text-white rounded-full text-sm font-bold">
-                {selectedTransactionIds.length} seleccionadas
+              <span className="px-2 sm:px-3 py-1 bg-indigo-600 text-white rounded-full text-xs sm:text-sm font-bold flex-shrink-0">
+                {selectedTransactionIds.length}
               </span>
             </div>
             <button
               onClick={handleCancelBulkUpdate}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
               title="Cancelar"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-1 md:grid-cols-3 gap-4 sm:items-end">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Nueva Categoría
               </label>
               <select
                 value={bulkCategory}
                 onChange={(e) => setBulkCategory(e.target.value)}
-                className="w-full input-primary"
+                className="w-full input-primary text-sm"
               >
                 <option value="">Selecciona categoría...</option>
                 {availableCategories.map(cat => (
@@ -546,33 +548,35 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                 onChange={(e) => setBulkComputable(e.target.checked)}
                 className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              <label htmlFor="bulkComputable" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="bulkComputable" className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                 Incluir en estadísticas
               </label>
             </div>
 
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={handleBulkUpdate}
                 disabled={!bulkCategory || isBulkUpdating || isBulkDeleting}
-                className="flex-1 btn-premium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 btn-premium disabled:opacity-50 disabled:cursor-not-allowed text-sm py-2.5"
               >
                 {isBulkUpdating ? (
                   <>
                     <Loader className="w-4 h-4 mr-2 animate-spin" />
-                    Actualizando...
+                    <span className="hidden sm:inline">Actualizando...</span>
+                    <span className="sm:hidden">Actualizando</span>
                   </>
                 ) : (
                   <>
                     <CheckSquare className="w-4 h-4 mr-2" />
-                    Actualizar {selectedTransactionIds.length} transacciones
+                    <span className="hidden sm:inline">Actualizar {selectedTransactionIds.length} transacciones</span>
+                    <span className="sm:hidden">Actualizar {selectedTransactionIds.length}</span>
                   </>
                 )}
               </button>
               <button
                 onClick={handleBulkDelete}
                 disabled={isBulkUpdating || isBulkDeleting}
-                className="btn-danger disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="btn-danger disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm py-2.5"
               >
                 {isBulkDeleting ? (
                   <>
@@ -582,7 +586,8 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    <span>Eliminar {selectedTransactionIds.length} transacciones</span>
+                    <span className="hidden sm:inline">Eliminar {selectedTransactionIds.length} transacciones</span>
+                    <span className="sm:hidden">Eliminar</span>
                   </>
                 )}
               </button>
@@ -591,13 +596,126 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
         </div>
       )}
 
-      {/* Transactions Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden p-0 border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto" style={{ overflowX: 'auto', width: '100%' }}>
-          <table className="table-premium w-full" style={{ minWidth: '100%', tableLayout: 'auto' }}>
+      {/* Mobile Card Layout */}
+      <div className="md:hidden space-y-3">
+        {filteredTransactions.length === 0 ? (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
+            <p className="text-gray-500">{t('noDataDescription')}</p>
+          </div>
+        ) : (
+          filteredTransactions.map((transaction, index) => {
+            const account = accounts.find(acc => acc.id === transaction.account_id);
+            const isTransfer = transaction.category === 'Transferencias';
+            const isCreditCard = account?.account_type === 'credit';
+            const isSelected = selectedTransactionIds.includes(transaction.id);
+            
+            return (
+              <div
+                key={index}
+                className={`bg-white dark:bg-slate-800 rounded-xl shadow-md border-2 transition-all duration-200 ${
+                  isSelected 
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
+                    : 'border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                {/* Card Header */}
+                <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleSelectTransaction(transaction.id)}
+                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex-shrink-0">
+                      {formatDate(transaction.date)}
+                    </span>
+                    {transaction.computable === false && (
+                      <span className="px-2 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0">
+                        NC
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleDeleteTransaction(transaction.id)}
+                    className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200 flex-shrink-0"
+                    title="Eliminar transacción"
+                    aria-label="Delete transaction"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-3 space-y-3">
+                  {/* Description */}
+                  <div className="flex items-start gap-2">
+                    {isTransfer && (
+                      <ArrowRightLeft className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    {isCreditCard && !isTransfer && (
+                      <CreditCard className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    <p className="text-sm text-gray-900 dark:text-gray-100 flex-1 leading-relaxed">
+                      {transaction.description}
+                    </p>
+                  </div>
+
+                  {/* Amount - Prominent */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Amount</span>
+                    <span className={`text-xl font-bold ${
+                      transaction.type === 'income' 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'}
+                      {formatCurrency(parseFloat(transaction.amount))}
+                    </span>
+                  </div>
+
+                  {/* Category and Bank */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleCategoryClick(transaction)}
+                      className={`${getCategoryColor(transaction.category)} hover:scale-105 transform transition-transform cursor-pointer hover:shadow-lg flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0`}
+                      title={t('clickToReassign') || 'Click para reasignar categoría'}
+                    >
+                      {React.createElement(getCategoryIcon(transaction.category), {
+                        className: "w-3.5 h-3.5 flex-shrink-0"
+                      })}
+                      <span className="truncate max-w-[120px]">
+                        {(() => {
+                          const parsed = parseCategory(transaction.category);
+                          return parsed.category || parsed.displayName || transaction.category;
+                        })()}
+                      </span>
+                    </button>
+                    
+                    {transaction.account_name || transaction.bank ? (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300">
+                        <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate max-w-[100px]">
+                          {transaction.account_name || transaction.bank}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table Layout */}
+      <div className="hidden md:block bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden p-0 border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <table className="table-premium w-full" style={{ minWidth: '640px', tableLayout: 'auto' }}>
             <thead>
               <tr>
-                <th className="px-1 py-3 w-10">
+                <th className="px-2 py-3 w-12">
                   <input
                     type="checkbox"
                     checked={selectedTransactionIds.length === filteredTransactions.length && filteredTransactions.length > 0}
@@ -606,11 +724,11 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                     title="Seleccionar todas"
                   />
                 </th>
-                <th className="px-1 py-3 w-20 text-base font-semibold">{t('date')}</th>
-                <th className="px-1 py-3 w-[400px] text-base font-semibold">{t('description')}</th>
-                <th className="px-1 py-3 w-48 text-base font-semibold">{t('category')}</th>
-                <th className="px-1 py-3 w-48 text-base font-semibold">{t('bank')}</th>
-                <th className="px-2 py-3 text-right w-28 text-base font-semibold">{t('amount')}</th>
+                <th className="px-2 py-3 w-20 text-base font-semibold">{t('date')}</th>
+                <th className="px-2 py-3 min-w-[300px] text-base font-semibold">{t('description')}</th>
+                <th className="px-2 py-3 min-w-[150px] text-base font-semibold">{t('category')}</th>
+                <th className="px-2 py-3 min-w-[120px] text-base font-semibold">{t('bank')}</th>
+                <th className="px-2 py-3 text-right min-w-[120px] text-base font-semibold">{t('amount')}</th>
                 <th className="px-2 py-3 w-20 text-center text-base font-semibold text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700">Actions</th>
               </tr>
             </thead>
@@ -627,7 +745,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                     key={index} 
                     className={`group ${selectedTransactionIds.includes(transaction.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}
                   >
-                    <td className="px-1 py-3">
+                    <td className="px-2 py-3">
                       <input
                         type="checkbox"
                         checked={selectedTransactionIds.includes(transaction.id)}
@@ -636,12 +754,12 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         onClick={(e) => e.stopPropagation()}
                       />
                     </td>
-                    <td className="px-1 py-3 whitespace-nowrap">
+                    <td className="px-2 py-3 whitespace-nowrap">
                       <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                         {formatDate(transaction.date)}
                       </span>
                     </td>
-                    <td className="px-1 py-3">
+                    <td className="px-2 py-3">
                       <div className="flex items-center gap-1">
                         {(() => {
                           const account = accounts.find(acc => acc.id === transaction.account_id);
@@ -663,13 +781,13 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                           {transaction.description.length > 100 && '...'}
                         </span>
                         {transaction.computable === false && (
-                          <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded border border-gray-300 dark:border-gray-600" title="No se incluye en estadísticas">
+                          <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0" title="No se incluye en estadísticas">
                             NC
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-1 py-3">
+                    <td className="px-2 py-3">
                       <button
                         onClick={() => handleCategoryClick(transaction)}
                         className={`${getCategoryColor(transaction.category)} hover:scale-105 transform transition-transform cursor-pointer hover:shadow-lg flex items-center gap-1.5 w-full`}
@@ -678,7 +796,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         {React.createElement(getCategoryIcon(transaction.category), {
                           className: "w-4 h-4 flex-shrink-0"
                         })}
-                        <span className="text-xs whitespace-nowrap">
+                        <span className="text-xs whitespace-nowrap truncate">
                           {(() => {
                             const parsed = parseCategory(transaction.category);
                             return parsed.category || parsed.displayName || transaction.category;
@@ -686,7 +804,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         </span>
                       </button>
                     </td>
-                    <td className="px-1 py-3">
+                    <td className="px-2 py-3">
                       <span className="text-sm text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap" title={transaction.account_name || transaction.bank}>
                         {transaction.account_name || transaction.bank}
                       </span>
@@ -701,7 +819,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                         {formatCurrency(parseFloat(transaction.amount))}
                       </span>
                     </td>
-                    <td className="px-2 py-3 text-center" style={{ width: '80px', minWidth: '80px' }}>
+                    <td className="px-2 py-3 text-center w-20">
                       <button
                         onClick={() => handleDeleteTransaction(transaction.id)}
                         className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200 border-2 border-red-400 dark:border-red-600 bg-red-50/50 dark:bg-red-900/10"

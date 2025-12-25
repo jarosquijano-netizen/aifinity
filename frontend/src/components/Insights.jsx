@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency, formatCurrencyDecimals } from '../utils/currencyFormat';
 import Tabs from './Tabs';
 import SpendingStatusHeader from './SpendingStatusHeader';
+import FinancialScenarios from './FinancialScenarios';
 
 function Insights() {
   const [data, setData] = useState(null);
@@ -1622,24 +1623,170 @@ function Insights() {
           </div>
         )}
 
-        {activeTab === 'scenarios' && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {language === 'es' ? 'Escenarios Financieros' : 'Financial Scenarios'}
-                </h2>
-              </div>
-              <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-gray-400 text-lg">
-                  {language === 'es' 
-                    ? 'Esta sección estará disponible próximamente'
-                    : 'This section will be available soon'}
-                </p>
-              </div>
-            </div>
-          </div>
+        {activeTab === 'scenarios' && data && (
+          <FinancialScenarios
+            salary1={(() => {
+              // Try to get primary income from expected income or actual income
+              // Split expected income if it's set, otherwise use actual income
+              if (expectedIncome > 0) {
+                // Assume 60% is primary salary if we have expected income
+                return expectedIncome * 0.6;
+              }
+              // Otherwise use actual income split
+              return actualIncome * 0.6;
+            })()}
+            salary2={(() => {
+              // Secondary income - 30% of total
+              if (expectedIncome > 0) {
+                return expectedIncome * 0.3;
+              }
+              return actualIncome * 0.3;
+            })()}
+            otherIncome={(() => {
+              // Other income - remaining 10% or from accounts
+              if (expectedIncome > 0) {
+                return expectedIncome * 0.1;
+              }
+              // Check for investment/savings accounts that might generate income
+              const investmentAccounts = data.accounts?.filter(acc => 
+                acc.account_type === 'investment' || acc.account_type === 'savings'
+              ) || [];
+              // Estimate 1% monthly return on investments (very rough estimate)
+              const investmentIncome = investmentAccounts.reduce((sum, acc) => {
+                const balance = parseFloat(acc.balance || 0);
+                return sum + (balance * 0.01);
+              }, 0);
+              return Math.max(actualIncome * 0.1, investmentIncome);
+            })()}
+            monthlyBudget={budgetTotal}
+            budgetCategories={(() => {
+              // Convert budget categories to format needed by FinancialScenarios
+              if (!data.budget?.categories) return [];
+              
+              // Define essential categories
+              const essentialCategories = [
+                'Housing', 'Vivienda', 'Rent', 'Alquiler',
+                'Utilities', 'Servicios', 'Electricity', 'Electricidad',
+                'Food', 'Comida', 'Groceries', 'Supermercado',
+                'Transport', 'Transporte',
+                'Health', 'Salud', 'Healthcare', 'Atención médica',
+                'Insurance', 'Seguros'
+              ];
+              
+              // Define discretionary categories
+              const discretionaryCategories = [
+                'Entertainment', 'Entretenimiento',
+                'Shopping', 'Compras',
+                'Dining Out', 'Restaurantes',
+                'Subscriptions', 'Suscripciones',
+                'Travel', 'Viajes',
+                'Hobbies', 'Aficiones'
+              ];
+              
+              return data.budget.categories
+                .filter(cat => {
+                  const catName = cat.category || cat.name || '';
+                  // Exclude transfers and NC
+                  return !catName.includes('Transferencia') && 
+                         catName !== 'NC' && 
+                         catName !== 'nc' &&
+                         (cat.budget || 0) > 0;
+                })
+                .map(cat => {
+                  const catName = cat.category || cat.name || '';
+                  const budget = parseFloat(cat.budget || 0);
+                  const isAnnual = cat.is_annual || false;
+                  const monthlyBudget = isAnnual ? budget / 12 : budget;
+                  
+                  // Determine priority
+                  const isEssential = essentialCategories.some(essential => 
+                    catName.toLowerCase().includes(essential.toLowerCase())
+                  );
+                  const isDiscretionary = discretionaryCategories.some(disc => 
+                    catName.toLowerCase().includes(disc.toLowerCase())
+                  );
+                  
+                  // Some categories can be reduced (utilities, food, transport)
+                  const canReduce = ['Utilities', 'Servicios', 'Food', 'Comida', 
+                                    'Transport', 'Transporte', 'Shopping', 'Compras']
+                                    .some(reducible => catName.toLowerCase().includes(reducible.toLowerCase()));
+                  
+                  return {
+                    name: catName,
+                    amount: monthlyBudget,
+                    priority: isEssential ? 'essential' : (isDiscretionary ? 'discretionary' : 'essential'),
+                    canReduce: canReduce
+                  };
+                });
+            })()}
+            debts={(() => {
+              // Extract debts from credit cards
+              if (!data.accounts) return [];
+              
+              return data.accounts
+                .filter(acc => acc.account_type === 'credit')
+                .map(card => {
+                  const balance = Math.abs(parseFloat(card.balance || 0));
+                  const creditLimit = parseFloat(card.credit_limit || 0);
+                  // Estimate minimum payment as 2% of balance or 3% of credit limit, whichever is higher
+                  const estimatedMinPayment = Math.max(
+                    balance * 0.02,
+                    creditLimit * 0.03
+                  );
+                  
+                  return {
+                    name: card.name || 'Credit Card',
+                    monthlyPayment: estimatedMinPayment,
+                    balance: balance,
+                    interestRate: 18.0 // Default estimate
+                  };
+                });
+            })()}
+            mortgage={(() => {
+              // Check if there's a mortgage account or large housing expense
+              if (!data.accounts) return null;
+              
+              // Look for mortgage account or large housing-related account
+              const mortgageAccount = data.accounts.find(acc => 
+                acc.name?.toLowerCase().includes('mortgage') ||
+                acc.name?.toLowerCase().includes('hipoteca') ||
+                (acc.account_type === 'loan' && parseFloat(acc.balance || 0) > 50000)
+              );
+              
+              if (mortgageAccount) {
+                const balance = parseFloat(mortgageAccount.balance || 0);
+                // Estimate monthly payment (rough calculation)
+                const estimatedPayment = balance * 0.005; // Rough estimate
+                
+                return {
+                  monthlyPayment: estimatedPayment,
+                  balance: balance,
+                  interestRate: 3.5, // Default estimate
+                  term: 30
+                };
+              }
+              
+              // Check budget for large housing expense
+              const housingBudget = data.budget?.categories?.find(cat => {
+                const catName = (cat.category || cat.name || '').toLowerCase();
+                return catName.includes('housing') || 
+                       catName.includes('vivienda') ||
+                       catName.includes('rent') ||
+                       catName.includes('alquiler');
+              });
+              
+              if (housingBudget && housingBudget.budget > 1000) {
+                return {
+                  monthlyPayment: parseFloat(housingBudget.budget || 0),
+                  balance: 200000, // Estimate
+                  interestRate: 3.5,
+                  term: 30
+                };
+              }
+              
+              return null;
+            })()}
+          />
         )}
       </main>
 
@@ -1662,7 +1809,7 @@ function Insights() {
             className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
             onClick={() => setShowChat(false)}
           />
-          <div className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white dark:bg-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out">
+          <div className="fixed top-0 right-0 h-full w-full max-w-full md:w-[500px] bg-white dark:bg-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out overflow-x-hidden">
             <div className="flex flex-col h-full">
               <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">

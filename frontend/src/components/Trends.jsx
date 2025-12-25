@@ -87,30 +87,30 @@ function Trends() {
   return (
     <div className="space-y-6">
       {/* Monthly Summary Table - NOW AT TOP */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Resumen Mensual</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700 overflow-x-hidden">
+        <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Resumen Mensual</h3>
+        <div className="overflow-x-auto -mx-2 sm:mx-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <table className="w-full" style={{ minWidth: '600px' }}>
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Mes</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Ingresos</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Gastos</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Balance</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Ahorro</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+                <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Mes</th>
+                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Ingresos</th>
+                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Gastos</th>
+                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Balance</th>
+                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Ahorro</th>
+                <th className="text-center py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Estado</th>
               </tr>
             </thead>
             <tbody>
               {[...formattedData].reverse().map((trend, index) => (
                 <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                  <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                     {trend.monthLabel}
                   </td>
-                  <td className="py-3 px-4 text-sm text-right text-success font-medium">
+                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right text-success font-medium">
                     €{trend.income.toFixed(2)}
                   </td>
-                  <td className="py-3 px-4 text-sm text-right text-danger font-medium">
+                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right text-danger font-medium">
                     €{trend.expenses.toFixed(2)}
                   </td>
                   <td className={`py-3 px-4 text-sm text-right font-bold ${
