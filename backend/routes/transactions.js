@@ -502,6 +502,52 @@ router.get('/last-upload', optionalAuth, async (req, res) => {
   }
 });
 
+// Get last transaction date for each account
+router.get('/last-transaction-by-account', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    
+    // Get last transaction date for each account using a CTE
+    const result = await pool.query(
+      `WITH last_transactions AS (
+        SELECT DISTINCT ON (t.account_id)
+          t.account_id,
+          t.date as last_transaction_date,
+          t.description as last_transaction_description,
+          t.amount as last_transaction_amount
+        FROM transactions t
+        WHERE (t.user_id = $1 OR (t.user_id IS NULL AND $1 IS NULL))
+          AND t.account_id IS NOT NULL
+        ORDER BY t.account_id, t.date DESC, t.id DESC
+      )
+      SELECT 
+        ba.id as account_id,
+        ba.name as account_name,
+        lt.last_transaction_date,
+        lt.last_transaction_description,
+        lt.last_transaction_amount
+      FROM bank_accounts ba
+      INNER JOIN last_transactions lt ON lt.account_id = ba.id
+      WHERE ba.user_id = $1 OR (ba.user_id IS NULL AND $1 IS NULL)
+      ORDER BY ba.name`,
+      [userId]
+    );
+    
+    res.json({ 
+      accounts: result.rows.map(row => ({
+        accountId: row.account_id,
+        accountName: row.account_name,
+        lastTransactionDate: row.last_transaction_date,
+        lastTransactionDescription: row.last_transaction_description,
+        lastTransactionAmount: parseFloat(row.last_transaction_amount) || 0
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting last transaction by account:', error);
+    res.status(500).json({ error: 'Failed to get last transaction by account' });
+  }
+});
+
 // Revert last upload
 router.delete('/revert-last-upload', optionalAuth, async (req, res) => {
   const client = await pool.connect();

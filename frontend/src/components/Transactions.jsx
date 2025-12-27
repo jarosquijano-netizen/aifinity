@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2, Euro } from 'lucide-react';
-import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction } from '../utils/api';
+import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2, Euro, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction, getLastTransactionByAccount } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon } from '../utils/categoryIcons';
@@ -30,6 +30,8 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [lastTransactionsByAccount, setLastTransactionsByAccount] = useState([]);
+  const [showLastTransactionBanner, setShowLastTransactionBanner] = useState(true);
   
   const { t } = useLanguage();
 
@@ -54,7 +56,18 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
 
   useEffect(() => {
     fetchTransactions();
+    fetchLastTransactionsByAccount();
   }, []);
+
+  const fetchLastTransactionsByAccount = async () => {
+    try {
+      const data = await getLastTransactionByAccount();
+      setLastTransactionsByAccount(data.accounts || []);
+    } catch (err) {
+      console.error('❌ Failed to fetch last transactions by account:', err);
+      setLastTransactionsByAccount([]);
+    }
+  };
 
   useEffect(() => {
     applyFilters();
@@ -105,6 +118,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     setSelectedTransaction(null);
     if (shouldRefresh) {
       fetchTransactions();
+      fetchLastTransactionsByAccount(); // Refresh last transactions by account
       // Dispatch event to refresh dashboard
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
     }
@@ -147,6 +161,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       setBulkCategory('');
       setShowBulkPanel(false);
       fetchTransactions();
+      fetchLastTransactionsByAccount(); // Refresh last transactions by account
       // Dispatch event to refresh dashboard
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
     } catch (error) {
@@ -190,6 +205,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
       
       // Refresh transactions
       fetchTransactions();
+      fetchLastTransactionsByAccount(); // Refresh last transactions by account
       
       // Dispatch event to refresh dashboard
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
@@ -209,6 +225,7 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     try {
       await deleteTransaction(transactionId);
       fetchTransactions();
+      fetchLastTransactionsByAccount(); // Refresh last transactions by account
       // Dispatch event to refresh dashboard
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
     } catch (err) {
@@ -441,6 +458,75 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
           </select>
         </div>
       </div>
+
+      {/* Last Transaction by Account - Show when All Banks filter is active */}
+      {filterBank === 'all' && lastTransactionsByAccount.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <button
+            onClick={() => setShowLastTransactionBanner(!showLastTransactionBanner)}
+            className="w-full flex items-center justify-between p-4 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">Última Transacción por Cuenta</h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {lastTransactionsByAccount.length} cuenta{lastTransactionsByAccount.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+            {showLastTransactionBanner ? (
+              <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            )}
+          </button>
+          {showLastTransactionBanner && (
+            <div className="px-4 pb-4 space-y-3">
+              <div className="space-y-2">
+                {lastTransactionsByAccount.map((accountData) => (
+                  <div 
+                    key={accountData.accountId} 
+                    className="p-3 bg-white/60 dark:bg-slate-800/60 rounded border border-amber-200 dark:border-amber-700"
+                  >
+                    <div className="flex items-start justify-between mb-1">
+                      <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                        {accountData.accountName}
+                      </h4>
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {accountData.lastTransactionDate 
+                          ? new Date(accountData.lastTransactionDate).toLocaleDateString('es-ES', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric'
+                            })
+                          : 'Sin transacciones'}
+                      </span>
+                    </div>
+                    {accountData.lastTransactionDescription && (
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1 min-w-0 mr-2">
+                          {accountData.lastTransactionDescription.substring(0, 40)}
+                          {accountData.lastTransactionDescription.length > 40 && '...'}
+                        </span>
+                        <span className={`text-xs font-semibold ${
+                          accountData.lastTransactionAmount > 0 
+                            ? 'text-emerald-600 dark:text-emerald-400' 
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {accountData.lastTransactionAmount > 0 ? '+' : ''}€{Math.abs(accountData.lastTransactionAmount).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter Applied Indicator */}
       {(initialFilters && Object.keys(initialFilters).length > 0) || 

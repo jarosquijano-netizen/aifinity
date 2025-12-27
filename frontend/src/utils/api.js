@@ -58,6 +58,11 @@ export const getLastUpload = async () => {
   return response.data;
 };
 
+export const getLastTransactionByAccount = async () => {
+  const response = await api.get('/transactions/last-transaction-by-account');
+  return response.data;
+};
+
 export const revertLastUpload = async () => {
   const response = await api.delete('/transactions/revert-last-upload');
   return response.data;
