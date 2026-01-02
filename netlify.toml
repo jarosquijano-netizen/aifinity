@@ -7,11 +7,11 @@
 
 [build.environment]
   # Especificar versión de Node para consistencia
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
   # Optimizar npm para builds más rápidos
   NPM_FLAGS = "--legacy-peer-deps"
-  # Evitar problemas de caché
-  NODE_ENV = "production"
+  # NO establecer NODE_ENV=production aquí porque impide instalar devDependencies
+  # Vite necesita devDependencies para el build
 
 # Configuración para evitar cancelaciones automáticas
 # NOTA: Esta configuración debe complementarse con ajustes en el dashboard de Netlify
