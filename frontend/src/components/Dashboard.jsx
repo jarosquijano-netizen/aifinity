@@ -222,13 +222,36 @@ function Dashboard({ refreshTrigger }) {
     }
   };
 
+  const fixRemesasTraspasos = async () => {
+    try {
+      console.log('🔧 Corrigiendo remesas/traspasos automáticamente...');
+      const response = await api.post('/fix-remesas-traspasos/mark-non-computable');
+      const data = response.data;
+      
+      console.log('✅ Remesas/traspasos corregidos:', data.updated);
+      
+      if (data.excludedAccounts && data.excludedAccounts.length > 0) {
+        console.warn('⚠️ Cuentas excluidas:', data.excludedAccounts);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Error corrigiendo remesas/traspasos:', error);
+      // No lanzar error, solo loguear
+      return null;
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
       const currentDate = new Date();
       
-      // Primero, intentar corregir nóminas automáticamente si es necesario
+      // Primero, corregir remesas/traspasos (marcarlas como no computables)
+      await fixRemesasTraspasos();
+      
+      // Luego, intentar corregir nóminas automáticamente si es necesario
       // Solo si el ingreso parece bajo (menos de 5000€ en enero)
       if (currentMonth === '2026-01') {
         await fixNominas();

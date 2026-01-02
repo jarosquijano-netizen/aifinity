@@ -14,6 +14,7 @@ import cleanupRoutes from './routes/cleanup.js';
 import adminRoutes from './routes/admin.js';
 import diagnosticRoutes from './routes/diagnostic.js';
 import fixNominaRoutes from './routes/fix-nomina.js';
+import fixRemesasTraspasosRoutes from './routes/fix-remesas-traspasos.js';
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/api/cleanup', cleanupRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api/fix-nomina', fixNominaRoutes);
+app.use('/api/fix-remesas-traspasos', fixRemesasTraspasosRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
