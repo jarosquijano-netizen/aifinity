@@ -249,7 +249,14 @@ router.post('/upload', optionalAuth, async (req, res) => {
         );
         
         // If it's income between days 20-31 of the month, move to next month
-        if ((isRecurringIncome || descriptionLower.includes('nómina') || descriptionLower.includes('nomina') || descriptionLower.includes('salary')) && dayOfMonth >= 20) {
+        // Check for common payroll/salary keywords (including company names that are known payrolls)
+        const isPayrollKeyword = descriptionLower.includes('nómina') || 
+                                descriptionLower.includes('nomina') || 
+                                descriptionLower.includes('salary') ||
+                                descriptionLower.includes('payroll') ||
+                                descriptionLower.includes('freightos'); // FREIGHTOS is a known payroll
+        
+        if ((isRecurringIncome || isPayrollKeyword) && dayOfMonth >= 20) {
           const nextMonth = new Date(transactionDate);
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           applicableMonth = nextMonth.toISOString().slice(0, 7); // 'YYYY-MM'
