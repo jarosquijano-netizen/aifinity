@@ -237,30 +237,49 @@ router.post('/upload', optionalAuth, async (req, res) => {
 
       // Auto-detect income that should be moved to next month
       // Las nóminas pagadas entre los días 20-31 se mueven al mes siguiente
+      // CRITERIOS DE DETECCIÓN AUTOMÁTICA DE NÓMINA:
+      // 1. Ingresos entre días 20-31 del mes
+      // 2. Monto entre €2000 y €3000 o mayor (típico rango de nóminas)
+      // 3. O si tiene palabras clave de nómina/salario
+      // 4. O si es un ingreso recurrente (aparece múltiples veces)
       let applicableMonth = null;
       if (type === 'income') {
         const transactionDate = new Date(date);
         const dayOfMonth = transactionDate.getDate();
         const descriptionLower = description.toLowerCase();
+        const amountValue = Math.abs(parseFloat(amount) || 0);
         
         // Check if it's a recurring income (like salary/nomina) and in last part of month
         const isRecurringIncome = recurringIncomeDescriptions.some(pattern => 
           descriptionLower.includes(pattern) || pattern.includes(descriptionLower)
         );
         
-        // If it's income between days 20-31 of the month, move to next month
-        // Check for common payroll/salary keywords (including company names that are known payrolls)
+        // Check for common payroll/salary keywords
         const isPayrollKeyword = descriptionLower.includes('nómina') || 
                                 descriptionLower.includes('nomina') || 
                                 descriptionLower.includes('salary') ||
                                 descriptionLower.includes('payroll') ||
-                                descriptionLower.includes('freightos'); // FREIGHTOS is a known payroll
+                                descriptionLower.includes('salario') ||
+                                descriptionLower.includes('sueldo');
         
-        if ((isRecurringIncome || isPayrollKeyword) && dayOfMonth >= 20) {
-          const nextMonth = new Date(transactionDate);
-          nextMonth.setMonth(nextMonth.getMonth() + 1);
-          applicableMonth = nextMonth.toISOString().slice(0, 7); // 'YYYY-MM'
-          console.log(`🔄 Auto-shifting income "${description}" from ${date.slice(0, 7)} to ${applicableMonth} (day ${dayOfMonth} >= 20)`);
+        // Check if amount is in typical payroll range (€2000 - €3000 or more)
+        // Esto detecta nóminas automáticamente sin necesidad de palabras clave
+        const isPayrollAmount = amountValue >= 2000 && amountValue <= 10000; // Rango típico de nóminas
+        
+        // Si cumple los criterios: día 20-31 Y (palabras clave O monto típico de nómina O ingreso recurrente)
+        if (dayOfMonth >= 20 && dayOfMonth <= 31) {
+          if (isPayrollKeyword || isPayrollAmount || isRecurringIncome) {
+            const nextMonth = new Date(transactionDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            applicableMonth = nextMonth.toISOString().slice(0, 7); // 'YYYY-MM'
+            
+            let reason = '';
+            if (isPayrollKeyword) reason = 'palabra clave de nómina';
+            else if (isPayrollAmount) reason = `monto típico de nómina (€${amountValue.toFixed(2)})`;
+            else if (isRecurringIncome) reason = 'ingreso recurrente';
+            
+            console.log(`🔄 Auto-shifting income "${description}" from ${date.slice(0, 7)} to ${applicableMonth} (day ${dayOfMonth}, ${reason})`);
+          }
         }
       }
 

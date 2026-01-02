@@ -4,44 +4,66 @@ import { optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Endpoint para corregir nómina FREIGHTOS automáticamente
+// Endpoint para corregir nóminas automáticamente (días 20-31, monto €2000-10000)
 router.post('/freightos', optionalAuth, async (req, res) => {
   const client = await pool.connect();
   
   try {
     const userId = req.user?.id || req.user?.userId || null;
-    console.log('🔧 Corrigiendo nómina FREIGHTOS...');
+    console.log('🔧 Corrigiendo nóminas del 20-31 de diciembre (detección automática)...');
     
     await client.query('BEGIN');
     
-    // Primero, buscar todas las nóminas FREIGHTOS para diagnóstico
-    const allFreightos = await client.query(
+    // Primero, buscar todas las nóminas potenciales del 20-31 de diciembre para diagnóstico
+    const allPotentialNominas = await client.query(
       `SELECT 
         id, date, description, amount, applicable_month, computable,
         account_id,
+        EXTRACT(DAY FROM date) as day_of_month,
         (SELECT exclude_from_stats FROM bank_accounts WHERE id = transactions.account_id) as account_excluded,
         (SELECT name FROM bank_accounts WHERE id = transactions.account_id) as account_name
       FROM transactions
-      WHERE description ILIKE '%FREIGHTOS%'
-      AND date >= '2025-12-20'
+      WHERE date >= '2025-12-20'
       AND date <= '2025-12-31'
       AND type = 'income'
+      AND EXTRACT(DAY FROM date) >= 20
+      AND EXTRACT(DAY FROM date) <= 31
+      AND (
+        -- Monto típico de nómina
+        (ABS(amount) >= 2000 AND ABS(amount) <= 10000)
+        OR
+        -- Palabras clave
+        (description ILIKE '%nómina%' OR description ILIKE '%nomina%' 
+         OR description ILIKE '%salary%' OR description ILIKE '%payroll%'
+         OR description ILIKE '%salario%' OR description ILIKE '%sueldo%')
+      )
       AND (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
       ORDER BY date DESC`,
       [userId]
     );
     
-    console.log(`📊 Encontradas ${allFreightos.rows.length} nómina(s) FREIGHTOS`);
+    console.log(`📊 Encontradas ${allPotentialNominas.rows.length} nómina(s) potencial(es) del 20-31 de diciembre`);
     
-    // Buscar y actualizar nóminas FREIGHTOS del 20-31 de diciembre
+    // Buscar y actualizar TODAS las nóminas del 20-31 de diciembre que cumplan criterios
+    // Criterios: día 20-31 Y (monto €2000-10000 O palabras clave de nómina)
     const updateResult = await client.query(
       `UPDATE transactions
        SET applicable_month = '2026-01',
            computable = true
-       WHERE description ILIKE '%FREIGHTOS%'
-       AND date >= '2025-12-20'
+       WHERE date >= '2025-12-20'
        AND date <= '2025-12-31'
        AND type = 'income'
+       AND EXTRACT(DAY FROM date) >= 20
+       AND EXTRACT(DAY FROM date) <= 31
+       AND (
+         -- Monto típico de nómina (€2000 - €10000)
+         (ABS(amount) >= 2000 AND ABS(amount) <= 10000)
+         OR
+         -- Palabras clave de nómina
+         (description ILIKE '%nómina%' OR description ILIKE '%nomina%' 
+          OR description ILIKE '%salary%' OR description ILIKE '%payroll%'
+          OR description ILIKE '%salario%' OR description ILIKE '%sueldo%')
+       )
        AND (applicable_month IS NULL OR applicable_month != '2026-01' OR computable = false)
        AND (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
        RETURNING id, date, description, amount, applicable_month, computable, account_id`,
@@ -88,12 +110,22 @@ router.post('/freightos', optionalAuth, async (req, res) => {
     
     const calculatedIncome = parseFloat(incomeResult.rows[0]?.actual_income || 0);
     
-    // Verificar específicamente las nóminas FREIGHTOS en el cálculo
-    const freightosInCalculation = await client.query(
+    // Verificar específicamente las nóminas del 20-31 dic en el cálculo de enero
+    const nominasInCalculation = await client.query(
       `SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
        FROM transactions t
        LEFT JOIN bank_accounts ba ON t.account_id = ba.id
-       WHERE t.description ILIKE '%FREIGHTOS%'
+       WHERE t.date >= '2025-12-20'
+       AND t.date <= '2025-12-31'
+       AND EXTRACT(DAY FROM t.date) >= 20
+       AND EXTRACT(DAY FROM t.date) <= 31
+       AND (
+         (ABS(t.amount) >= 2000 AND ABS(t.amount) <= 10000)
+         OR
+         (t.description ILIKE '%nómina%' OR t.description ILIKE '%nomina%' 
+          OR t.description ILIKE '%salary%' OR t.description ILIKE '%payroll%'
+          OR t.description ILIKE '%salario%' OR t.description ILIKE '%sueldo%')
+       )
        AND (t.user_id = $1 OR (t.user_id IS NULL AND $1 IS NULL))
        AND (t.account_id IS NULL OR ba.id IS NULL OR ba.exclude_from_stats IS NULL OR ba.exclude_from_stats = false)
        AND t.type = 'income'
@@ -107,8 +139,8 @@ router.post('/freightos', optionalAuth, async (req, res) => {
       [userId]
     );
     
-    const freightosCount = parseInt(freightosInCalculation.rows[0]?.count || 0);
-    const freightosTotal = parseFloat(freightosInCalculation.rows[0]?.total || 0);
+    const nominasCount = parseInt(nominasInCalculation.rows[0]?.count || 0);
+    const nominasTotal = parseFloat(nominasInCalculation.rows[0]?.total || 0);
     
     res.json({
       success: true,
@@ -122,11 +154,12 @@ router.post('/freightos', optionalAuth, async (req, res) => {
         computable: row.computable,
         account_id: row.account_id
       })),
-      allFreightos: allFreightos.rows.map(row => ({
+      allPotentialNominas: allPotentialNominas.rows.map(row => ({
         id: row.id,
         date: row.date,
         description: row.description,
         amount: parseFloat(row.amount || 0),
+        day_of_month: row.day_of_month,
         applicable_month: row.applicable_month,
         computable: row.computable,
         account_excluded: row.account_excluded || false,
@@ -134,11 +167,11 @@ router.post('/freightos', optionalAuth, async (req, res) => {
       })),
       excludedAccounts: excludedAccounts,
       calculatedIncome: calculatedIncome,
-      freightosInCalculation: {
-        count: freightosCount,
-        total: freightosTotal
+      nominasInCalculation: {
+        count: nominasCount,
+        total: nominasTotal
       },
-      message: `✅ ${updateResult.rows.length} nómina(s) corregida(s). Ingreso calculado: €${calculatedIncome.toFixed(2)}. FREIGHTOS en cálculo: ${freightosCount} (€${freightosTotal.toFixed(2)})`
+      message: `✅ ${updateResult.rows.length} nómina(s) corregida(s). Ingreso calculado: €${calculatedIncome.toFixed(2)}. Nóminas del 20-31 dic en cálculo: ${nominasCount} (€${nominasTotal.toFixed(2)})`
     });
     
   } catch (error) {
