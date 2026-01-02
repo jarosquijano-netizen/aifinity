@@ -3,6 +3,10 @@
   command = "npm install && npm run build"
   publish = "dist"
 
+[build.environment]
+  # Especificar versión de Node para consistencia
+  NODE_VERSION = "18"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
