@@ -4,7 +4,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
 import api from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
-import api from '../utils/api';
 import TransferModal from './TransferModal';
 import { formatCurrency, formatCurrencyDecimals, formatCurrencyNumber } from '../utils/currencyFormat';
 import {
