@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
+import api from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
 import api from '../utils/api';
 import TransferModal from './TransferModal';
@@ -201,11 +202,38 @@ function Dashboard({ refreshTrigger }) {
     }
   };
 
+  const fixNominas = async () => {
+    try {
+      console.log('🔧 Corrigiendo nóminas automáticamente...');
+      const response = await api.post('/fix-nomina/freightos');
+      const data = response.data;
+      
+      console.log('✅ Nóminas corregidas:', data.updated);
+      console.log('Ingreso después de corrección:', data.calculatedIncome);
+      
+      if (data.excludedAccounts && data.excludedAccounts.length > 0) {
+        console.warn('⚠️ Cuentas excluidas:', data.excludedAccounts);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Error corrigiendo nóminas:', error);
+      // No lanzar error, solo loguear
+      return null;
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
       const currentDate = new Date();
+      
+      // Primero, intentar corregir nóminas automáticamente si es necesario
+      // Solo si el ingreso parece bajo (menos de 5000€ en enero)
+      if (currentMonth === '2026-01') {
+        await fixNominas();
+      }
       
       const [summary, trends, budget, accountsData, settings, transactionsData] = await Promise.all([
         getSummary(),
