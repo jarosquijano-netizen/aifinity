@@ -215,25 +215,26 @@ function Dashboard({ refreshTrigger }) {
         getSettings().catch(() => ({ expectedMonthlyIncome: 0 })),
         getTransactions().catch(() => ({ transactions: [] }))
       ]);
-      console.log('📊 Dashboard - Summary data received:', {
-        actualIncome: summary?.actualIncome,
-        actualExpenses: summary?.actualExpenses,
-        actualNetBalance: summary?.actualNetBalance,
-        currentMonth: summary?.currentMonth,
-        totalIncome: summary?.totalIncome,
-        totalExpenses: summary?.totalExpenses
-      });
+      // Log summary data in a way that's visible even when minified
+      console.log('📊 Dashboard - Summary data received:');
+      console.log('   actualIncome:', summary?.actualIncome);
+      console.log('   actualExpenses:', summary?.actualExpenses);
+      console.log('   actualNetBalance:', summary?.actualNetBalance);
+      console.log('   currentMonth:', summary?.currentMonth);
+      console.log('   totalIncome:', summary?.totalIncome);
+      console.log('   totalExpenses:', summary?.totalExpenses);
+      console.log('   Full summary object:', summary);
       
       setData(summary);
       setBudgetData(budget.data);
       setAccounts(accountsData.accounts || []);
       setExpectedIncome(settings.expectedMonthlyIncome || 0);
       
-      console.log('📊 Dashboard - Budget data:', {
-        budget: budget.data?.totals,
-        spent: budget.data?.totals?.spent,
-        remaining: budget.data?.totals?.remaining
-      });
+      console.log('📊 Dashboard - Budget data:');
+      console.log('   budget totals:', budget.data?.totals);
+      console.log('   spent:', budget.data?.totals?.spent);
+      console.log('   remaining:', budget.data?.totals?.remaining);
+      console.log('   Full budget object:', budget.data);
       
       // Filter current month income transactions (only computable ones)
       // Consider applicable_month if available, otherwise use transaction date
@@ -254,17 +255,16 @@ function Dashboard({ refreshTrigger }) {
         .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
         .slice(0, 5); // Show up to 5 transactions
       
-      console.log('📊 Dashboard - Current month income transactions:', {
-        currentMonth,
-        totalTransactions: transactionsData.transactions?.length || 0,
-        incomeTransactions: currentMonthIncome.length,
-        transactions: currentMonthIncome.map(t => ({
-          date: t.date,
-          applicable_month: t.applicable_month,
-          description: t.description?.substring(0, 30),
-          amount: t.amount
-        }))
-      });
+      console.log('📊 Dashboard - Current month income transactions:');
+      console.log('   currentMonth:', currentMonth);
+      console.log('   totalTransactions:', transactionsData.transactions?.length || 0);
+      console.log('   incomeTransactions found:', currentMonthIncome.length);
+      console.log('   transactions:', currentMonthIncome.map(t => ({
+        date: t.date,
+        applicable_month: t.applicable_month,
+        description: t.description?.substring(0, 30),
+        amount: t.amount
+      })));
       
       setCurrentMonthIncomeTransactions(currentMonthIncome);
       
