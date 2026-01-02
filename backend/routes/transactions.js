@@ -195,18 +195,30 @@ router.post('/upload', optionalAuth, async (req, res) => {
         continue;
       }
       
-      // Auto-exclude Transferencias and NC category from analytics
+      // Auto-exclude Transferencias, remesas, traspasos and NC category from analytics
       let isComputable;
       const categoryLower = (category || '').toLowerCase();
+      const descriptionLower = (description || '').toLowerCase();
+      
       const isTransferCategory = category === 'Transferencias' || 
+                                 category === 'Finanzas > Transferencias' ||
                                  categoryLower.includes('transferencia') ||
                                  categoryLower.includes('transferencias');
+      
+      const isRemesaTraspaso = descriptionLower.includes('remesa') ||
+                              descriptionLower.includes('traspaso') ||
+                              descriptionLower.includes('transferencia') ||
+                              descriptionLower.includes('transfer') ||
+                              descriptionLower.includes('bizum') ||
+                              descriptionLower.includes('envío') ||
+                              descriptionLower.includes('envio');
+      
       const isNCCategory = category === 'NC' || category === 'nc';
       
-      if (isTransferCategory || isNCCategory) {
+      if (isTransferCategory || isNCCategory || isRemesaTraspaso) {
         isComputable = false;
-        if (isTransferCategory) {
-          console.log(`🔄 Auto-excluding transfer: "${description}" (category: ${category})`);
+        if (isTransferCategory || isRemesaTraspaso) {
+          console.log(`🔄 Auto-excluding transfer/remesa/traspaso: "${description}" (category: ${category})`);
         } else {
           console.log(`🔄 Auto-excluding NC transaction: "${description}"`);
         }
@@ -254,6 +266,15 @@ router.post('/upload', optionalAuth, async (req, res) => {
           descriptionLower.includes(pattern) || pattern.includes(descriptionLower)
         );
         
+        // EXCLUIR remesas, traspasos y transferencias de la detección de nóminas
+        const isExcludedKeyword = descriptionLower.includes('remesa') ||
+                                 descriptionLower.includes('traspaso') ||
+                                 descriptionLower.includes('transferencia') ||
+                                 descriptionLower.includes('transfer') ||
+                                 descriptionLower.includes('bizum') ||
+                                 descriptionLower.includes('envío') ||
+                                 descriptionLower.includes('envio');
+        
         // Check for common payroll/salary keywords
         const isPayrollKeyword = descriptionLower.includes('nómina') || 
                                 descriptionLower.includes('nomina') || 
@@ -262,12 +283,13 @@ router.post('/upload', optionalAuth, async (req, res) => {
                                 descriptionLower.includes('salario') ||
                                 descriptionLower.includes('sueldo');
         
-        // Check if amount is in typical payroll range (€2000 - €3000 or more)
+        // Check if amount is in typical payroll range (€2000 - €10000)
         // Esto detecta nóminas automáticamente sin necesidad de palabras clave
         const isPayrollAmount = amountValue >= 2000 && amountValue <= 10000; // Rango típico de nóminas
         
         // Si cumple los criterios: día 20-31 Y (palabras clave O monto típico de nómina O ingreso recurrente)
-        if (dayOfMonth >= 20 && dayOfMonth <= 31) {
+        // PERO NO si es remesa/traspaso/transferencia
+        if (dayOfMonth >= 20 && dayOfMonth <= 31 && !isExcludedKeyword) {
           if (isPayrollKeyword || isPayrollAmount || isRecurringIncome) {
             const nextMonth = new Date(transactionDate);
             nextMonth.setMonth(nextMonth.getMonth() + 1);

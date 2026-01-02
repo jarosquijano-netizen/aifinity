@@ -278,8 +278,33 @@ router.get('/', optionalAuth, async (req, res) => {
       );
     }
 
-    // Calculate actual net balance for current month
+    // Calculate actual net balance for current month (from transactions)
     const actualNetBalance = actualIncome - actualExpenses;
+    
+    // Calculate total balance from accounts (excluding accounts marked as exclude_from_stats)
+    let accountsBalanceResult;
+    if (userId) {
+      accountsBalanceResult = await pool.query(
+        `SELECT COALESCE(SUM(balance), 0) as total_balance
+         FROM bank_accounts
+         WHERE user_id = $1
+         AND (exclude_from_stats IS NULL OR exclude_from_stats = false)`,
+        [userId]
+      );
+    } else {
+      accountsBalanceResult = await pool.query(
+        `SELECT COALESCE(SUM(balance), 0) as total_balance
+         FROM bank_accounts
+         WHERE user_id IS NULL
+         AND (exclude_from_stats IS NULL OR exclude_from_stats = false)`
+      );
+    }
+    
+    const accountsBalance = parseFloat(accountsBalanceResult.rows[0]?.total_balance || 0);
+    
+    // Use accounts balance as the primary balance (more accurate)
+    // actualNetBalance is kept for reference but accountsBalance is the real balance
+    const finalBalance = accountsBalance;
 
     res.json({
       totalIncome: parseFloat(totals.total_income || 0),
@@ -290,7 +315,8 @@ router.get('/', optionalAuth, async (req, res) => {
       newestTransactionDate: totals.newest_transaction_date,
       actualIncome: actualIncome,
       actualExpenses: actualExpenses,
-      actualNetBalance: actualNetBalance,
+      actualNetBalance: actualNetBalance, // From transactions (for reference)
+      accountsBalance: finalBalance, // From accounts (primary balance)
       currentMonth: currentMonth,
       categories: categoriesResult.rows,
       recentTransactions: recentResult.rows

@@ -55,15 +55,19 @@ router.post('/freightos', optionalAuth, async (req, res) => {
        AND type = 'income'
        AND EXTRACT(DAY FROM date) >= 20
        AND EXTRACT(DAY FROM date) <= 31
-       AND (
-         -- Monto típico de nómina (€2000 - €10000)
-         (ABS(amount) >= 2000 AND ABS(amount) <= 10000)
-         OR
-         -- Palabras clave de nómina
-         (description ILIKE '%nómina%' OR description ILIKE '%nomina%' 
-          OR description ILIKE '%salary%' OR description ILIKE '%payroll%'
-          OR description ILIKE '%salario%' OR description ILIKE '%sueldo%')
-       )
+      AND (
+        -- Monto típico de nómina (€2000 - €10000)
+        (ABS(amount) >= 2000 AND ABS(amount) <= 10000)
+        OR
+        -- Palabras clave de nómina
+        (description ILIKE '%nómina%' OR description ILIKE '%nomina%' 
+         OR description ILIKE '%salary%' OR description ILIKE '%payroll%'
+         OR description ILIKE '%salario%' OR description ILIKE '%sueldo%')
+      )
+      -- EXCLUIR remesas, traspasos y transferencias
+      AND NOT (description ILIKE '%remesa%' OR description ILIKE '%traspaso%'
+               OR description ILIKE '%transferencia%' OR description ILIKE '%transfer%'
+               OR description ILIKE '%bizum%' OR description ILIKE '%envío%' OR description ILIKE '%envio%')
        AND (applicable_month IS NULL OR applicable_month != '2026-01' OR computable = false)
        AND (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
        RETURNING id, date, description, amount, applicable_month, computable, account_id`,

@@ -416,10 +416,12 @@ function Dashboard({ refreshTrigger }) {
   const getBalanceAdvice = () => {
     const currentIncome = data.actualIncome || 0;
     const currentExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0; // Only use current month expenses
-    // Use backend calculated balance if available, otherwise recalculate
-    const currentBalance = data.actualNetBalance !== undefined 
-      ? data.actualNetBalance 
-      : (currentIncome - currentExpenses);
+    // Use accountsBalance (from accounts) as primary balance, fallback to actualNetBalance (from transactions)
+    const currentBalance = data.accountsBalance !== undefined 
+      ? data.accountsBalance 
+      : (data.actualNetBalance !== undefined 
+        ? data.actualNetBalance 
+        : (currentIncome - currentExpenses));
     const savingsRate = currentIncome > 0 ? (currentBalance / currentIncome) * 100 : 0;
     if (currentBalance < 0) return '⚠️ Reduce gastos';
     if (savingsRate < 10) return '💡 Ahorra más';
@@ -539,9 +541,12 @@ function Dashboard({ refreshTrigger }) {
         // Use backend calculated values - ensure expenses are from current month only
         const actualIncome = data.actualIncome || 0;
         const actualExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0; // Only use current month expenses
-        const actualBalance = data.actualNetBalance !== undefined 
-          ? data.actualNetBalance 
-          : (actualIncome - actualExpenses);
+        // Use accountsBalance (from accounts) as primary balance, fallback to actualNetBalance (from transactions)
+        const actualBalance = data.accountsBalance !== undefined 
+          ? data.accountsBalance 
+          : (data.actualNetBalance !== undefined 
+            ? data.actualNetBalance 
+            : (actualIncome - actualExpenses));
         
         return (
           <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg ${cardSize.padding} border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl h-full ${cardSize.height} flex flex-col ${isLarge ? 'justify-between' : 'justify-start'}`}>
@@ -598,10 +603,12 @@ function Dashboard({ refreshTrigger }) {
         // Use current month values for savings rate calculation
         const currentIncome = data.actualIncome || 0;
         const currentExpenses = data.actualExpenses !== undefined ? data.actualExpenses : 0;
-        // Recalculate balance if not available from backend
-        const currentBalance = data.actualNetBalance !== undefined 
-          ? data.actualNetBalance 
-          : (currentIncome - currentExpenses);
+        // Use accountsBalance (from accounts) as primary balance, fallback to actualNetBalance (from transactions)
+        const currentBalance = data.accountsBalance !== undefined 
+          ? data.accountsBalance 
+          : (data.actualNetBalance !== undefined 
+            ? data.actualNetBalance 
+            : (currentIncome - currentExpenses));
         const savingsRate = currentIncome > 0 ? ((currentBalance / currentIncome) * 100) : 0;
         const totalSavings = accounts
           .filter(acc => (acc.account_type === 'savings' || acc.account_type === 'investment') && !acc.exclude_from_stats)
