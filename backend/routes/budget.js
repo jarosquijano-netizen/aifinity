@@ -1516,14 +1516,10 @@ router.get('/overview', optionalAuth, async (req, res) => {
         return sum;
       }
       
-      // IMPORTANT: Only count categories that have transactions (same as /suggestions)
-      // Use normalized transaction categories to handle old-format vs hierarchical format matching
-      // This ensures the total matches what's displayed in the UI
-      if (!normalizedTransactionCategories.has(cat.name)) {
-        excludedNoTransactions.push({ name: cat.name, amount: parseFloat(cat.budget_amount || 0) });
-        console.log(`🚫 Backend: Excluding category without transactions: ${cat.name} (€${parseFloat(cat.budget_amount || 0)})`);
-        return sum; // Skip categories without transactions
-      }
+      // IMPORTANT: Count ALL categories with budgets, not just those with transactions this month
+      // This gives a true picture of total planned spending vs actual spending
+      // The UI will show categories with budgets even if they have no transactions yet
+      // Only exclude if the category truly shouldn't be counted (transfers, NC, etc.)
       
       // Exclude parent categories that have children (to avoid double-counting)
       // Only count child categories (hierarchical format) or standalone categories without children
