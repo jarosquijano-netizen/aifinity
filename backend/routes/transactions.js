@@ -236,7 +236,10 @@ router.post('/upload', optionalAuth, async (req, res) => {
       }
 
       // Auto-detect income that should be moved to next month
+      // DISABLED: Las nóminas ahora se cuentan en el mes en que se pagan, no en el mes siguiente
       let applicableMonth = null;
+      // Comentado para que las nóminas se cuenten en el mes en que se pagan
+      /*
       if (type === 'income') {
         const transactionDate = new Date(date);
         const dayOfMonth = transactionDate.getDate();
@@ -255,6 +258,7 @@ router.post('/upload', optionalAuth, async (req, res) => {
           console.log(`🔄 Auto-shifting income "${description}" from ${date.slice(0, 7)} to ${applicableMonth}`);
         }
       }
+      */
 
       // Ensure all values are properly formatted
       const cleanBank = bank || 'Unknown';
