@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
@@ -1210,6 +1210,16 @@ function Dashboard({ refreshTrigger }) {
       {/* Action Buttons */}
       <div className="flex justify-between items-center flex-wrap gap-2">
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={fetchData}
+            disabled={loading}
+            className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center space-x-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Actualizar datos del dashboard"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>Actualizar</span>
+          </button>
+          
           <button 
             onClick={() => {
               localStorage.removeItem('dashboardWidgetOrder');

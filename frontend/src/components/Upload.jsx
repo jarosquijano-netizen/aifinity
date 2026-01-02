@@ -101,6 +101,8 @@ function Upload({ onUploadComplete }) {
       // Refresh accounts to update balances
       await fetchAccounts();
       fetchLastTransactionsByAccount(); // Refresh last transactions by account
+      // Dispatch event to refresh dashboard and other components
+      window.dispatchEvent(new CustomEvent('transactionUpdated'));
       // Trigger refresh in parent component
       if (onUploadComplete) {
         onUploadComplete();
@@ -328,7 +330,11 @@ function Upload({ onUploadComplete }) {
       setTimeout(() => {
         setPastedText('');
         fetchLastTransactionsByAccount(); // Refresh last transactions by account
-        onUploadComplete();
+        // Dispatch event to refresh dashboard and other components
+        window.dispatchEvent(new CustomEvent('transactionUpdated'));
+        if (onUploadComplete) {
+          onUploadComplete();
+        }
       }, 2000);
 
     } catch (err) {
@@ -449,7 +455,11 @@ function Upload({ onUploadComplete }) {
         setFiles([]);
         fetchLastUpload(); // Refresh last upload info
         fetchLastTransactionsByAccount(); // Refresh last transactions by account
-        onUploadComplete();
+        // Dispatch event to refresh dashboard and other components
+        window.dispatchEvent(new CustomEvent('transactionUpdated'));
+        if (onUploadComplete) {
+          onUploadComplete();
+        }
       }, 2000);
 
     } catch (err) {
