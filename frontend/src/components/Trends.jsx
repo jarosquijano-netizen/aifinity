@@ -15,6 +15,17 @@ function Trends() {
     fetchData();
   }, []);
 
+  // Listen for transaction updates to refresh data
+  useEffect(() => {
+    const handleTransactionUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener('transactionUpdated', handleTransactionUpdate);
+    return () => {
+      window.removeEventListener('transactionUpdated', handleTransactionUpdate);
+    };
+  }, []);
+
   const fetchData = async () => {
     try {
       setLoading(true);

@@ -37,6 +37,17 @@ function Insights() {
     fetchAllData();
   }, []);
 
+  // Listen for transaction updates to refresh data
+  useEffect(() => {
+    const handleTransactionUpdate = () => {
+      fetchAllData();
+    };
+    window.addEventListener('transactionUpdated', handleTransactionUpdate);
+    return () => {
+      window.removeEventListener('transactionUpdated', handleTransactionUpdate);
+    };
+  }, []);
+
   // Clear chat messages when opening the chat panel (fresh start every time)
   // Only clear when chat changes from closed to open, not on every render
   useEffect(() => {

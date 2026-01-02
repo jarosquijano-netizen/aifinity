@@ -40,6 +40,17 @@ function Budget({ onNavigateToTransactions }) {
     }
   }, [data, selectedMonth]);
 
+  // Listen for transaction updates to refresh data
+  useEffect(() => {
+    const handleTransactionUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener('transactionUpdated', handleTransactionUpdate);
+    return () => {
+      window.removeEventListener('transactionUpdated', handleTransactionUpdate);
+    };
+  }, [selectedMonth]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -826,7 +837,7 @@ function Budget({ onNavigateToTransactions }) {
                             </div>
 
                             {/* Budget/Spent/Remaining */}
-                            <div className="grid grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8 lg:min-w-[600px] overflow-x-auto">
+                            <div className="grid grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8 overflow-x-auto">
                               <div className="text-right">
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Budget</p>
                                 {editingId === (category.id || category.name) ? (
