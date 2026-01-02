@@ -12,6 +12,7 @@ import aiRoutes from './routes/ai.js';
 import settingsRoutes from './routes/settings.js';
 import cleanupRoutes from './routes/cleanup.js';
 import adminRoutes from './routes/admin.js';
+import diagnosticRoutes from './routes/diagnostic.js';
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/cleanup', cleanupRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/diagnostic', diagnosticRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
