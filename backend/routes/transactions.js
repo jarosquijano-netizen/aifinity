@@ -148,6 +148,8 @@ router.post('/upload', optionalAuth, async (req, res) => {
     let skippedInvalid = 0;
 
     // Get common income patterns for auto-detection
+    // DISABLED: Ya no se usa porque desactivamos el auto-movimiento de nóminas
+    /*
     const commonIncomes = await client.query(
       `SELECT DISTINCT description, COUNT(*) as count
        FROM transactions
@@ -162,6 +164,7 @@ router.post('/upload', optionalAuth, async (req, res) => {
     const recurringIncomeDescriptions = commonIncomes.rows
       .filter(r => r.description) // Filter out null descriptions
       .map(r => r.description.toLowerCase());
+    */
 
     for (const transaction of transactions) {
       const { bank, date, category, description, amount, type, computable } = transaction;
