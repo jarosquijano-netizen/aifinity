@@ -148,8 +148,6 @@ router.post('/upload', optionalAuth, async (req, res) => {
     let skippedInvalid = 0;
 
     // Get common income patterns for auto-detection
-    // DISABLED: Ya no se usa porque desactivamos el auto-movimiento de nóminas
-    /*
     const commonIncomes = await client.query(
       `SELECT DISTINCT description, COUNT(*) as count
        FROM transactions
@@ -164,7 +162,6 @@ router.post('/upload', optionalAuth, async (req, res) => {
     const recurringIncomeDescriptions = commonIncomes.rows
       .filter(r => r.description) // Filter out null descriptions
       .map(r => r.description.toLowerCase());
-    */
 
     for (const transaction of transactions) {
       const { bank, date, category, description, amount, type, computable } = transaction;
@@ -239,29 +236,26 @@ router.post('/upload', optionalAuth, async (req, res) => {
       }
 
       // Auto-detect income that should be moved to next month
-      // DISABLED: Las nóminas ahora se cuentan en el mes en que se pagan, no en el mes siguiente
+      // Las nóminas pagadas entre los días 20-31 se mueven al mes siguiente
       let applicableMonth = null;
-      // Comentado para que las nóminas se cuenten en el mes en que se pagan
-      /*
       if (type === 'income') {
         const transactionDate = new Date(date);
         const dayOfMonth = transactionDate.getDate();
         const descriptionLower = description.toLowerCase();
         
-        // Check if it's a recurring income (like salary/nomina) and in last week of month
+        // Check if it's a recurring income (like salary/nomina) and in last part of month
         const isRecurringIncome = recurringIncomeDescriptions.some(pattern => 
           descriptionLower.includes(pattern) || pattern.includes(descriptionLower)
         );
         
-        // If it's income in the last 7 days of the month, move to next month
-        if ((isRecurringIncome || descriptionLower.includes('nómina') || descriptionLower.includes('nomina') || descriptionLower.includes('salary')) && dayOfMonth >= 25) {
+        // If it's income between days 20-31 of the month, move to next month
+        if ((isRecurringIncome || descriptionLower.includes('nómina') || descriptionLower.includes('nomina') || descriptionLower.includes('salary')) && dayOfMonth >= 20) {
           const nextMonth = new Date(transactionDate);
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           applicableMonth = nextMonth.toISOString().slice(0, 7); // 'YYYY-MM'
-          console.log(`🔄 Auto-shifting income "${description}" from ${date.slice(0, 7)} to ${applicableMonth}`);
+          console.log(`🔄 Auto-shifting income "${description}" from ${date.slice(0, 7)} to ${applicableMonth} (day ${dayOfMonth} >= 20)`);
         }
       }
-      */
 
       // Ensure all values are properly formatted
       const cleanBank = bank || 'Unknown';
