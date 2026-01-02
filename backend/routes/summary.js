@@ -63,11 +63,36 @@ router.get('/', optionalAuth, async (req, res) => {
     // Get actual income AND expenses for current month (using applicable_month if available)
     const currentMonth = new Date().toISOString().slice(0, 7);
     
+    console.log(`📊 Summary - Calculating for month: ${currentMonth}, userId: ${userId}`);
+    
     // Get actual income for current month - sum all income transactions, not just one
     // Use applicable_month if available, otherwise use date
     let actualIncomeResult;
     try {
       if (userId) {
+        // First, let's see what income transactions exist for debugging
+        const debugIncome = await pool.query(
+          `SELECT 
+            id, date, description, amount, applicable_month, computable,
+            TO_CHAR(date, 'YYYY-MM') as transaction_month,
+            account_id,
+            (SELECT exclude_from_stats FROM bank_accounts WHERE id = t.account_id) as account_excluded
+          FROM transactions t
+          WHERE t.user_id = $1
+          AND t.type = 'income'
+          ORDER BY date DESC
+          LIMIT 20`,
+          [userId]
+        );
+        
+        console.log(`📊 Summary - Found ${debugIncome.rows.length} income transactions (last 20):`);
+        debugIncome.rows.forEach((row, idx) => {
+          const applicableInfo = row.applicable_month ? `[→ ${row.applicable_month}]` : '';
+          const excluded = row.account_excluded ? '❌ EXCLUIDA' : '✅';
+          console.log(`   ${excluded} ${idx + 1}. [${row.date.toISOString().slice(0, 10)}] ${row.description?.substring(0, 40)}...`);
+          console.log(`      €${parseFloat(row.amount || 0).toFixed(2)} | Mes: ${row.transaction_month} ${applicableInfo} | Computable: ${row.computable !== false}`);
+        });
+        
         // User is logged in - get their income
         actualIncomeResult = await pool.query(
           `SELECT COALESCE(SUM(amount), 0) as actual_income
@@ -117,6 +142,7 @@ router.get('/', optionalAuth, async (req, res) => {
       throw err;
     }
     const actualIncome = parseFloat(actualIncomeResult.rows[0]?.actual_income || 0);
+    console.log(`💰 Summary - Calculated actualIncome: €${actualIncome.toFixed(2)}`);
 
     // Get actual expenses for current month (only use actual date, not applicable_month)
     const currentMonthDate = currentMonth + '-01';
@@ -159,6 +185,7 @@ router.get('/', optionalAuth, async (req, res) => {
       );
     }
     const actualExpenses = parseFloat(actualExpensesResult.rows[0]?.actual_expenses || 0);
+    console.log(`💸 Summary - Calculated actualExpenses: €${actualExpenses.toFixed(2)}`);
 
     // Get category breakdown for current month (only computable transactions)
     // For expenses, use actual date only (never applicable_month); for income, use applicable_month if available

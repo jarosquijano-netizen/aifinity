@@ -215,23 +215,57 @@ function Dashboard({ refreshTrigger }) {
         getSettings().catch(() => ({ expectedMonthlyIncome: 0 })),
         getTransactions().catch(() => ({ transactions: [] }))
       ]);
+      console.log('📊 Dashboard - Summary data received:', {
+        actualIncome: summary?.actualIncome,
+        actualExpenses: summary?.actualExpenses,
+        actualNetBalance: summary?.actualNetBalance,
+        currentMonth: summary?.currentMonth,
+        totalIncome: summary?.totalIncome,
+        totalExpenses: summary?.totalExpenses
+      });
+      
       setData(summary);
       setBudgetData(budget.data);
       setAccounts(accountsData.accounts || []);
       setExpectedIncome(settings.expectedMonthlyIncome || 0);
       
+      console.log('📊 Dashboard - Budget data:', {
+        budget: budget.data?.totals,
+        spent: budget.data?.totals?.spent,
+        remaining: budget.data?.totals?.remaining
+      });
+      
       // Filter current month income transactions (only computable ones)
+      // Consider applicable_month if available, otherwise use transaction date
       const currentMonthIncome = (transactionsData.transactions || [])
         .filter(t => {
           if (t.type !== 'income') return false;
           // Exclude non-computable transactions (NC, transfers, etc.)
           if (t.computable === false) return false;
-          const transactionDate = new Date(t.date);
-          return transactionDate.getMonth() === currentDate.getMonth() && 
-                 transactionDate.getFullYear() === currentDate.getFullYear();
+          
+          // Check if transaction belongs to current month
+          // Use applicable_month if available, otherwise use transaction date
+          const transactionMonth = t.applicable_month 
+            ? t.applicable_month 
+            : new Date(t.date).toISOString().slice(0, 7);
+          
+          return transactionMonth === currentMonth;
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
         .slice(0, 5); // Show up to 5 transactions
+      
+      console.log('📊 Dashboard - Current month income transactions:', {
+        currentMonth,
+        totalTransactions: transactionsData.transactions?.length || 0,
+        incomeTransactions: currentMonthIncome.length,
+        transactions: currentMonthIncome.map(t => ({
+          date: t.date,
+          applicable_month: t.applicable_month,
+          description: t.description?.substring(0, 30),
+          amount: t.amount
+        }))
+      });
+      
       setCurrentMonthIncomeTransactions(currentMonthIncome);
       
       // Get last 6 months of data with budget percentage
