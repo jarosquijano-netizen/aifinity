@@ -9,6 +9,11 @@ import {
   formatFinancialContext,
   generateFollowUpSuggestions 
 } from './financial-ai-prompts.js';
+import { classifyQuestion, shouldUseTemplate } from '../services/questionClassifier.js';
+import { PendingPaymentsService } from '../services/pendingPaymentsService.js';
+import { DebtAnalysisService } from '../services/debtAnalysisService.js';
+import { getPromptForCategory } from '../services/aiPromptTemplates.js';
+import { generateTemplateResponse } from '../services/quickResponses.js';
 
 // ============================================================================
 // CLAUDE API CONFIGURATION
@@ -227,38 +232,234 @@ export async function handleAIChatRequest(req, res, db) {
 
     const apiKey = apiKeyResult.rows[0].api_key;
 
-    // Fetch user's financial data
+    // 1. Classify the question
+    const questionCategory = classifyQuestion(message);
+    console.log('🔍 Question Category:', questionCategory, 'for question:', message);
+
+    // 2. Initialize services
+    const pendingPaymentsService = new PendingPaymentsService(db);
+    const debtAnalysisService = new DebtAnalysisService(db);
+    
+    // 3. Fetch user's financial data
     console.log('📊 Fetching financial data for userId:', userId);
     const financialData = await fetchUserFinancialData(db, userId, timePeriod);
 
-    // Log financial data for debugging (especially account balances)
-    console.log('🔍 Financial Data for AI:', {
-      userId,
-      transactionCount: financialData.summary?.allTime?.transactionCount || 0,
-      totalIncome: financialData.summary?.allTime?.totalIncome || 0,
-      totalExpenses: financialData.summary?.allTime?.totalExpenses || 0,
-      categoriesCount: financialData.categories?.length || 0,
-      topCategories: financialData.categories?.slice(0, 5).map(c => ({ name: c.category, total: c.total })) || [],
-      accountCount: financialData.accounts?.length || 0,
-      totalAccountsBalance: financialData.accounts?.reduce((sum, acc) => {
-        if (acc.type === 'credit') return sum;
-        return sum + (acc.balance || 0);
-      }, 0) || 0,
-      hasAccounts: financialData.accounts && financialData.accounts.length > 0,
-      accountNames: financialData.accounts?.map(a => a.name) || [],
-      recentTransactionsCount: financialData.recentTransactions?.length || 0
-    });
+    // 4. Get category-specific data if needed
+    let categoryData = null;
+    if (questionCategory) {
+      switch (questionCategory) {
+        case 'PENDING_PAYMENTS':
+          const pendingData = await pendingPaymentsService.getPendingPayments(userId);
+          const balance = await pendingPaymentsService.getCurrentBalance(userId);
+          categoryData = {
+            ...pendingData,
+            balance
+          };
+          break;
+        
+        case 'SPENDING_CAPACITY':
+          categoryData = await pendingPaymentsService.getAvailableToSpend(userId);
+          break;
+        
+        case 'AFFORDABILITY_CHECK':
+          // Try to extract amount from question
+          const amountMatch = message.match(/€?\s*(\d+(?:[.,]\d{2})?)/);
+          const requestedAmount = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : null;
+          if (requestedAmount) {
+            categoryData = await pendingPaymentsService.checkAffordability(userId, requestedAmount);
+          } else {
+            categoryData = await pendingPaymentsService.getAvailableToSpend(userId);
+          }
+          break;
+        
+        case 'BALANCE_INQUIRY':
+          const currentBalance = await pendingPaymentsService.getCurrentBalance(userId);
+          const availableData = await pendingPaymentsService.getAvailableToSpend(userId);
+          categoryData = {
+            currentBalance,
+            ...availableData
+          };
+          break;
+        
+        case 'DEBT_ANALYSIS':
+          categoryData = await debtAnalysisService.getDebtAnalysis(userId);
+          break;
+        
+        case 'DAILY_SPENDING':
+          // Determine period from question
+          const questionLower = message.toLowerCase();
+          let period = 'mes';
+          let dateFilter = '';
+          
+          if (questionLower.includes('hoy') || questionLower.includes('today')) {
+            period = 'hoy';
+            dateFilter = `AND DATE_TRUNC('day', date) = DATE_TRUNC('day', CURRENT_DATE)`;
+          } else if (questionLower.includes('semana') || questionLower.includes('week')) {
+            period = 'esta semana';
+            dateFilter = `AND date >= DATE_TRUNC('week', CURRENT_DATE)`;
+          } else {
+            period = 'este mes';
+            dateFilter = `AND DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)`;
+          }
+          
+          // Get spending for period
+          const spendingResult = await db.query(
+            `SELECT 
+              SUM(ABS(amount)) as total_spending,
+              COUNT(*) as transaction_count,
+              category,
+              SUM(ABS(amount)) as category_total
+            FROM transactions
+            WHERE (user_id IS NULL OR user_id = $1)
+              AND type = 'expense'
+              AND computable = true
+              ${dateFilter}
+            GROUP BY category
+            ORDER BY category_total DESC`,
+            [userId]
+          );
+          
+          const totalSpending = parseFloat(spendingResult.rows.reduce((sum, r) => sum + parseFloat(r.category_total || 0), 0));
+          const transactionCount = spendingResult.rows.reduce((sum, r) => sum + parseInt(r.transaction_count || 0), 0);
+          
+          categoryData = {
+            period,
+            totalSpending,
+            transactionCount,
+            topCategories: spendingResult.rows.slice(0, 5).map(r => ({
+              category: r.category || 'Uncategorized',
+              total: parseFloat(r.category_total || 0)
+            })),
+            dailyAverage: period === 'hoy' ? totalSpending : period === 'esta semana' ? totalSpending / 7 : totalSpending / new Date().getDate()
+          };
+          break;
+        
+        case 'SPENDING_BREAKDOWN':
+        case 'SPENDING_TRENDS':
+        case 'SAVINGS_GOALS':
+        case 'FINANCIAL_HEALTH':
+        case 'EXPENSE_CATEGORY':
+        case 'INCOME_ANALYSIS':
+        case 'BUDGET_STATUS':
+          // These categories use financialData directly
+          categoryData = financialData;
+          break;
+      }
+    }
 
-    // Initialize AI service
-    const aiService = new EnhancedAIService(apiKey);
+    // 5. Check if we should use a template response (fast, no API call)
+    if (questionCategory && shouldUseTemplate(questionCategory, message)) {
+      console.log('⚡ Using template response for category:', questionCategory);
+      const templateResponse = generateTemplateResponse(questionCategory, categoryData, language);
+      
+      if (templateResponse) {
+        console.log('✅ Template response generated successfully');
+        // Save to chat history
+        await db.query(
+          `INSERT INTO ai_chat_history (user_id, provider, user_message, ai_response)
+           VALUES ($1, $2, $3, $4)`,
+          [userId, 'claude', message, templateResponse]
+        ).catch(err => {
+          console.error('Failed to save chat history:', err);
+        });
 
-    // Get AI response
-    const response = await aiService.getFinancialAdvice(
-      message,
-      financialData,
-      timePeriod || 'all',
-      language
-    );
+        return res.json({
+          response: templateResponse,
+          provider: 'claude',
+          source: 'template',
+          category: questionCategory,
+          suggestions: []
+        });
+      } else {
+        console.log('⚠️ Template response was null, falling back to AI prompt');
+      }
+    }
+
+    // 6. Use category-specific prompt if available, otherwise use default
+    let aiResponse;
+    let response;
+    
+    try {
+      // Always try to use category-specific prompt if category is detected
+      if (questionCategory) {
+        console.log('📊 Category detected:', {
+          category: questionCategory,
+          hasCategoryData: !!categoryData,
+          dataKeys: categoryData ? Object.keys(categoryData) : []
+        });
+        
+        // Ensure categoryData is not null (use empty object if needed)
+        const dataForPrompt = categoryData || {};
+        
+        const categoryPrompt = getPromptForCategory(questionCategory, dataForPrompt, message, language);
+        
+        if (categoryPrompt) {
+          console.log('📝 Using category-specific prompt for:', questionCategory);
+          console.log('📝 Prompt preview (first 300 chars):', categoryPrompt.substring(0, 300));
+          
+          // Use category-specific prompt with Claude
+          const aiService = new EnhancedAIService(apiKey);
+          try {
+            aiResponse = await aiService.callClaudeAPI(
+              FINANCIAL_SYSTEM_PROMPT,
+              categoryPrompt
+            );
+            console.log('✅ Got AI response with category prompt');
+            response = {
+              success: true,
+              response: aiResponse,
+              suggestions: []
+            };
+          } catch (error) {
+            console.error('❌ Error calling Claude API with category prompt:', error);
+            // Fallback to default
+            const aiServiceDefault = new EnhancedAIService(apiKey);
+            const defaultResponse = await aiServiceDefault.getFinancialAdvice(
+              message,
+              financialData,
+              timePeriod || 'all',
+              language
+            );
+            response = defaultResponse;
+          }
+        } else {
+          console.log('⚠️ No category prompt available for:', questionCategory, '- using default');
+          // Fallback to default financial advice
+          const aiService = new EnhancedAIService(apiKey);
+          response = await aiService.getFinancialAdvice(
+            message,
+            financialData,
+            timePeriod || 'all',
+            language
+          );
+        }
+      } else {
+        // Use default financial advice when no category detected
+        console.log('📝 No category detected, using default financial prompt');
+        const aiService = new EnhancedAIService(apiKey);
+        response = await aiService.getFinancialAdvice(
+          message,
+          financialData,
+          timePeriod || 'all',
+          language
+        );
+      }
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      response = {
+        success: false,
+        error: error.message,
+        fallbackResponse: new EnhancedAIService(apiKey).getFallbackResponse(message, language)
+      };
+    }
+
+    // Log the formatted context that will be sent to AI (first 500 chars)
+    if (financialData && financialData.summary) {
+      const { formatFinancialContext } = await import('./financial-ai-prompts.js');
+      const formattedContext = formatFinancialContext(financialData, timePeriod || 'all');
+      console.log('📝 Formatted Context Preview (first 500 chars):', formattedContext.substring(0, 500));
+      console.log('📝 Formatted Context Length:', formattedContext.length);
+    }
 
     // Log the formatted context that will be sent to AI (first 500 chars)
     if (financialData && financialData.summary) {
@@ -288,6 +489,8 @@ export async function handleAIChatRequest(req, res, db) {
     return res.json({
       response: response.response,
       provider: 'claude',
+      source: questionCategory ? 'claude-categorized' : 'claude-default',
+      category: questionCategory || null,
       suggestions: response.suggestions || []
     });
 

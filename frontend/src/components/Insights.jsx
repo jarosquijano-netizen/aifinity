@@ -323,10 +323,14 @@ function Insights() {
   };
 
   const suggestedQuestions = [
-    language === 'es' ? '¿Cómo puedo mejorar mi tasa de ahorro?' : 'How can I improve my savings rate?',
-    language === 'es' ? '¿En qué categorías gasto más?' : 'What categories do I spend the most in?',
-    language === 'es' ? '¿Qué consejo me das para mi situación financiera?' : 'What advice do you have for my financial situation?',
-    language === 'es' ? '¿Cuánto debería ahorrar para un fondo de emergencia?' : 'How much should I save for an emergency fund?'
+    language === 'es' ? '¿Qué pagos vienen?' : 'What payments are coming?',
+    language === 'es' ? '¿Cuánto puedo gastar hoy?' : 'How much can I spend today?',
+    language === 'es' ? '¿Cuánto debo en tarjetas?' : 'How much do I owe on credit cards?',
+    language === 'es' ? '¿Cuánto gasté hoy?' : 'How much did I spend today?',
+    language === 'es' ? '¿Cuánto gasté esta semana?' : 'How much did I spend this week?',
+    language === 'es' ? '¿Cuándo pagaré mi deuda?' : 'When will I pay off my debt?',
+    language === 'es' ? '¿Cuánto tengo disponible?' : 'How much do I have available?',
+    language === 'es' ? '¿Cómo están mis finanzas?' : 'How are my finances?'
   ];
 
   if (loading) {
