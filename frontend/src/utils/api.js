@@ -333,6 +333,24 @@ export const deleteAdminUser = async (userId) => {
   return response.data;
 };
 
+// Fix Nomina endpoints - Shift end-of-month salaries to next month
+export const fixNominaPreview = async (month = null) => {
+  const url = month ? `/fix-nomina/preview?month=${month}` : '/fix-nomina/preview';
+  const response = await api.get(url);
+  return response.data;
+};
+
+export const fixNomina = async (month = null) => {
+  const url = month ? `/fix-nomina/freightos?month=${month}` : '/fix-nomina/freightos';
+  const response = await api.post(url);
+  return response.data;
+};
+
+export const fixNominaConfig = async () => {
+  const response = await api.get('/fix-nomina/config');
+  return response.data;
+};
+
 export default api;
 
 
