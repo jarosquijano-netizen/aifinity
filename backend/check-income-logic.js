@@ -49,7 +49,11 @@ async function checkIncomeLogic() {
     console.log(`   Income transactions with auto-shift (día ≥25): ${shiftedCount}`);
     console.log(`   Income transactions normal (día <25): ${normalCount}`);
     console.log(`\n🔄 Auto-shift explanation:`);
-    console.log(`   Salaries received on day 25-31 are applied to the NEXT month`);
+    console.log(`   Salaries received on days 25-31 are applied to the NEXT month`);
+    console.log(`   Detection criteria:`);
+    console.log(`     - Day of month: 25-31`);
+    console.log(`     - Amount range: €1,200 - €15,000 (typical salary range)`);
+    console.log(`     - Or keywords: nómina, salary, sueldo, paga extra, etc.`);
     console.log(`   Example: Salary on Oct 28 → Counted for November budget\n`);
     
   } catch (error) {

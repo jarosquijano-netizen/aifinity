@@ -248,10 +248,10 @@ router.post('/upload', optionalAuth, async (req, res) => {
       }
 
       // Auto-detect income that should be moved to next month
-      // Las nóminas pagadas entre los días 20-31 se mueven al mes siguiente
+      // Las nóminas pagadas entre los días 25-31 se mueven al mes siguiente
       // CRITERIOS DE DETECCIÓN AUTOMÁTICA DE NÓMINA:
-      // 1. Ingresos entre días 20-31 del mes
-      // 2. Monto entre €2000 y €3000 o mayor (típico rango de nóminas)
+      // 1. Ingresos entre días 25-31 del mes (típicamente se paga a final de mes)
+      // 2. Monto entre €1200 y €15000 (desde salario mínimo hasta salarios altos)
       // 3. O si tiene palabras clave de nómina/salario
       // 4. O si es un ingreso recurrente (aparece múltiples veces)
       let applicableMonth = null;
@@ -260,12 +260,18 @@ router.post('/upload', optionalAuth, async (req, res) => {
         const dayOfMonth = transactionDate.getDate();
         const descriptionLower = description.toLowerCase();
         const amountValue = Math.abs(parseFloat(amount) || 0);
-        
+
+        // Configuración de detección (sincronizada con fix-nomina.js)
+        const NOMINA_MIN_DAY = 25;
+        const NOMINA_MAX_DAY = 31;
+        const NOMINA_MIN_AMOUNT = 1200;  // Salario mínimo aproximado
+        const NOMINA_MAX_AMOUNT = 15000; // Salarios altos
+
         // Check if it's a recurring income (like salary/nomina) and in last part of month
-        const isRecurringIncome = recurringIncomeDescriptions.some(pattern => 
+        const isRecurringIncome = recurringIncomeDescriptions.some(pattern =>
           descriptionLower.includes(pattern) || pattern.includes(descriptionLower)
         );
-        
+
         // EXCLUIR remesas, traspasos y transferencias de la detección de nóminas
         const isExcludedKeyword = descriptionLower.includes('remesa') ||
                                  descriptionLower.includes('traspaso') ||
@@ -273,33 +279,41 @@ router.post('/upload', optionalAuth, async (req, res) => {
                                  descriptionLower.includes('transfer') ||
                                  descriptionLower.includes('bizum') ||
                                  descriptionLower.includes('envío') ||
-                                 descriptionLower.includes('envio');
-        
-        // Check for common payroll/salary keywords
-        const isPayrollKeyword = descriptionLower.includes('nómina') || 
-                                descriptionLower.includes('nomina') || 
+                                 descriptionLower.includes('envio') ||
+                                 descriptionLower.includes('devolución') ||
+                                 descriptionLower.includes('devolucion') ||
+                                 descriptionLower.includes('reembolso');
+
+        // Check for common payroll/salary keywords (expanded list)
+        const isPayrollKeyword = descriptionLower.includes('nómina') ||
+                                descriptionLower.includes('nomina') ||
                                 descriptionLower.includes('salary') ||
                                 descriptionLower.includes('payroll') ||
                                 descriptionLower.includes('salario') ||
-                                descriptionLower.includes('sueldo');
-        
-        // Check if amount is in typical payroll range (€2000 - €10000)
-        // Esto detecta nóminas automáticamente sin necesidad de palabras clave
-        const isPayrollAmount = amountValue >= 2000 && amountValue <= 10000; // Rango típico de nóminas
-        
-        // Si cumple los criterios: día 20-31 Y (palabras clave O monto típico de nómina O ingreso recurrente)
+                                descriptionLower.includes('sueldo') ||
+                                descriptionLower.includes('paga extra') ||
+                                descriptionLower.includes('paga extraordinaria') ||
+                                descriptionLower.includes('mensualidad') ||
+                                descriptionLower.includes('retribución') ||
+                                descriptionLower.includes('retribucion') ||
+                                descriptionLower.includes('honorarios');
+
+        // Check if amount is in typical payroll range
+        const isPayrollAmount = amountValue >= NOMINA_MIN_AMOUNT && amountValue <= NOMINA_MAX_AMOUNT;
+
+        // Si cumple los criterios: día 25-31 Y (palabras clave O monto típico de nómina O ingreso recurrente)
         // PERO NO si es remesa/traspaso/transferencia
-        if (dayOfMonth >= 20 && dayOfMonth <= 31 && !isExcludedKeyword) {
+        if (dayOfMonth >= NOMINA_MIN_DAY && dayOfMonth <= NOMINA_MAX_DAY && !isExcludedKeyword) {
           if (isPayrollKeyword || isPayrollAmount || isRecurringIncome) {
             const nextMonth = new Date(transactionDate);
             nextMonth.setMonth(nextMonth.getMonth() + 1);
             applicableMonth = nextMonth.toISOString().slice(0, 7); // 'YYYY-MM'
-            
+
             let reason = '';
             if (isPayrollKeyword) reason = 'palabra clave de nómina';
             else if (isPayrollAmount) reason = `monto típico de nómina (€${amountValue.toFixed(2)})`;
             else if (isRecurringIncome) reason = 'ingreso recurrente';
-            
+
             console.log(`🔄 Auto-shifting income "${description}" from ${date.slice(0, 7)} to ${applicableMonth} (day ${dayOfMonth}, ${reason})`);
           }
         }
