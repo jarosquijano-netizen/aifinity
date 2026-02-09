@@ -72,13 +72,19 @@ function Trends() {
   const formattedData = data.monthlyTrends.map((trend, index, arr) => {
     const prevBalance = index > 0 ? arr[index - 1].netBalance : 0;
     const balanceChange = trend.netBalance - prevBalance;
-    const savingsRate = trend.income > 0 ? ((trend.netBalance / trend.income) * 100) : 0;
-    
+    // Calculate savings rate and cap to reasonable range (-100% to 100%)
+    let savingsRate = 0;
+    if (trend.income > 0) {
+      savingsRate = (trend.netBalance / trend.income) * 100;
+      // Cap to -100% to 100% for display purposes
+      savingsRate = Math.max(-100, Math.min(100, savingsRate));
+    }
+
     return {
       ...trend,
-      monthLabel: new Date(trend.month + '-01').toLocaleDateString('es-ES', { 
-        month: 'short', 
-        year: 'numeric' 
+      monthLabel: new Date(trend.month + '-01').toLocaleDateString('es-ES', {
+        month: 'short',
+        year: 'numeric'
       }),
       balanceChange: index > 0 ? balanceChange : 0,
       savingsRate: savingsRate,
@@ -86,13 +92,19 @@ function Trends() {
     };
   });
 
-  // Calculate overall health
-  const avgSavingsRate = formattedData.reduce((sum, d) => sum + d.savingsRate, 0) / formattedData.length;
+  // Calculate overall health - only include months with meaningful income (> €100)
+  const monthsWithIncome = formattedData.filter(d => d.income > 100);
+  const avgSavingsRate = monthsWithIncome.length > 0
+    ? monthsWithIncome.reduce((sum, d) => sum + d.savingsRate, 0) / monthsWithIncome.length
+    : 0;
   const positiveMonths = formattedData.filter(d => d.netBalance > 0).length;
   const totalMonths = formattedData.length;
   
   // Calculate average income and comparison with expected
-  const avgActualIncome = formattedData.reduce((sum, d) => sum + d.income, 0) / formattedData.length;
+  // Only include months with meaningful income (> €100) to avoid skewing the average
+  const avgActualIncome = monthsWithIncome.length > 0
+    ? monthsWithIncome.reduce((sum, d) => sum + d.income, 0) / monthsWithIncome.length
+    : 0;
   const incomeAchievementRate = expectedIncome > 0 ? (avgActualIncome / expectedIncome) * 100 : 0;
 
   return (
