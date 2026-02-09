@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2, Euro } from 'lucide-react';
-import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction } from '../utils/api';
+import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2, Euro, RefreshCw, CheckCircle } from 'lucide-react';
+import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction, fixNomina, fixNominaPreview } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon } from '../utils/categoryIcons';
@@ -30,7 +30,12 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [accounts, setAccounts] = useState([]);
-  
+
+  // Fix Nomina states
+  const [isFixingNomina, setIsFixingNomina] = useState(false);
+  const [fixNominaResult, setFixNominaResult] = useState(null);
+  const [fixNominaMonth, setFixNominaMonth] = useState('');
+
   const { t } = useLanguage();
 
   // Apply initial filters from navigation
@@ -217,6 +222,42 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
     }
   };
 
+  // Fix Nomina handler - Shift end-of-month salaries to next month
+  const handleFixNomina = async () => {
+    // Default to previous month if no month selected
+    let targetMonth = fixNominaMonth;
+    if (!targetMonth) {
+      const now = new Date();
+      const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+      const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      targetMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    }
+
+    setIsFixingNomina(true);
+    setFixNominaResult(null);
+    setError('');
+
+    try {
+      const result = await fixNomina(targetMonth);
+      setFixNominaResult(result);
+
+      if (result.updated > 0) {
+        // Refresh transactions to show updated data
+        fetchTransactions();
+        // Dispatch event to refresh dashboard
+        window.dispatchEvent(new CustomEvent('transactionUpdated'));
+      }
+
+      // Clear result after 10 seconds
+      setTimeout(() => setFixNominaResult(null), 10000);
+    } catch (err) {
+      console.error('Error fixing nominas:', err);
+      setError('Error al corregir nóminas: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsFixingNomina(false);
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...transactions];
 
@@ -356,8 +397,38 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
             </p>
           </div>
           
-          {/* Export Buttons */}
+          {/* Export & Fix Nomina Buttons */}
           <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
+            {/* Fix Nomina Button */}
+            <div className="flex items-center gap-2">
+              <select
+                value={fixNominaMonth}
+                onChange={(e) => setFixNominaMonth(e.target.value)}
+                className="input-primary text-sm py-1.5 px-2 w-32"
+                title="Mes a corregir (por defecto: mes anterior)"
+              >
+                <option value="">Mes anterior</option>
+                {availableMonths.filter(m => m !== 'all').map(month => (
+                  <option key={month} value={month}>
+                    {formatMonthDisplay(month)}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleFixNomina}
+                disabled={isFixingNomina}
+                className="btn-primary btn-sm flex items-center justify-center space-x-2 text-sm bg-amber-600 hover:bg-amber-700"
+                title="Mover nóminas del día 25-31 al mes siguiente"
+              >
+                {isFixingNomina ? (
+                  <Loader className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">Fix Nóminas</span>
+                <span className="sm:hidden">Fix</span>
+              </button>
+            </div>
             <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center justify-center space-x-2 text-sm">
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">{t('exportCSV')}</span>
@@ -498,6 +569,45 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+      )}
+
+      {/* Fix Nomina Result */}
+      {fixNominaResult && (
+        <div className={`border rounded-lg p-4 ${
+          fixNominaResult.updated > 0
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle className={`w-5 h-5 ${fixNominaResult.updated > 0 ? 'text-green-600' : 'text-amber-600'}`} />
+              <span className={`font-medium ${fixNominaResult.updated > 0 ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                {fixNominaResult.message}
+              </span>
+            </div>
+            <button
+              onClick={() => setFixNominaResult(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          {fixNominaResult.transactions && fixNominaResult.transactions.length > 0 && (
+            <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium mb-2">Nóminas actualizadas ({fixNominaResult.sourceMonth} → {fixNominaResult.targetMonth}):</p>
+              <ul className="list-disc list-inside space-y-1">
+                {fixNominaResult.transactions.slice(0, 5).map((t, idx) => (
+                  <li key={idx}>
+                    {new Date(t.date).toLocaleDateString('es-ES')} - {t.description?.substring(0, 40)}... - €{t.amount?.toFixed(2)}
+                  </li>
+                ))}
+                {fixNominaResult.transactions.length > 5 && (
+                  <li>...y {fixNominaResult.transactions.length - 5} más</li>
+                )}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
