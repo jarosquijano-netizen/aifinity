@@ -338,4 +338,88 @@ router.get('/preview', optionalAuth, async (req, res) => {
   }
 });
 
+// Endpoint para hacer rollover de una transacción individual de ingreso al mes siguiente
+router.post('/rollover/:transactionId', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { transactionId } = req.params;
+
+    await client.query('BEGIN');
+
+    // Buscar la transacción
+    const transactionResult = await client.query(
+      `SELECT id, date, description, amount, type, applicable_month, computable, user_id
+       FROM transactions
+       WHERE id = $1
+       AND (user_id = $2 OR (user_id IS NULL AND $2 IS NULL))`,
+      [transactionId, userId]
+    );
+
+    if (transactionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        success: false,
+        error: 'Transacción no encontrada'
+      });
+    }
+
+    const transaction = transactionResult.rows[0];
+
+    // Verificar que sea un ingreso
+    if (transaction.type !== 'income') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'Solo se puede hacer rollover de transacciones de tipo ingreso'
+      });
+    }
+
+    // Calcular el mes siguiente basado en la fecha de la transacción
+    const transactionDate = new Date(transaction.date);
+    const currentMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+    const nextMonth = getNextMonth(currentMonth);
+
+    // Actualizar la transacción para que aplique al mes siguiente
+    const updateResult = await client.query(
+      `UPDATE transactions
+       SET applicable_month = $1,
+           computable = true
+       WHERE id = $2
+       RETURNING id, date, description, amount, applicable_month, computable`,
+      [nextMonth, transactionId]
+    );
+
+    await client.query('COMMIT');
+
+    const updatedTransaction = updateResult.rows[0];
+
+    res.json({
+      success: true,
+      transaction: {
+        id: updatedTransaction.id,
+        date: updatedTransaction.date,
+        description: updatedTransaction.description,
+        amount: parseFloat(updatedTransaction.amount || 0),
+        applicable_month: updatedTransaction.applicable_month,
+        computable: updatedTransaction.computable
+      },
+      sourceMonth: currentMonth,
+      targetMonth: nextMonth,
+      message: `✅ Ingreso movido de ${currentMonth} → ${nextMonth}`
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en rollover individual:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
