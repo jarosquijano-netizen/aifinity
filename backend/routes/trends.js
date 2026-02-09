@@ -128,18 +128,18 @@ router.get('/insights', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
 
-    // Get last 2 months for comparison (exclude transfers, deduplicate)
+    // Get last 2 months for comparison (exclude transfers, deduplicate, respect applicable_month)
     let result;
     if (userId) {
       // User is logged in - get their insights
       result = await pool.query(
-        `SELECT 
-           TO_CHAR(t.date, 'YYYY-MM') as month,
+        `SELECT
+           COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')) as month,
            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses
          FROM (
-           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
-             t.date, t.amount, t.type
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type)
+             t.date, t.applicable_month, t.amount, t.type
            FROM transactions t
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id = $1
@@ -147,7 +147,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
            AND (t.computable = true OR t.computable IS NULL)
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
-         GROUP BY TO_CHAR(t.date, 'YYYY-MM')
+         GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM'))
          ORDER BY month DESC
          LIMIT 2`,
         [userId]
@@ -155,13 +155,13 @@ router.get('/insights', optionalAuth, async (req, res) => {
     } else {
       // Not logged in - get only shared insights
       result = await pool.query(
-        `SELECT 
-           TO_CHAR(t.date, 'YYYY-MM') as month,
+        `SELECT
+           COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM')) as month,
            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses
          FROM (
-           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type) 
-             t.date, t.amount, t.type
+           SELECT DISTINCT ON (t.date, t.description, t.amount, t.type)
+             t.date, t.applicable_month, t.amount, t.type
            FROM transactions t
            LEFT JOIN bank_accounts ba ON t.account_id = ba.id
            WHERE t.user_id IS NULL
@@ -169,7 +169,7 @@ router.get('/insights', optionalAuth, async (req, res) => {
            AND (t.computable = true OR t.computable IS NULL)
            ORDER BY t.date, t.description, t.amount, t.type, t.id
          ) t
-         GROUP BY TO_CHAR(t.date, 'YYYY-MM')
+         GROUP BY COALESCE(t.applicable_month, TO_CHAR(t.date, 'YYYY-MM'))
          ORDER BY month DESC
          LIMIT 2`
       );
