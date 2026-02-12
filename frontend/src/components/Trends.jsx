@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, TrendingUp, TrendingDown, AlertCircle, Target } from 'lucide-react';
+import { Loader, TrendingUp, TrendingDown, AlertCircle, Target, ChevronDown } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
 import { getTrends, getSettings, getActualIncome } from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
@@ -11,6 +11,7 @@ function Trends() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expectedIncome, setExpectedIncome] = useState(0);
+  const [isResumenOpen, setIsResumenOpen] = useState(false);
   const chartTheme = useChartTheme();
   const { language } = useLanguage();
 
@@ -112,59 +113,71 @@ function Trends() {
 
   return (
     <div className="space-y-6">
-      {/* Monthly Summary Table - NOW AT TOP */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700 overflow-x-hidden">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Resumen Mensual</h3>
-        <div className="overflow-x-auto -mx-2 sm:mx-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className="w-full" style={{ minWidth: '600px' }}>
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Mes</th>
-                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Ingresos</th>
-                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Gastos</th>
-                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Balance</th>
-                <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Ahorro</th>
-                <th className="text-center py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...formattedData].reverse().map((trend, index) => (
-                <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {trend.monthLabel}
-                  </td>
-                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right text-success font-medium">
-                    €{trend.income.toFixed(2)}
-                  </td>
-                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right text-danger font-medium">
-                    €{trend.expenses.toFixed(2)}
-                  </td>
-                  <td className={`py-3 px-4 text-sm text-right font-bold ${
-                    trend.netBalance >= 0 ? 'text-success' : 'text-danger'
-                  }`}>
-                    €{trend.netBalance.toFixed(2)}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      trend.savingsRate >= 20 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      trend.savingsRate >= 10 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                      trend.savingsRate >= 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>
-                      {trend.savingsRate.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {trend.netBalance >= 0 ? (
-                      <TrendingUp className="w-5 h-5 text-success inline-block" />
-                    ) : (
-                      <TrendingDown className="w-5 h-5 text-danger inline-block" />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Monthly Summary Table - Collapsible */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <button
+          onClick={() => setIsResumenOpen(!isResumenOpen)}
+          className="w-full flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+        >
+          <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Resumen Mensual</h3>
+          <ChevronDown className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isResumenOpen ? 'rotate-180' : ''}`} />
+        </button>
+        <div
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${isResumenOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
+        >
+          <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="overflow-x-auto -mx-2 sm:mx-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <table className="w-full" style={{ minWidth: '600px' }}>
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Mes</th>
+                    <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Ingresos</th>
+                    <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Gastos</th>
+                    <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Balance</th>
+                    <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Ahorro</th>
+                    <th className="text-center py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...formattedData].reverse().map((trend, index) => (
+                    <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                      <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {trend.monthLabel}
+                      </td>
+                      <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right text-success font-medium">
+                        €{trend.income.toFixed(2)}
+                      </td>
+                      <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right text-danger font-medium">
+                        €{trend.expenses.toFixed(2)}
+                      </td>
+                      <td className={`py-3 px-4 text-sm text-right font-bold ${
+                        trend.netBalance >= 0 ? 'text-success' : 'text-danger'
+                      }`}>
+                        €{trend.netBalance.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-right">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          trend.savingsRate >= 20 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                          trend.savingsRate >= 10 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                          trend.savingsRate >= 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                          'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                        }`}>
+                          {trend.savingsRate.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {trend.netBalance >= 0 ? (
+                          <TrendingUp className="w-5 h-5 text-success inline-block" />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 text-danger inline-block" />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
