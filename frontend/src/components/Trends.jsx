@@ -168,8 +168,13 @@ function Trends() {
         </div>
       </div>
 
-      {/* Spending Prediction Section */}
-      <SpendingPrediction language={language} />
+      {/* Spending Prediction Section - Standalone */}
+      <div className="relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20 rounded-3xl blur-sm"></div>
+        <div className="relative bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-4 sm:p-6 border-2 border-primary/30 dark:border-primary/20">
+          <SpendingPrediction language={language} />
+        </div>
+      </div>
 
       {/* Financial Health Overview - NEW! */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
