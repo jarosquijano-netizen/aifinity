@@ -3,6 +3,8 @@ import { Loader, TrendingUp, TrendingDown, AlertCircle, Target } from 'lucide-re
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
 import { getTrends, getSettings, getActualIncome } from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
+import { useLanguage } from '../context/LanguageContext';
+import SpendingPrediction from './Trends/SpendingPrediction';
 
 function Trends() {
   const [data, setData] = useState(null);
@@ -10,6 +12,7 @@ function Trends() {
   const [error, setError] = useState('');
   const [expectedIncome, setExpectedIncome] = useState(0);
   const chartTheme = useChartTheme();
+  const { language } = useLanguage();
 
   useEffect(() => {
     fetchData();
@@ -162,6 +165,14 @@ function Trends() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Spending Prediction Section - Standalone */}
+      <div className="relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20 rounded-3xl blur-sm"></div>
+        <div className="relative bg-gray-50 dark:bg-slate-900/50 rounded-2xl p-4 sm:p-6 border-2 border-primary/30 dark:border-primary/20">
+          <SpendingPrediction language={language} />
         </div>
       </div>
 
