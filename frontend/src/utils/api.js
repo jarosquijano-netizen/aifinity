@@ -339,6 +339,22 @@ export const rolloverTransaction = async (transactionId) => {
   return response.data;
 };
 
+// Predictions endpoints
+export const getSpendingPrediction = async () => {
+  const response = await api.get('/predictions/spending');
+  return response.data;
+};
+
+export const getRecurringExpenses = async () => {
+  const response = await api.get('/predictions/recurring');
+  return response.data;
+};
+
+export const getSpendingPattern = async (months = 3) => {
+  const response = await api.get(`/predictions/pattern?months=${months}`);
+  return response.data;
+};
+
 export default api;
 
 

@@ -3,6 +3,8 @@ import { Loader, TrendingUp, TrendingDown, AlertCircle, Target } from 'lucide-re
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
 import { getTrends, getSettings, getActualIncome } from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
+import { useLanguage } from '../context/LanguageContext';
+import SpendingPrediction from './Trends/SpendingPrediction';
 
 function Trends() {
   const [data, setData] = useState(null);
@@ -10,6 +12,7 @@ function Trends() {
   const [error, setError] = useState('');
   const [expectedIncome, setExpectedIncome] = useState(0);
   const chartTheme = useChartTheme();
+  const { language } = useLanguage();
 
   useEffect(() => {
     fetchData();
@@ -164,6 +167,9 @@ function Trends() {
           </table>
         </div>
       </div>
+
+      {/* Spending Prediction Section */}
+      <SpendingPrediction language={language} />
 
       {/* Financial Health Overview - NEW! */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
