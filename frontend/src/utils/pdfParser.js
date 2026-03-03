@@ -1792,50 +1792,63 @@ async function parseSabadellCSV(lines) {
     // Initialize learned categories cache
     await loadLearnedCategories();
     
-    // Parse vertical format transactions
-    for (let i = 5; i < lines.length; i += 5) {
-      // Each transaction has 5 fields on 5 consecutive lines
-      if (i + 4 >= lines.length) break; // Not enough lines for a complete transaction
-      
-      const operationDate = lines[i]?.trim();     // F. Operativa
-      const valueDate = lines[i + 1]?.trim();     // F. Valor
-      const description = lines[i + 2]?.trim();    // Descripción
-      const amountStr = lines[i + 3]?.trim();    // Importe
-      const balanceStr = lines[i + 4]?.trim();    // Saldo
-      
-      // Debug first few transactions
-      if (i <= 20) {
-        console.error(`🔍 Parsing vertical transaction ${Math.floor((i-5)/5) + 1}:`, { operationDate, description: description?.substring(0, 30), amountStr, balanceStr });
+    // Parse vertical format transactions (copy-paste often includes extra lines like "archivo adjunto")
+    const findNext = (startIndex, predicate) => {
+      for (let idx = startIndex; idx < lines.length; idx++) {
+        const value = (lines[idx] || '').trim();
+        if (!value) continue;
+        if (isNonTransactionLabel(value)) continue;
+        if (predicate(value)) return { value, index: idx };
       }
-      
-      // Skip if missing required fields
+      return null;
+    };
+
+    let i = 5;
+    while (i < lines.length) {
+      const opDateResult = findNext(i, value => isLikelyDateString(value));
+      if (!opDateResult) break;
+      const operationDate = opDateResult.value;
+      i = opDateResult.index + 1;
+
+      const valueDateResult = findNext(i, value => isLikelyDateString(value));
+      const valueDate = valueDateResult?.value || null;
+      i = valueDateResult ? valueDateResult.index + 1 : i;
+
+      const descriptionResult = findNext(i, value => !isLikelyDateString(value));
+      if (!descriptionResult) break;
+      const description = descriptionResult.value;
+      i = descriptionResult.index + 1;
+
+      const amountResult = findNext(i, value => {
+        const parsed = parseAmount(value);
+        return !isNaN(parsed) && parsed !== 0;
+      });
+      if (!amountResult) break;
+      const amountStr = amountResult.value;
+      i = amountResult.index + 1;
+
+      const balanceResult = findNext(i, value => {
+        const parsed = parseAmount(value);
+        return !isNaN(parsed);
+      });
+      const balanceStr = balanceResult?.value || null;
+      i = balanceResult ? balanceResult.index + 1 : i;
+
       if (!operationDate || !description || !amountStr) {
-        if (i <= 20) {
-          console.error(`⏭️ Skipping transaction at line ${i}: missing fields`);
-        }
         continue;
       }
-      
+
       // Skip rows that are just category tags, headers, or empty
       if (description.length < 3 || isNonTransactionLabel(description) || !isLikelyDateString(operationDate)) {
         continue;
       }
-      
-      // Parse date (DD/MM/YYYY format)
+
       const parsedDate = parseSabadellDate(operationDate);
-      
-      // Parse amount (e.g., "-300,00 €" or "6.439,46 €")
       const parsedAmount = parseAmount(amountStr);
-      
-      // Skip if amount is 0 or invalid
       if (parsedAmount === 0 || isNaN(parsedAmount) || !parsedDate) {
-        if (i <= 20) {
-          console.error(`⏭️ Skipping transaction at line ${i}: invalid amount`, { parsedAmount, amountStr });
-        }
         continue;
       }
-      
-      // Store FIRST balance only (most recent transaction, usually at top)
+
       if (balanceStr && !balanceFound) {
         const parsedBalance = parseAmount(balanceStr);
         if (!isNaN(parsedBalance)) {
@@ -1843,27 +1856,18 @@ async function parseSabadellCSV(lines) {
           balanceFound = true;
         }
       }
-      
-      // Preserve description as-is - don't remove important information
-      // Only clean up excessive whitespace
-      let cleanedDescription = description.trim();
-      
-      // Clean up multiple spaces but preserve single spaces
-      cleanedDescription = cleanedDescription.replace(/\s+/g, ' ');
-      
-      // Categorize transaction (will use learned categories if available)
+
+      let cleanedDescription = description.trim().replace(/\s+/g, ' ');
       const category = await categorizeSabadellTransactionAsync(cleanedDescription);
-      
-      const transaction = {
+
+      transactions.push({
         bank: 'Sabadell',
         date: parsedDate,
         category: category,
         description: cleanedDescription,
         amount: Math.abs(parsedAmount),
         type: parsedAmount > 0 ? 'income' : 'expense'
-      };
-      
-      transactions.push(transaction);
+      });
     }
     
     console.error(`✅ parseSabadellCSV completed (vertical): ${transactions.length} transactions parsed, lastBalance: ${lastBalance}`);
