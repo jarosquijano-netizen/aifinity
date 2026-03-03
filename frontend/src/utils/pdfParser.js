@@ -1820,6 +1820,7 @@ async function parseSabadellCSV(lines) {
       i = descriptionResult.index + 1;
 
       const amountResult = findNext(i, value => {
+        if (isLikelyDateString(value)) return false;
         const parsed = parseAmount(value);
         return !isNaN(parsed) && parsed !== 0;
       });
@@ -1828,6 +1829,7 @@ async function parseSabadellCSV(lines) {
       i = amountResult.index + 1;
 
       const balanceResult = findNext(i, value => {
+        if (isLikelyDateString(value)) return false;
         const parsed = parseAmount(value);
         return !isNaN(parsed);
       });
