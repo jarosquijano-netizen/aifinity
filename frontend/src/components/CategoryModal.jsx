@@ -6,6 +6,21 @@ import { getCategoryIcon, getAllCategoriesWithIcons } from '../utils/categoryIco
 import { parseCategory } from '../utils/categoryFormat';
 import { normalizeCategory, isValidCategory, getMasterCategoryList } from '../utils/masterCategories';
 
+/**
+ * Normalize text for search: remove accents, convert to lowercase, trim
+ * @param {string} text - Text to normalize
+ * @returns {string} - Normalized text
+ */
+function normalizeSearchText(text) {
+  if (!text) return '';
+  
+  return text
+    .toLowerCase()
+    .normalize('NFD') // Decompose characters (á -> a + ´)
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+    .trim();
+}
+
 function CategoryModal({ transaction, categories, onClose, onUpdate }) {
   const [selectedCategory, setSelectedCategory] = useState(transaction?.category || '');
   const [updateSimilar, setUpdateSimilar] = useState(false);
@@ -31,11 +46,19 @@ function CategoryModal({ transaction, categories, onClose, onUpdate }) {
     return cat.name.includes(' > ') || masterList.includes(cat.name);
   });
   
-  // Filter categories based on search term
+  // Filter categories based on search term (case-insensitive, accent-insensitive)
   const filteredCategories = searchTerm 
-    ? allCategoriesWithGroups.filter(cat =>
-        cat.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    ? allCategoriesWithGroups.filter(cat => {
+        const normalizedSearch = normalizeSearchText(searchTerm);
+        const normalizedCategory = normalizeSearchText(cat.name);
+        
+        // Also search in the category group name
+        const normalizedGroup = normalizeSearchText(cat.group || '');
+        
+        // Check if search term matches category name or group name
+        return normalizedCategory.includes(normalizedSearch) || 
+               normalizedGroup.includes(normalizedSearch);
+      })
     : allCategoriesWithGroups;
   
   // Group filtered categories by group

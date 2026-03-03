@@ -247,6 +247,73 @@ router.post('/upload', optionalAuth, async (req, res) => {
         continue;
       }
 
+      // Auto-categorize using learned category mappings (from manual reassignments)
+      let finalCategory = category;
+      if (description) {
+        try {
+          const logCategoryMapping = process.env.LOG_CATEGORY_MAPPING === 'true';
+          const originalCategory = category;
+
+          // Normalize description for pattern matching
+          const normalizedDescription = description
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, ' ')
+            .substring(0, 200);
+          
+          // Try exact match first
+          let learnedCategoryResult = await client.query(
+            `SELECT category, usage_count 
+             FROM transaction_category_mappings
+             WHERE (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
+             AND description_pattern = $2
+             ORDER BY usage_count DESC, last_used DESC
+             LIMIT 1`,
+            [userId, normalizedDescription]
+          );
+          
+          // If no exact match, try similarity matching (find descriptions that contain or are contained in the pattern)
+          if (learnedCategoryResult.rows.length === 0) {
+            learnedCategoryResult = await client.query(
+              `SELECT category, usage_count, 
+                      CASE 
+                        WHEN description_pattern LIKE $2 || '%' THEN 1
+                        WHEN $2 LIKE description_pattern || '%' THEN 2
+                        WHEN description_pattern LIKE '%' || $2 || '%' THEN 3
+                        ELSE 4
+                      END as match_type
+               FROM transaction_category_mappings
+               WHERE (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
+               AND (
+                 description_pattern LIKE $2 || '%' OR
+                 $2 LIKE description_pattern || '%' OR
+                 description_pattern LIKE '%' || $2 || '%'
+               )
+               ORDER BY match_type ASC, usage_count DESC, last_used DESC
+               LIMIT 1`,
+              [userId, normalizedDescription]
+            );
+          }
+          
+          if (learnedCategoryResult.rows.length > 0) {
+            finalCategory = learnedCategoryResult.rows[0].category;
+            if (logCategoryMapping) {
+              if (originalCategory && originalCategory !== finalCategory) {
+                console.log(`🎯 Learned category override: "${description.substring(0, 50)}..." "${originalCategory}" → "${finalCategory}"`);
+              } else {
+                console.log(`🎯 Learned category applied: "${description.substring(0, 50)}..." -> "${finalCategory}"`);
+              }
+            }
+          }
+        } catch (learnError) {
+          console.error('⚠️ Error checking learned categories (non-critical):', learnError);
+          // Continue with original category if learning check fails
+        }
+      }
+      
+      // Normalize the final category
+      finalCategory = normalizeCategory(finalCategory);
+      
       // Auto-detect income that should be moved to next month
       // Las nóminas pagadas entre los días 25-31 se mueven al mes siguiente
       // CRITERIOS DE DETECCIÓN AUTOMÁTICA DE NÓMINA:
@@ -321,7 +388,8 @@ router.post('/upload', optionalAuth, async (req, res) => {
 
       // Ensure all values are properly formatted
       const cleanBank = bank || 'Unknown';
-      const cleanCategory = normalizeCategory(category || 'Uncategorized');
+      // Use finalCategory which includes learned category if available
+      const cleanCategory = finalCategory || normalizeCategory(category || 'Uncategorized');
       const cleanDescription = (description && typeof description === 'string') ? description.trim() : 'Transaction';
       const cleanAmount = parseFloat(amount);
       
@@ -899,6 +967,46 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
         }
         
         updatedCount = verifyResult.rows.length;
+        
+        // Save learned category mappings for all similar transaction descriptions
+        try {
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS transaction_category_mappings (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER,
+              description_pattern TEXT NOT NULL,
+              category VARCHAR(255) NOT NULL,
+              usage_count INTEGER DEFAULT 1,
+              last_used TIMESTAMP DEFAULT NOW(),
+              created_at TIMESTAMP DEFAULT NOW(),
+              UNIQUE(user_id, description_pattern)
+            )
+          `);
+          
+          // Save mapping for each similar transaction description
+          for (const similarDesc of similarDescriptions) {
+            const normalizedDesc = similarDesc.description
+              .toLowerCase()
+              .trim()
+              .replace(/\s+/g, ' ')
+              .substring(0, 200);
+            
+            await client.query(`
+              INSERT INTO transaction_category_mappings (user_id, description_pattern, category, usage_count, last_used)
+              VALUES ($1, $2, $3, 1, NOW())
+              ON CONFLICT (user_id, description_pattern) 
+              DO UPDATE SET 
+                category = EXCLUDED.category,
+                usage_count = transaction_category_mappings.usage_count + 1,
+                last_used = NOW()
+            `, [userId, normalizedDesc, normalizedCategory]);
+          }
+          
+          console.log(`💾 Saved ${similarDescriptions.length} category mappings for similar transactions`);
+        } catch (mappingError) {
+          console.error('⚠️ Error saving category mappings for similar transactions (non-critical):', mappingError);
+          // Don't fail the transaction if mapping save fails
+        }
       } else if (updateSimilar) {
         console.log(`\n🔍 No similar transactions found (≥90% similarity) for: "${transaction.description.substring(0, 60)}..."\n`);
       }

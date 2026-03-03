@@ -359,6 +359,61 @@ function parseDate(dateStr) {
 }
 
 /**
+ * Check if a string looks like a date (common bank formats)
+ */
+function isLikelyDateString(dateStr) {
+  if (!dateStr) return false;
+  const trimmed = dateStr.trim();
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ||
+    /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}$/.test(trimmed)
+  );
+}
+
+/**
+ * Detect non-transaction labels in pasted/CSV data
+ */
+function isNonTransactionLabel(text) {
+  if (!text) return true;
+  const normalized = text.toLowerCase().trim();
+  if (!normalized) return true;
+
+  const normalizedNoAccents = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const blacklist = new Set([
+    'archivo adjunto',
+    'adjunto',
+    'acciones',
+    'accion',
+    'action',
+    'fecha',
+    'descripcion',
+    'importe',
+    'saldo',
+    'f operativa',
+    'f valor',
+    'concepto',
+    'categoria',
+    'subcategoria',
+    'comentario',
+    'imagen',
+    'balance en cuenta tras este movimiento',
+    'movimientos de credito',
+    'movimientos de debito',
+    'saldos y movimientos',
+    'total operaciones',
+    'importe total',
+    'saldo aplazado anterior',
+    'importe total a liquidar'
+  ]);
+
+  if (blacklist.has(normalizedNoAccents)) return true;
+  if (/^archivo\s+adjunto(s)?$/.test(normalizedNoAccents)) return true;
+  if (/^ver\s+(adjunto|documento)s?$/.test(normalizedNoAccents)) return true;
+
+  return false;
+}
+
+/**
  * Parse amount string to number
  * Handles both European (1.251,36) and US (1,251.36) formats
  */
@@ -994,6 +1049,10 @@ function parseSabadellTextFormat(lines) {
       // Next line should be description
       i++;
       const description = i < lines.length ? lines[i].trim() : '';
+      if (isNonTransactionLabel(description)) {
+        i++;
+        continue;
+      }
       
       // Next line should be amount
       i++;
@@ -1757,8 +1816,8 @@ async function parseSabadellCSV(lines) {
         continue;
       }
       
-      // Skip rows that are just category tags or empty
-      if (description.length < 3) {
+      // Skip rows that are just category tags, headers, or empty
+      if (description.length < 3 || isNonTransactionLabel(description) || !isLikelyDateString(operationDate)) {
         continue;
       }
       
@@ -1769,7 +1828,7 @@ async function parseSabadellCSV(lines) {
       const parsedAmount = parseAmount(amountStr);
       
       // Skip if amount is 0 or invalid
-      if (parsedAmount === 0 || isNaN(parsedAmount)) {
+      if (parsedAmount === 0 || isNaN(parsedAmount) || !parsedDate) {
         if (i <= 20) {
           console.error(`⏭️ Skipping transaction at line ${i}: invalid amount`, { parsedAmount, amountStr });
         }
@@ -1902,8 +1961,8 @@ async function parseSabadellCSV(lines) {
           console.error(`🔍 Parsing transaction ${i}:`, { operationDate, description: description?.substring(0, 30), amountStr, balanceStr });
         }
         
-        // Skip rows that are just category tags or empty
-        if (!description || description.length < 3) {
+        // Skip rows that are just category tags, headers, or empty
+        if (!description || description.length < 3 || isNonTransactionLabel(description) || !isLikelyDateString(operationDate)) {
           if (i <= headerRowIndex + 5) {
             console.error(`⏭️ Skipping line ${i}: invalid description`);
           }
@@ -1917,7 +1976,7 @@ async function parseSabadellCSV(lines) {
         const parsedAmount = parseAmount(amountStr);
         
         // Skip if amount is 0 or invalid
-        if (parsedAmount === 0 || isNaN(parsedAmount) || !operationDate || !description) {
+        if (parsedAmount === 0 || isNaN(parsedAmount) || !operationDate || !description || !parsedDate) {
           if (i <= headerRowIndex + 5) {
             console.error(`⏭️ Skipping line ${i}: invalid amount or date`, { parsedAmount, operationDate, description: description.substring(0, 30) });
           }
@@ -1962,8 +2021,8 @@ async function parseSabadellCSV(lines) {
         const amountStr = fields[2]?.trim();
         const balanceStr = fields.length > 3 ? fields[3]?.trim() : null;
         
-        // Skip rows that are just category tags (Devolver, Ahorrar una parte, etc.)
-        if (description && (description === 'Devolver' || description === 'Ahorrar una parte' || description.length < 3)) {
+        // Skip rows that are just category tags, headers, or empty
+        if (description && (description === 'Devolver' || description === 'Ahorrar una parte' || description.length < 3 || isNonTransactionLabel(description) || !isLikelyDateString(dateStr))) {
           continue;
         }
         
@@ -1974,7 +2033,7 @@ async function parseSabadellCSV(lines) {
         const parsedAmount = parseAmount(amountStr);
         
         // Skip if amount is 0 or invalid
-        if (parsedAmount === 0 || isNaN(parsedAmount) || !dateStr || !description) {
+        if (parsedAmount === 0 || isNaN(parsedAmount) || !dateStr || !description || !parsedDate) {
           continue;
         }
         
@@ -2016,15 +2075,18 @@ async function parseSabadellCSV(lines) {
           }
         }
         
-        if (operationDate && amount && concept) {
+        if (operationDate && amount && concept && isLikelyDateString(operationDate) && !isNonTransactionLabel(concept)) {
           const parsedAmount = parseAmount(amount);
           
           // Skip if amount is 0 or invalid
           if (parsedAmount === 0 || isNaN(parsedAmount)) continue;
           
+          const parsedDate = parseSabadellDate(operationDate);
+          if (!parsedDate) continue;
+          
           const transaction = {
             bank: 'Sabadell',
-            date: parseSabadellDate(operationDate),
+            date: parsedDate,
             category: categorizeSabadellTransaction(concept),
             description: cleanSabadellDescription(concept),
             amount: Math.abs(parsedAmount),
@@ -2051,7 +2113,7 @@ async function parseSabadellCSV(lines) {
  * Parse Sabadell date format (DD/MM/YYYY)
  */
 function parseSabadellDate(dateStr) {
-  if (!dateStr) return new Date().toISOString().split('T')[0];
+  if (!isLikelyDateString(dateStr)) return null;
   
   const parts = dateStr.split('/');
   if (parts.length === 3) {
@@ -2162,12 +2224,12 @@ function categorizeSabadellTransaction(description) {
   
   // Transfers
   if (descLower.includes('traspaso')) {
-    return 'Transferencias';
+    return 'Finanzas > Transferencias';
   }
   
   // Bizum payments
   if (descLower.includes('bizum')) {
-    return 'Transferencias';
+    return 'Finanzas > Transferencias';
   }
   
   // Card purchases
@@ -2176,74 +2238,74 @@ function categorizeSabadellTransaction(description) {
     if (descLower.includes('mercadona') || descLower.includes('lidl') || 
         descLower.includes('aldi') || descLower.includes('guissona') ||
         descLower.includes('hiper garraf') || descLower.includes('fruta')) {
-      return 'Supermercado';
+      return 'Alimentación > Supermercado';
     }
     
     // Restaurants
     if (descLower.includes('restaurant') || descLower.includes('bar ') ||
         descLower.includes('mcdonald') || descLower.includes('heladeria') ||
         descLower.includes('pizz') || descLower.includes('cafe')) {
-      return 'Restaurante';
+      return 'Alimentación > Restaurante';
     }
     
     // Transport/Parking
     if (descLower.includes('aparcament') || descLower.includes('parking') ||
         descLower.includes('peaje')) {
-      return 'Parking y peaje';
+      return 'Transporte > Parking y peaje';
     }
     
     // Gas/Gasolina
     if (descLower.includes('gas station') || descLower.includes('repsol') ||
         descLower.includes('cepsa') || descLower.includes('bp ')) {
-      return 'Gasolina';
+      return 'Transporte > Gasolina';
     }
     
     // Entertainment/Subscriptions
     if (descLower.includes('disney') || descLower.includes('netflix')) {
-      return 'Televisión';
+      return 'Servicios > Televisión';
     }
     
     if (descLower.includes('oculus') || descLower.includes('google one') ||
         descLower.includes('google*gsuite')) {
-      return 'Servicios y productos online';
+      return 'Servicios > Servicios y productos online';
     }
     
     // Sports/Gym
     if (descLower.includes('aqua sport') || descLower.includes('sport')) {
-      return 'Deporte';
+      return 'Deporte > Deporte';
     }
     
     // Beauty
     if (descLower.includes('peluquer') || descLower.includes('belleza')) {
-      return 'Belleza';
+      return 'Personal > Belleza';
     }
     
     // Pharmacy
     if (descLower.includes('pharmac') || descLower.includes('farmaci')) {
-      return 'Farmacia';
+      return 'Salud > Farmacia';
     }
     
     // Clothing
     if (descLower.includes('ropa') || descLower.includes('zara') ||
         descLower.includes('h&m')) {
-      return 'Ropa';
+      return 'Compras > Ropa';
     }
     
     // Electronics
     if (descLower.includes('electronic') || descLower.includes('amazon') ||
         descLower.includes('media markt')) {
-      return 'Electrónica';
+      return 'Compras > Electrónica';
     }
     
     // Home/Hogar
     if (descLower.includes('ikea') || descLower.includes('decor') ||
         descLower.includes('muebl')) {
-      return 'Hogar';
+      return 'Vivienda > Hogar';
     }
     
     // Flowers/Plants
     if (descLower.includes('flor') || descLower.includes('plant')) {
-      return 'Regalos';
+      return 'Personal > Regalos';
     }
     
     // Use smart categorization instead of generic "Otras compras"
@@ -2253,105 +2315,105 @@ function categorizeSabadellTransaction(description) {
   // Direct debits (ADEUDO RECIBO)
   if (descLower.includes('adeudo recibo')) {
     // Health insurance
-    if (descLower.includes('sanitas')) return 'Seguro salud';
+    if (descLower.includes('sanitas')) return 'Seguros > Seguro salud';
     
     // Sports/Gym
-    if (descLower.includes('aqua sport') || descLower.includes('gym')) return 'Deporte';
+    if (descLower.includes('aqua sport') || descLower.includes('gym')) return 'Deporte > Deporte';
     
     // Community fees
     if (descLower.includes('aram residencial') || descLower.includes('comunidad')) {
-      return 'Comunidad';
+      return 'Vivienda > Comunidad';
     }
     
     // Wave surf school
-    if (descLower.includes('wave')) return 'Otros salud, saber y deporte';
+    if (descLower.includes('wave')) return 'Salud > Otros salud, saber y deporte';
     
-    return 'Otros servicios';
+    return 'Servicios > Otros servicios';
   }
   
   // Education (Estudios)
   if (descLower.includes('estudios') || descLower.includes('escola')) {
-    return 'Estudios';
+    return 'Educación > Estudios';
   }
   
   // Financing/Loans (Préstamos)
   if (descLower.includes('financiera') || descLower.includes('cetelem') ||
       descLower.includes('santander consumer') || descLower.includes('credipago')) {
-    return 'Préstamos';
+    return 'Finanzas > Préstamos';
   }
   
   // Utilities - Phone/Mobile
   if (descLower.includes('telefono') || descLower.includes('o2 fibra') ||
       descLower.includes('movil') || descLower.includes('movistar')) {
-    return 'Móvil';
+    return 'Servicios > Móvil';
   }
   
   // Utilities - Internet
   if (descLower.includes('internet') && !descLower.includes('telefono')) {
-    return 'Internet';
+    return 'Servicios > Internet';
   }
   
   // Utilities - Electricity
   if (descLower.includes('electric') || descLower.includes('endesa') ||
       descLower.includes('iberdrola')) {
-    return 'Electricidad';
+    return 'Servicios > Electricidad';
   }
   
   // Utilities - Water
   if (descLower.includes('agua') || descLower.includes('water')) {
-    return 'Agua';
+    return 'Servicios > Agua';
   }
   
   // Insurance/Security - Alarmas
   if (descLower.includes('securitas') || descLower.includes('alarm')) {
-    return 'Alarmas y seguridad';
+    return 'Vivienda > Alarmas y seguridad';
   }
   
   // Insurance - Health
   if (descLower.includes('seguro') && descLower.includes('salud')) {
-    return 'Seguro salud';
+    return 'Seguros > Seguro salud';
   }
   
   // Insurance - Home
   if (descLower.includes('seguro') && descLower.includes('hogar')) {
-    return 'Seguro hogar';
+    return 'Seguros > Seguro hogar';
   }
   
   // Insurance - Auto
   if (descLower.includes('seguro') && (descLower.includes('auto') || descLower.includes('coche'))) {
-    return 'Seguro auto';
+    return 'Seguros > Seguro auto';
   }
   
   // Taxes (Impuestos)
   if (descLower.includes('impuestos') || descLower.includes('aj. vilanova')) {
-    return 'Impuestos';
+    return 'Organismos > Impuestos';
   }
   
   // Municipality (Ayuntamiento)
   if (descLower.includes('ayuntamiento')) {
-    return 'Ayuntamiento';
+    return 'Organismos > Ayuntamiento';
   }
   
   // Savings (Ahorro)
   if (descLower.includes('ahorro')) {
-    return 'Efectivo';
+    return 'Finanzas > Ahorro e inversiones';
   }
   
   // Bank commissions
   if (descLower.includes('comisión') || descLower.includes('comision')) {
-    return 'Cargos bancarios';
+    return 'Servicios > Cargos bancarios';
   }
   
   // Vehicle maintenance
   if (descLower.includes('taller') || descLower.includes('reparaci') ||
       descLower.includes('mecanico')) {
-    return 'Mantenimiento vehículo';
+    return 'Transporte > Mantenimiento vehículo';
   }
   
   // Home maintenance
   if (descLower.includes('fontaner') || descLower.includes('carpinter') ||
       descLower.includes('mantenimiento')) {
-    return 'Mantenimiento hogar';
+    return 'Vivienda > Mantenimiento hogar';
   }
   
   // Use smart categorization as final fallback
@@ -2567,7 +2629,7 @@ function parseGenericCSV(lines) {
       // Format: Bank,Date,Category,Description,Amount,Type
       const [bank, date, category, description, amount, type] = fields;
       
-      if (date && amount) {
+      if (date && amount && isLikelyDateString(date)) {
         transactions.push({
           bank: bank || 'Unknown',
           date: parseDate(date),
@@ -2581,7 +2643,7 @@ function parseGenericCSV(lines) {
       // Format: Date,Description,Amount (minimal)
       const [date, description, amount] = fields;
       
-      if (date && amount) {
+      if (date && amount && isLikelyDateString(date)) {
         const parsedAmount = parseAmount(amount);
         transactions.push({
           bank: 'CSV Import',
@@ -3283,47 +3345,47 @@ function categorizeCreditCardTransaction(description, isRefund) {
   
   // If it's a refund, mark it specially
   if (isRefund) {
-    return 'Reembolsos';
+    return 'Finanzas > Ingresos';
   }
   
   // Online shopping
   if (descLower.includes('aliexpress') || descLower.includes('amazon') ||
       descLower.includes('ebay') || descLower.includes('wish')) {
-    return 'Compras online';
+    return 'Compras > Compras';
   }
   
   // Jewelry/Gifts
   if (descLower.includes('jewel') || descLower.includes('joyeria') ||
       descLower.includes('regalo') || descLower.includes('petals') ||
       descLower.includes('studio')) {
-    return 'Regalos';
+    return 'Personal > Regalos';
   }
   
   // Restaurants
   if (descLower.includes('restaurant') || descLower.includes('bar ') ||
       descLower.includes('cafe') || descLower.includes('pizza')) {
-    return 'Restaurante';
+    return 'Alimentación > Restaurante';
   }
   
   // Travel
       if (descLower.includes('hotel') || descLower.includes('airbnb') || descLower.includes('vacation') || descLower.includes('vacaciones') ||
       descLower.includes('booking') || descLower.includes('flight')) {
-    return 'Viajes';
+    return 'Ocio > Vacation';
   }
   
   // Gas stations
   if (descLower.includes('repsol') || descLower.includes('cepsa') ||
       descLower.includes('galp') || descLower.includes('bp')) {
-    return 'Gasolina';
+    return 'Transporte > Gasolina';
   }
   
   // Subscriptions
   if (descLower.includes('netflix') || descLower.includes('spotify') ||
       descLower.includes('disney') || descLower.includes('google')) {
-    return 'Suscripciones';
+    return 'Servicios > Servicios y productos online';
   }
   
-  return 'Otras compras';
+  return 'Compras > Otras compras';
 }
 
 /**
