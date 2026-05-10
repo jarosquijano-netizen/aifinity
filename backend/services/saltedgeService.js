@@ -56,7 +56,7 @@ export async function createConnectSession(customerId, returnTo) {
       const { data } = await getClient().post(path, {
         data: {
           customer_id: customerId,
-          consent: { scopes: ['account_details', 'transactions_details'] },
+          consent: { scopes: ['accounts', 'transactions'] },
           attempt: {
             return_to: returnTo,
             fetch_scopes: ['accounts', 'transactions'],
