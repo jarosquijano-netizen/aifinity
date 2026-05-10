@@ -33,7 +33,13 @@ router.post('/connect', authenticateToken, async (req, res) => {
     );
     res.json({ connectUrl: session.connect_url, expiresAt: session.expires_at });
   } catch (err) {
-    console.error('Salt Edge connect error:', err.response?.data || err.message);
+    console.error('Salt Edge connect error:', {
+      url: err.config?.url,
+      method: err.config?.method,
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
     res.status(500).json({ error: 'Failed to create Salt Edge connect session' });
   }
 });
