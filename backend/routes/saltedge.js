@@ -10,9 +10,11 @@ async function ensureCustomer(userId) {
     'SELECT saltedge_customer_id FROM users WHERE id = $1',
     [userId]
   );
+  console.log('[saltedge] DB lookup for user', userId, '→', rows[0]);
   if (rows[0]?.saltedge_customer_id) return rows[0].saltedge_customer_id;
 
   const customer = await se.getOrCreateCustomer(`aifinity-user-${userId}`);
+  console.log('[saltedge] getOrCreateCustomer returned:', customer);
   await pool.query(
     'UPDATE users SET saltedge_customer_id = $1 WHERE id = $2',
     [customer.id, userId]
