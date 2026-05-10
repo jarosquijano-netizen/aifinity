@@ -1,27 +1,27 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.SALTEDGE_BASE_URL || 'https://www.saltedge.com/api/v5';
-
-const client = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'App-id': process.env.SALTEDGE_APP_ID,
-    'Secret': process.env.SALTEDGE_SECRET,
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
-  timeout: 30000,
-});
+function getClient() {
+  return axios.create({
+    baseURL: process.env.SALTEDGE_BASE_URL || 'https://www.saltedge.com/api/v5',
+    headers: {
+      'App-id': process.env.SALTEDGE_APP_ID,
+      'Secret': process.env.SALTEDGE_SECRET,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    timeout: 30000,
+  });
+}
 
 export async function createCustomer(identifier) {
-  const { data } = await client.post('/customers', {
+  const { data } = await getClient().post('/customers', {
     data: { identifier: String(identifier) },
   });
   return data.data;
 }
 
 export async function createConnectSession(customerId, returnTo) {
-  const { data } = await client.post('/connect_sessions/create', {
+  const { data } = await getClient().post('/connect_sessions/create', {
     data: {
       customer_id: customerId,
       consent: {
@@ -37,31 +37,31 @@ export async function createConnectSession(customerId, returnTo) {
 }
 
 export async function listConnections(customerId) {
-  const { data } = await client.get('/connections', {
+  const { data } = await getClient().get('/connections', {
     params: { customer_id: customerId },
   });
   return data.data;
 }
 
 export async function getConnection(connectionId) {
-  const { data } = await client.get(`/connections/${connectionId}`);
+  const { data } = await getClient().get(`/connections/${connectionId}`);
   return data.data;
 }
 
 export async function refreshConnection(connectionId) {
-  const { data } = await client.put(`/connections/${connectionId}/refresh`, {
+  const { data } = await getClient().put(`/connections/${connectionId}/refresh`, {
     data: { fetch_scopes: ['accounts', 'transactions'] },
   });
   return data.data;
 }
 
 export async function removeConnection(connectionId) {
-  const { data } = await client.delete(`/connections/${connectionId}`);
+  const { data } = await getClient().delete(`/connections/${connectionId}`);
   return data.data;
 }
 
 export async function listAccounts(connectionId) {
-  const { data } = await client.get('/accounts', {
+  const { data } = await getClient().get('/accounts', {
     params: { connection_id: connectionId },
   });
   return data.data;
@@ -70,6 +70,7 @@ export async function listAccounts(connectionId) {
 export async function listTransactions(connectionId, accountId, fromId = null) {
   const all = [];
   let nextId = fromId;
+  const client = getClient();
   do {
     const params = { connection_id: connectionId, account_id: accountId };
     if (nextId) params.from_id = nextId;
