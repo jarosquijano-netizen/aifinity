@@ -49,19 +49,27 @@ export async function getOrCreateCustomer(identifier) {
 }
 
 export async function createConnectSession(customerId, returnTo) {
-  const { data } = await getClient().post('/connect_sessions/create', {
-    data: {
-      customer_id: customerId,
-      consent: {
-        scopes: ['account_details', 'transactions_details'],
-      },
-      attempt: {
-        return_to: returnTo,
-        fetch_scopes: ['accounts', 'transactions'],
-      },
-    },
-  });
-  return data.data;
+  const paths = ['/connections/connect', '/connect_sessions/create'];
+  let lastErr;
+  for (const path of paths) {
+    try {
+      const { data } = await getClient().post(path, {
+        data: {
+          customer_id: customerId,
+          consent: { scopes: ['account_details', 'transactions_details'] },
+          attempt: {
+            return_to: returnTo,
+            fetch_scopes: ['accounts', 'transactions'],
+          },
+        },
+      });
+      return data.data;
+    } catch (e) {
+      lastErr = e;
+      if (e.response?.status !== 404) throw e;
+    }
+  }
+  throw lastErr;
 }
 
 export async function listConnections(customerId) {
