@@ -27,7 +27,10 @@ export async function findCustomerByIdentifier(identifier) {
     const params = nextId ? { from_id: nextId } : {};
     const { data } = await client.get('/customers', { params });
     const match = data.data.find((c) => c.identifier === String(identifier));
-    if (match) return match;
+    if (match) {
+      if (!match.customer_id && match.id) match.customer_id = match.id;
+      return match;
+    }
     nextId = data.meta?.next_id || null;
   } while (nextId);
   return null;

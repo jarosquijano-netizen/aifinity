@@ -14,12 +14,12 @@ async function ensureCustomer(userId) {
   if (rows[0]?.saltedge_customer_id) return rows[0].saltedge_customer_id;
 
   const customer = await se.getOrCreateCustomer(`aifinity-user-${userId}`);
-  console.log('[saltedge] getOrCreateCustomer returned:', customer);
+  const customerId = customer.customer_id || customer.id;
   await pool.query(
     'UPDATE users SET saltedge_customer_id = $1 WHERE id = $2',
-    [customer.id, userId]
+    [customerId, userId]
   );
-  return customer.id;
+  return customerId;
 }
 
 router.post('/connect', authenticateToken, async (req, res) => {
