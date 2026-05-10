@@ -16,6 +16,7 @@ import diagnosticRoutes from './routes/diagnostic.js';
 import fixNominaRoutes from './routes/fix-nomina.js';
 import fixRemesasTraspasosRoutes from './routes/fix-remesas-traspasos.js';
 import predictionsRoutes from './routes/predictions.js';
+import saltedgeRoutes from './routes/saltedge.js';
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api/fix-nomina', fixNominaRoutes);
 app.use('/api/fix-remesas-traspasos', fixRemesasTraspasosRoutes);
 app.use('/api/predictions', predictionsRoutes);
+app.use('/api/saltedge', saltedgeRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

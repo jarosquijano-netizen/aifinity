@@ -355,6 +355,27 @@ export const getSpendingPattern = async (months = 3) => {
   return response.data;
 };
 
+// Salt Edge endpoints
+export const startSaltEdgeConnect = async (returnTo) => {
+  const response = await api.post('/saltedge/connect', { returnTo });
+  return response.data;
+};
+
+export const listSaltEdgeConnections = async () => {
+  const response = await api.get('/saltedge/connections');
+  return response.data;
+};
+
+export const syncSaltEdgeConnection = async (connectionId) => {
+  const response = await api.post(`/saltedge/sync/${connectionId}`);
+  return response.data;
+};
+
+export const removeSaltEdgeConnection = async (connectionId) => {
+  const response = await api.delete(`/saltedge/connections/${connectionId}`);
+  return response.data;
+};
+
 export default api;
 
 
