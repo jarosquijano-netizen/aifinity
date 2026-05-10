@@ -20,6 +20,31 @@ export async function createCustomer(identifier) {
   return data.data;
 }
 
+export async function findCustomerByIdentifier(identifier) {
+  const client = getClient();
+  let nextId = null;
+  do {
+    const params = nextId ? { from_id: nextId } : {};
+    const { data } = await client.get('/customers', { params });
+    const match = data.data.find((c) => c.identifier === String(identifier));
+    if (match) return match;
+    nextId = data.meta?.next_id || null;
+  } while (nextId);
+  return null;
+}
+
+export async function getOrCreateCustomer(identifier) {
+  try {
+    return await createCustomer(identifier);
+  } catch (e) {
+    if (e.response?.data?.error?.class === 'DuplicatedCustomer') {
+      const existing = await findCustomerByIdentifier(identifier);
+      if (existing) return existing;
+    }
+    throw e;
+  }
+}
+
 export async function createConnectSession(customerId, returnTo) {
   const { data } = await getClient().post('/connect_sessions/create', {
     data: {

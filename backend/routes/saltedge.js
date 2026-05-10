@@ -12,7 +12,7 @@ async function ensureCustomer(userId) {
   );
   if (rows[0]?.saltedge_customer_id) return rows[0].saltedge_customer_id;
 
-  const customer = await se.createCustomer(`aifinity-user-${userId}`);
+  const customer = await se.getOrCreateCustomer(`aifinity-user-${userId}`);
   await pool.query(
     'UPDATE users SET saltedge_customer_id = $1 WHERE id = $2',
     [customer.id, userId]
