@@ -260,8 +260,6 @@ export default function LandingPage({ onLogin, onGetStarted }) {
         <div className="lp-soc-div"></div>
         <div className="lp-soc-stat"><div className="lp-soc-num">PSD2</div><div className="lp-soc-lbl">open banking compliant</div></div>
         <div className="lp-soc-div"></div>
-        <div className="lp-soc-stat"><div className="lp-soc-num">Salt Edge</div><div className="lp-soc-lbl">bank connection partner</div></div>
-        <div className="lp-soc-div"></div>
         <div className="lp-soc-stat"><div className="lp-soc-num">EN / ES</div><div className="lp-soc-lbl">bilingual platform</div></div>
       </div>
 
@@ -277,7 +275,7 @@ export default function LandingPage({ onLogin, onGetStarted }) {
               <svg width="22" height="22" style={{ color: '#17B8CC' }}><use href="#lp-ic-landmark" /></svg>
             </div>
             <h3>Connect your bank</h3>
-            <p>Link accounts via PSD2 Open Banking (powered by Salt Edge) or upload PDF/CSV from ING, Sabadell, BBVA, CaixaBank and more. Secure, read-only access.</p>
+            <p>Link accounts via PSD2 Open Banking or upload PDF/CSV from ING, Sabadell, BBVA, CaixaBank and more. Secure, read-only access.</p>
           </div>
           <div className="lp-how-step">
             <div className="lp-how-num">02</div>
@@ -347,10 +345,10 @@ export default function LandingPage({ onLogin, onGetStarted }) {
                 <svg width="22" height="22" style={{ color: '#17B8CC' }}><use href="#lp-ic-link-2" /></svg>
               </div>
               <h3>Open Banking Sync</h3>
-              <p>Connect directly to 2,000+ European banks via Salt Edge PSD2. Transactions sync automatically — always current.</p>
+              <p>Connect directly to 2,000+ European banks via PSD2 Open Banking. Transactions sync automatically — always current.</p>
               <div className="lp-badges">
                 <div className="lp-badge"><svg width="11" height="11" style={{ color: '#0E99AA' }}><use href="#lp-ic-shield-check" /></svg>PSD2</div>
-                <div className="lp-badge"><svg width="11" height="11" style={{ color: '#0E99AA' }}><use href="#lp-ic-plug" /></svg>Salt Edge</div>
+                <div className="lp-badge"><svg width="11" height="11" style={{ color: '#0E99AA' }}><use href="#lp-ic-plug" /></svg>Open API</div>
                 <div className="lp-badge"><svg width="11" height="11" style={{ color: '#0E99AA' }}><use href="#lp-ic-eye" /></svg>Read-only</div>
               </div>
             </div>
