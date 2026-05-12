@@ -9,6 +9,7 @@ import Insights from './components/Insights';
 import Budget from './components/Budget';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
+import LandingPage from './components/LandingPage';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { getStoredAuth, clearAuth } from './utils/auth';
 import { useLanguage } from './context/LanguageContext';
@@ -144,18 +145,19 @@ function App() {
     { id: 'settings', label: t('settings') },
   ];
 
-  // If not logged in, show only the Auth component
+  // If not logged in, show landing page with optional Auth modal
   if (!user) {
-    console.log('🚪 Rendering login screen - user is null');
+    console.log('🚪 Rendering landing page - user is null');
     return (
-      <div className="min-h-screen transition-colors duration-300">
-        <Header 
-          user={null} 
-          onLogin={() => {}} 
-          onLogout={handleLogout}
+      <>
+        <LandingPage
+          onLogin={() => setShowAuth(true)}
+          onGetStarted={() => setShowAuth(true)}
         />
-        <Auth onClose={() => console.log('❌ Close clicked - but we ignore it')} onLogin={handleLogin} />
-      </div>
+        {showAuth && (
+          <Auth onClose={() => setShowAuth(false)} onLogin={handleLogin} />
+        )}
+      </>
     );
   }
 
