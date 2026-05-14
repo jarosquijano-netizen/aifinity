@@ -38,6 +38,7 @@ function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [transactionFilters, setTransactionFilters] = useState({});
   const [justLoggedIn, setJustLoggedIn] = useState(false);
+  const [saltEdgeBanner, setSaltEdgeBanner] = useState(null);
   const { t } = useLanguage();
 
   // Session timeout handler
@@ -107,6 +108,22 @@ function App() {
     }
   }, []);
 
+  // Handle Salt Edge OAuth return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const saltedge = params.get('saltedge');
+    if (saltedge) {
+      const isError = saltedge === 'error';
+      setSaltEdgeBanner(isError ? 'error' : 'success');
+      setActiveTab('settings');
+      // Clean the query param from the URL without reloading
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', clean);
+      // Auto-dismiss after 6 seconds
+      setTimeout(() => setSaltEdgeBanner(null), 6000);
+    }
+  }, []);
+
   const handleUploadComplete = () => {
     setRefreshTrigger(prev => prev + 1);
     // Don't redirect - stay on upload page
@@ -165,9 +182,28 @@ function App() {
 
   // If logged in, show the full app
   return (
-    <div className="min-h-screen transition-colors duration-300">
-      <Header 
-        user={user} 
+    <div className="min-h-screen transition-colors duration-300" style={saltEdgeBanner ? { paddingTop: '48px' } : {}}>
+      {saltEdgeBanner && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+            background: saltEdgeBanner === 'success' ? '#0B9E72' : '#DC3755',
+            color: '#fff', padding: '14px 24px', textAlign: 'center',
+            fontWeight: 500, fontSize: '14px', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', gap: '10px',
+          }}
+        >
+          {saltEdgeBanner === 'success'
+            ? '✓ Bank connection successful! Your accounts are syncing — check Settings to confirm.'
+            : '⚠ Bank connection was cancelled or failed. Please try again in Settings.'}
+          <button
+            onClick={() => setSaltEdgeBanner(null)}
+            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '18px', lineHeight: 1, marginLeft: '8px' }}
+          >×</button>
+        </div>
+      )}
+      <Header
+        user={user}
         onLogin={() => setShowAuth(true)} 
         onLogout={handleLogout}
         onLogoClick={() => setActiveTab('dashboard')}
@@ -240,6 +276,3 @@ function App() {
 }
 
 export default App;
-
-
-
