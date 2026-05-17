@@ -23,19 +23,28 @@ const statusClasses = {
 export default function CopyGuide({ onRevert, reverting }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
   useEffect(() => {
     api.get('/upload/copy-guide')
       .then(r => setData(r.data))
-      .catch(err => console.error('CopyGuide fetch error:', err))
+      .catch(err => {
+        console.error('CopyGuide fetch error:', err);
+        setError(err?.response?.status || 'error');
+      })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return (
     <div className="text-sm text-gray-400 dark:text-gray-500 p-3 text-center animate-pulse">
       Cargando guía de copia…
+    </div>
+  );
+  if (error) return (
+    <div className="text-xs text-amber-600 dark:text-amber-400 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700 mb-6">
+      ⚠ No se pudo cargar la guía de copia (API {error}). El backend puede estar actualizándose — recarga la página en un momento.
     </div>
   );
   if (!data) return null;
