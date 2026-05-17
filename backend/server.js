@@ -84,5 +84,3 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔒 JWT: ${process.env.JWT_SECRET ? 'Configured' : 'Not configured'}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
-
-
