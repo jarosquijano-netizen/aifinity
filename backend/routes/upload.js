@@ -14,7 +14,7 @@ router.get('/copy-guide', authenticateToken, async (req, res) => {
       `SELECT
         ba.id AS account_id,
         ba.name AS account_name,
-        COALESCE(ba.bank, 'Manual') AS bank,
+        COALESCE(MAX(t.bank), 'Manual') AS bank,
         MAX(t.date)::text AS last_transaction_date,
         (MAX(t.date) + INTERVAL '1 day')::date::text AS copy_from_date,
         (CURRENT_DATE - MAX(t.date)::date)::int AS days_ago
@@ -25,7 +25,7 @@ router.get('/copy-guide', authenticateToken, async (req, res) => {
         AND (t.computable = true OR t.computable IS NULL)
       WHERE ba.user_id = $1
         AND (ba.exclude_from_stats = false OR ba.exclude_from_stats IS NULL)
-      GROUP BY ba.id, ba.name, ba.bank
+      GROUP BY ba.id, ba.name
       ORDER BY MAX(t.date) DESC NULLS LAST`,
       [userId]
     );
