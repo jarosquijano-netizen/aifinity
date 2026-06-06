@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard, RotateCcw } from 'lucide-react';
-import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
+import { parsePDFTransactions, parseCSVTransactions, parseXLSTransactions } from '../utils/pdfParser';
 import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload, deleteRecentTransactions, deleteCreditCardTransactions } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import CopyGuide from './Upload/CopyGuide';
@@ -361,14 +361,15 @@ function Upload({ onUploadComplete }) {
         // Determine file type - check both MIME type and extension
         const fileName = file.name.toLowerCase();
         const isPDF = file.type === 'application/pdf' || fileName.endsWith('.pdf');
-        const isCSV = file.type === 'text/csv' || 
-                     file.type === 'application/vnd.ms-excel' ||
-                     fileName.endsWith('.csv') || 
-                     fileName.endsWith('.xls') || 
-                     fileName.endsWith('.xlsx');
-        
+        const isXLS = fileName.endsWith('.xls') || fileName.endsWith('.xlsx') ||
+                      file.type === 'application/vnd.ms-excel' ||
+                      file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const isCSV = !isXLS && (file.type === 'text/csv' || fileName.endsWith('.csv'));
+
         if (isPDF) {
           parseResult = await parsePDFTransactions(file);
+        } else if (isXLS) {
+          parseResult = await parseXLSTransactions(file);
         } else if (isCSV) {
           parseResult = await parseCSVTransactions(file);
         } else {
