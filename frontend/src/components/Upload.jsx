@@ -4,7 +4,6 @@ import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
 import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload, deleteRecentTransactions, deleteCreditCardTransactions, getLastTransactionByAccount } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import AccountSelector from './AccountSelector';
-import ConnectBank from './ConnectBank';
 
 function Upload({ onUploadComplete }) {
   const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'paste'
@@ -483,7 +482,6 @@ function Upload({ onUploadComplete }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <ConnectBank onSyncComplete={onUploadComplete} />
       {/* Last Transaction by Account */}
       {lastTransactionsByAccount.length > 0 && (
         <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
