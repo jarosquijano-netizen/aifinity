@@ -3542,8 +3542,11 @@ export async function parseXLSTransactions(file) {
   }
 
   // ── Parse transaction rows ───────────────────────────────────────────────
-  let inCreditSection = false;
-  let pastFirstHeader = false; // skip pending (AUT) block, take confirmed block
+  // Both MOVIMIENTOS DE CREDITO and MOVIMIENTOS DE DEBITO sections are card
+  // charges (expenses); pending (AUT) / installment / immediate settlement.
+  let inTxSection = false;
+  let currentSection = null; // 'credito' | 'debito'
+  let pastFirstHeader = false;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -3553,31 +3556,30 @@ export async function parseXLSTransactions(file) {
     const c3 = String(row[3] || '').trim();
     const c4 = String(row[4] || '').trim();
 
-    // Enter CREDITO section
-    if (/movimientos de credito/i.test(c0)) { inCreditSection = true; continue; }
-    // Leave section on DEBITO or summaries
-    if (/movimientos de debito/i.test(c0) || /saldo aplazado/i.test(c0) || /importe total/i.test(c0)) {
-      inCreditSection = false; continue;
+    if (/movimientos de credito/i.test(c0)) {
+      inTxSection = true; currentSection = 'credito'; pastFirstHeader = false; continue;
+    }
+    if (/movimientos de debito/i.test(c0)) {
+      inTxSection = true; currentSection = 'debito'; pastFirstHeader = false; continue;
+    }
+    if (/saldo aplazado/i.test(c0) || /importe total/i.test(c0)) {
+      inTxSection = false; continue;
     }
 
-    if (!inCreditSection) continue;
+    if (!inTxSection) continue;
 
-    // FECHA header row → marks start of a transaction block
     if (/^fecha$/i.test(c0) && /concepto/i.test(c1)) {
-      pastFirstHeader = true; // after first header we get pending (AUT), after second header confirmed
+      pastFirstHeader = true;
       continue;
     }
     if (!pastFirstHeader) continue;
 
-    // Skip summary and empty rows
     if (!c0 || /total operaciones/i.test(c2)) continue;
-
-    // Date field must match DD/MM
     if (!c0.match(/^\d{1,2}\/\d{1,2}$/)) continue;
 
     const concept = c1;
     const location = c2;
-    const sitMov = c3; // 'AUT' = pending, '' = confirmed
+    const sitMov = c3;
     const amountStr = c4.replace(/EUR.*$/i, '').trim();
     const amount = parseAmount(amountStr);
 
@@ -3596,6 +3598,7 @@ export async function parseXLSTransactions(file) {
       type: amount < 0 ? 'income' : 'expense',
       category: categorizeCreditCardTransaction(concept, amount < 0),
       isPending,
+      section: currentSection,
     });
   }
 
