@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
-import { getSummary, deleteAllTransactions, exportCSV, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
+import { getSummary, deleteAllTransactions, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
+import { generateDashboardPDF } from '../utils/dashboardPdf';
 import api from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
 import TransferModal from './TransferModal';
@@ -1338,13 +1339,23 @@ function Dashboard({ refreshTrigger }) {
         </div>
         
         <div className="flex space-x-2">
-          <button onClick={exportCSV} className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm">
+          <button
+            onClick={async () => {
+              try { await exportExcel(); } catch (e) { alert(`Error al exportar Excel: ${e.response?.data?.error || e.message}`); }
+            }}
+            className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm"
+          >
             <Download className="w-4 h-4" />
-            <span>Export CSV</span>
+            <span>Excel</span>
           </button>
-          <button onClick={exportExcel} className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm">
+          <button
+            onClick={async () => {
+              try { await generateDashboardPDF(); } catch (e) { alert(`Error al generar PDF: ${e.response?.data?.error || e.message}`); }
+            }}
+            className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm"
+          >
             <Download className="w-4 h-4" />
-            <span>Export Excel</span>
+            <span>PDF Dashboard</span>
           </button>
           <button onClick={handleReset} className="btn-danger flex items-center space-x-2 px-3 py-1.5 text-sm">
             <Trash2 className="w-4 h-4" />

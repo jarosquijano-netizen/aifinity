@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, Filter, Download, Search, Calendar, Building2, CheckSquare, Square, Tag, X, CreditCard, ArrowRightLeft, Trash2, Euro, ArrowRight } from 'lucide-react';
-import { getTransactions, exportCSV, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction, rolloverTransaction } from '../utils/api';
+import { getTransactions, exportExcel, updateTransactionCategory, bulkUpdateTransactionCategory, getCategories, deleteTransaction, rolloverTransaction } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import { getCategoryColor } from '../utils/categoryColors';
 import { getCategoryIcon } from '../utils/categoryIcons';
@@ -381,14 +381,14 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
             </p>
           </div>
           
-          {/* Export Buttons */}
+          {/* Export Button */}
           <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
-            <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center justify-center space-x-2 text-sm">
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('exportCSV')}</span>
-              <span className="sm:hidden">CSV</span>
-            </button>
-            <button onClick={exportExcel} className="btn-secondary btn-sm flex items-center justify-center space-x-2 text-sm">
+            <button
+              onClick={async () => {
+                try { await exportExcel(); } catch (e) { alert(`Error al exportar Excel: ${e.response?.data?.error || e.message}`); }
+              }}
+              className="btn-secondary btn-sm flex items-center justify-center space-x-2 text-sm"
+            >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">{t('exportExcel')}</span>
               <span className="sm:hidden">Excel</span>
