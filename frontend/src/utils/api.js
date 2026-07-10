@@ -355,6 +355,12 @@ export const getSpendingPattern = async (months = 3) => {
   return response.data;
 };
 
+// Reapply learned category rules to existing transactions
+export const reapplyCategoryRules = async () => {
+  const response = await api.post('/transactions/reapply-rules');
+  return response.data;
+};
+
 // Salt Edge endpoints
 export const startSaltEdgeConnect = async (returnTo) => {
   const response = await api.post('/saltedge/connect', { returnTo });

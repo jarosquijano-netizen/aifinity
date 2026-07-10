@@ -1,6 +1,12 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import {
+  findLearnedCategory,
+  saveLearnedCategory,
+  extractCore,
+  normalizeDescription,
+} from '../services/categoryLearningService.js';
 
 const router = express.Router();
 
@@ -251,63 +257,15 @@ router.post('/upload', optionalAuth, async (req, res) => {
       let finalCategory = category;
       if (description) {
         try {
-          const logCategoryMapping = process.env.LOG_CATEGORY_MAPPING === 'true';
-          const originalCategory = category;
-
-          // Normalize description for pattern matching
-          const normalizedDescription = description
-            .toLowerCase()
-            .trim()
-            .replace(/\s+/g, ' ')
-            .substring(0, 200);
-          
-          // Try exact match first
-          let learnedCategoryResult = await client.query(
-            `SELECT category, usage_count 
-             FROM transaction_category_mappings
-             WHERE (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
-             AND description_pattern = $2
-             ORDER BY usage_count DESC, last_used DESC
-             LIMIT 1`,
-            [userId, normalizedDescription]
-          );
-          
-          // If no exact match, try similarity matching (find descriptions that contain or are contained in the pattern)
-          if (learnedCategoryResult.rows.length === 0) {
-            learnedCategoryResult = await client.query(
-              `SELECT category, usage_count, 
-                      CASE 
-                        WHEN description_pattern LIKE $2 || '%' THEN 1
-                        WHEN $2 LIKE description_pattern || '%' THEN 2
-                        WHEN description_pattern LIKE '%' || $2 || '%' THEN 3
-                        ELSE 4
-                      END as match_type
-               FROM transaction_category_mappings
-               WHERE (user_id = $1 OR (user_id IS NULL AND $1 IS NULL))
-               AND (
-                 description_pattern LIKE $2 || '%' OR
-                 $2 LIKE description_pattern || '%' OR
-                 description_pattern LIKE '%' || $2 || '%'
-               )
-               ORDER BY match_type ASC, usage_count DESC, last_used DESC
-               LIMIT 1`,
-              [userId, normalizedDescription]
-            );
-          }
-          
-          if (learnedCategoryResult.rows.length > 0) {
-            finalCategory = learnedCategoryResult.rows[0].category;
-            if (logCategoryMapping) {
-              if (originalCategory && originalCategory !== finalCategory) {
-                console.log(`🎯 Learned category override: "${description.substring(0, 50)}..." "${originalCategory}" → "${finalCategory}"`);
-              } else {
-                console.log(`🎯 Learned category applied: "${description.substring(0, 50)}..." -> "${finalCategory}"`);
-              }
+          const learned = await findLearnedCategory(client, userId, description);
+          if (learned) {
+            finalCategory = learned.category;
+            if (process.env.LOG_CATEGORY_MAPPING === 'true') {
+              console.log(`🎯 Learned category [${learned.matchType}]: "${description.substring(0, 60)}" → "${finalCategory}"`);
             }
           }
         } catch (learnError) {
           console.error('⚠️ Error checking learned categories (non-critical):', learnError);
-          // Continue with original category if learning check fails
         }
       }
       
@@ -922,17 +880,23 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
         [userId]
       );
 
-      // Find similar transactions (90% similarity)
+      // Find similar transactions: 90% similarity OR same description "core"
+      const targetCore = extractCore(transaction.description);
       const similarIds = [];
       const similarDescriptions = [];
       for (const t of allTransactions.rows) {
+        if (t.id === transactionId) continue;
         const similarity = calculateSimilarity(transaction.description, t.description);
-        if (t.id !== transactionId && similarity >= 0.90) {
+        const otherCore = extractCore(t.description);
+        const sameCore = targetCore && otherCore && targetCore === otherCore;
+        if (similarity >= 0.90 || sameCore) {
           similarIds.push(t.id);
           similarDescriptions.push({
             id: t.id,
             description: t.description,
-            similarity: (similarity * 100).toFixed(1) + '%'
+            similarity: sameCore && similarity < 0.9
+              ? 'core-match'
+              : (similarity * 100).toFixed(1) + '%'
           });
         }
       }
@@ -970,42 +934,14 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
         
         // Save learned category mappings for all similar transaction descriptions
         try {
-          await client.query(`
-            CREATE TABLE IF NOT EXISTS transaction_category_mappings (
-              id SERIAL PRIMARY KEY,
-              user_id INTEGER,
-              description_pattern TEXT NOT NULL,
-              category VARCHAR(255) NOT NULL,
-              usage_count INTEGER DEFAULT 1,
-              last_used TIMESTAMP DEFAULT NOW(),
-              created_at TIMESTAMP DEFAULT NOW(),
-              UNIQUE(user_id, description_pattern)
-            )
-          `);
-          
-          // Save mapping for each similar transaction description
           for (const similarDesc of similarDescriptions) {
-            const normalizedDesc = similarDesc.description
-              .toLowerCase()
-              .trim()
-              .replace(/\s+/g, ' ')
-              .substring(0, 200);
-            
-            await client.query(`
-              INSERT INTO transaction_category_mappings (user_id, description_pattern, category, usage_count, last_used)
-              VALUES ($1, $2, $3, 1, NOW())
-              ON CONFLICT (user_id, description_pattern) 
-              DO UPDATE SET 
-                category = EXCLUDED.category,
-                usage_count = transaction_category_mappings.usage_count + 1,
-                last_used = NOW()
-            `, [userId, normalizedDesc, normalizedCategory]);
+            await saveLearnedCategory(client, userId, similarDesc.description, normalizedCategory);
           }
-          
-          console.log(`💾 Saved ${similarDescriptions.length} category mappings for similar transactions`);
+          // Also save the original edited transaction's description
+          await saveLearnedCategory(client, userId, transaction.description, normalizedCategory);
+          console.log(`💾 Saved ${similarDescriptions.length + 1} category mappings for similar transactions`);
         } catch (mappingError) {
           console.error('⚠️ Error saving category mappings for similar transactions (non-critical):', mappingError);
-          // Don't fail the transaction if mapping save fails
         }
       } else if (updateSimilar) {
         console.log(`\n🔍 No similar transactions found (≥90% similarity) for: "${transaction.description.substring(0, 60)}..."\n`);
@@ -1030,40 +966,9 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
     }
 
     // Save learned category mapping for future transactions
-    // Create table if it doesn't exist
     try {
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS transaction_category_mappings (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER,
-          description_pattern TEXT NOT NULL,
-          category VARCHAR(255) NOT NULL,
-          usage_count INTEGER DEFAULT 1,
-          last_used TIMESTAMP DEFAULT NOW(),
-          created_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(user_id, description_pattern)
-        )
-      `);
-      
-      // Normalize description for pattern matching (remove extra spaces, lowercase)
-      const normalizedDescription = transaction.description
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, ' ')
-        .substring(0, 200); // Limit length
-      
-      // Save or update mapping
-      await client.query(`
-        INSERT INTO transaction_category_mappings (user_id, description_pattern, category, usage_count, last_used)
-        VALUES ($1, $2, $3, 1, NOW())
-        ON CONFLICT (user_id, description_pattern) 
-        DO UPDATE SET 
-          category = EXCLUDED.category,
-          usage_count = transaction_category_mappings.usage_count + 1,
-          last_used = NOW()
-      `, [userId, normalizedDescription, normalizedCategory]);
-      
-      console.log(`💾 Saved category mapping: "${normalizedDescription.substring(0, 50)}..." -> "${normalizedCategory}"`);
+      await saveLearnedCategory(client, userId, transaction.description, normalizedCategory);
+      console.log(`💾 Saved category mapping: "${transaction.description.substring(0, 50)}..." -> "${normalizedCategory}"`);
     } catch (mappingError) {
       console.error('⚠️ Error saving category mapping (non-critical):', mappingError);
       // Don't fail the transaction if mapping save fails
@@ -1088,90 +993,61 @@ router.patch('/:id/category', optionalAuth, async (req, res) => {
   }
 });
 
+// Reapply all learned category rules to existing transactions
+router.post('/reapply-rules', optionalAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    await client.query('BEGIN');
+    const { rows: txs } = await client.query(
+      `SELECT id, description, category FROM transactions WHERE user_id = $1`,
+      [userId]
+    );
+
+    let updatedCount = 0;
+    let unchangedCount = 0;
+    for (const tx of txs) {
+      const learned = await findLearnedCategory(client, userId, tx.description);
+      if (learned && learned.category && learned.category !== tx.category) {
+        await client.query(
+          `UPDATE transactions SET category = $1 WHERE id = $2 AND user_id = $3`,
+          [learned.category, tx.id, userId]
+        );
+        updatedCount += 1;
+      } else {
+        unchangedCount += 1;
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      totalScanned: txs.length,
+      updated: updatedCount,
+      unchanged: unchangedCount,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Reapply rules error:', error);
+    res.status(500).json({ error: 'Failed to reapply category rules' });
+  } finally {
+    client.release();
+  }
+});
+
 // Get learned category mappings for a description pattern
 router.get('/learned-category', optionalAuth, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || null;
     const { description } = req.query;
-    
-    if (!description) {
-      return res.json({ category: null });
+    if (!description) return res.json({ category: null });
+
+    const learned = await findLearnedCategory(pool, userId, description);
+    if (learned) {
+      return res.json({ category: learned.category, confidence: learned.matchType });
     }
-    
-    // Normalize description for matching
-    const normalizedDescription = description
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ' ')
-      .substring(0, 200);
-    
-    // Ensure table exists
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS transaction_category_mappings (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER,
-          description_pattern TEXT NOT NULL,
-          category VARCHAR(255) NOT NULL,
-          usage_count INTEGER DEFAULT 1,
-          last_used TIMESTAMP DEFAULT NOW(),
-          created_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(user_id, description_pattern)
-        )
-      `);
-    } catch (tableError) {
-      // Table might already exist, ignore
-    }
-    
-    // Find exact or similar matches
-    // First try exact match
-    let result = await pool.query(
-      `SELECT category, usage_count 
-       FROM transaction_category_mappings
-       WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)
-       AND description_pattern = $2
-       ORDER BY usage_count DESC, last_used DESC
-       LIMIT 1`,
-      [userId, normalizedDescription]
-    );
-    
-    if (result.rows.length > 0) {
-      return res.json({ 
-        category: result.rows[0].category,
-        confidence: 'exact',
-        usageCount: result.rows[0].usage_count
-      });
-    }
-    
-    // Try similarity matching (find descriptions that contain or are contained in the pattern)
-    result = await pool.query(
-      `SELECT category, usage_count, 
-              CASE 
-                WHEN description_pattern LIKE $2 || '%' THEN 1
-                WHEN $2 LIKE description_pattern || '%' THEN 2
-                WHEN description_pattern LIKE '%' || $2 || '%' THEN 3
-                ELSE 4
-              END as match_type
-       FROM transaction_category_mappings
-       WHERE user_id = $1 OR (user_id IS NULL AND $1 IS NULL)
-       AND (
-         description_pattern LIKE $2 || '%' OR
-         $2 LIKE description_pattern || '%' OR
-         description_pattern LIKE '%' || $2 || '%'
-       )
-       ORDER BY match_type ASC, usage_count DESC, last_used DESC
-       LIMIT 1`,
-      [userId, normalizedDescription]
-    );
-    
-    if (result.rows.length > 0) {
-      return res.json({ 
-        category: result.rows[0].category,
-        confidence: 'similar',
-        usageCount: result.rows[0].usage_count
-      });
-    }
-    
     res.json({ category: null });
   } catch (error) {
     console.error('Error getting learned category:', error);
@@ -1488,37 +1364,9 @@ router.post('/bulk-update-category', optionalAuth, async (req, res) => {
 
     // Save learned category mappings for all unique descriptions
     try {
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS transaction_category_mappings (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER,
-          description_pattern TEXT NOT NULL,
-          category VARCHAR(255) NOT NULL,
-          usage_count INTEGER DEFAULT 1,
-          last_used TIMESTAMP DEFAULT NOW(),
-          created_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(user_id, description_pattern)
-        )
-      `);
-      
       for (const row of transactionsResult.rows) {
-        const normalizedDescription = row.description
-          .toLowerCase()
-          .trim()
-          .replace(/\s+/g, ' ')
-          .substring(0, 200);
-        
-        await client.query(`
-          INSERT INTO transaction_category_mappings (user_id, description_pattern, category, usage_count, last_used)
-          VALUES ($1, $2, $3, 1, NOW())
-          ON CONFLICT (user_id, description_pattern) 
-          DO UPDATE SET 
-            category = EXCLUDED.category,
-            usage_count = transaction_category_mappings.usage_count + 1,
-            last_used = NOW()
-        `, [userId, normalizedDescription, normalizedCategory]);
+        await saveLearnedCategory(client, userId, row.description, normalizedCategory);
       }
-      
       console.log(`💾 Saved ${transactionsResult.rows.length} category mappings from bulk update`);
     } catch (mappingError) {
       console.error('⚠️ Error saving category mappings (non-critical):', mappingError);
