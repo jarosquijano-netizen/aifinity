@@ -21,7 +21,7 @@ import { generateTemplateResponse } from '../services/quickResponses.js';
 
 const CLAUDE_CONFIG = {
   apiUrl: 'https://api.anthropic.com/v1/messages',
-  model: 'claude-3-haiku-20240307', // Using Haiku - compatible with Basic tier API keys
+  model: 'claude-haiku-4-5', // Replacement for retired claude-3-haiku-20240307
   maxTokens: 2048, // Reduced from 4096 - responses typically need 500-1000 tokens
   temperature: 0.7, // Balance between creativity and consistency
   apiVersion: '2023-06-01'
