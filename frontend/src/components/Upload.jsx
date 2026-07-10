@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
-import { parsePDFTransactions, parseCSVTransactions } from '../utils/pdfParser';
-import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload, deleteRecentTransactions, deleteCreditCardTransactions, getLastTransactionByAccount } from '../utils/api';
+import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, Loader, Building2, Clipboard, RotateCcw } from 'lucide-react';
+import { parsePDFTransactions, parseCSVTransactions, parseXLSTransactions } from '../utils/pdfParser';
+import { uploadTransactions, getAccounts, getLastUpload, revertLastUpload, deleteRecentTransactions, deleteCreditCardTransactions } from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
+import CopyGuide from './Upload/CopyGuide';
 import AccountSelector from './AccountSelector';
 
 function Upload({ onUploadComplete }) {
@@ -19,9 +20,6 @@ function Upload({ onUploadComplete }) {
   const [parsedTransactionsData, setParsedTransactionsData] = useState(null); // Store parsed data before account selection
   const [lastUpload, setLastUpload] = useState(null);
   const [reverting, setReverting] = useState(false);
-  const [showLastUploadBanner, setShowLastUploadBanner] = useState(true);
-  const [showLastTransactionBanner, setShowLastTransactionBanner] = useState(true);
-  const [lastTransactionsByAccount, setLastTransactionsByAccount] = useState([]);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const { t } = useLanguage();
@@ -29,18 +27,7 @@ function Upload({ onUploadComplete }) {
   useEffect(() => {
     fetchAccounts();
     fetchLastUpload();
-    fetchLastTransactionsByAccount();
   }, []);
-
-  const fetchLastTransactionsByAccount = async () => {
-    try {
-      const data = await getLastTransactionByAccount();
-      setLastTransactionsByAccount(data.accounts || []);
-    } catch (err) {
-      console.error('❌ Failed to fetch last transactions by account:', err);
-      setLastTransactionsByAccount([]);
-    }
-  };
 
   // Debug: Log when showAccountSelector changes
   useEffect(() => {
@@ -100,7 +87,7 @@ function Upload({ onUploadComplete }) {
       alert('✅ Último upload revertido exitosamente. Las transacciones han sido eliminadas y el balance restaurado.');
       // Refresh accounts to update balances
       await fetchAccounts();
-      fetchLastTransactionsByAccount(); // Refresh last transactions by account
+
       // Dispatch event to refresh dashboard and other components
       window.dispatchEvent(new CustomEvent('transactionUpdated'));
       // Trigger refresh in parent component
@@ -329,7 +316,7 @@ function Upload({ onUploadComplete }) {
       setParsedTransactionsData(null);
       setTimeout(() => {
         setPastedText('');
-        fetchLastTransactionsByAccount(); // Refresh last transactions by account
+  
         // Dispatch event to refresh dashboard and other components
         window.dispatchEvent(new CustomEvent('transactionUpdated'));
         if (onUploadComplete) {
@@ -374,14 +361,15 @@ function Upload({ onUploadComplete }) {
         // Determine file type - check both MIME type and extension
         const fileName = file.name.toLowerCase();
         const isPDF = file.type === 'application/pdf' || fileName.endsWith('.pdf');
-        const isCSV = file.type === 'text/csv' || 
-                     file.type === 'application/vnd.ms-excel' ||
-                     fileName.endsWith('.csv') || 
-                     fileName.endsWith('.xls') || 
-                     fileName.endsWith('.xlsx');
-        
+        const isXLS = fileName.endsWith('.xls') || fileName.endsWith('.xlsx') ||
+                      file.type === 'application/vnd.ms-excel' ||
+                      file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const isCSV = !isXLS && (file.type === 'text/csv' || fileName.endsWith('.csv'));
+
         if (isPDF) {
           parseResult = await parsePDFTransactions(file);
+        } else if (isXLS) {
+          parseResult = await parseXLSTransactions(file);
         } else if (isCSV) {
           parseResult = await parseCSVTransactions(file);
         } else {
@@ -454,7 +442,7 @@ function Upload({ onUploadComplete }) {
       setTimeout(() => {
         setFiles([]);
         fetchLastUpload(); // Refresh last upload info
-        fetchLastTransactionsByAccount(); // Refresh last transactions by account
+  
         // Dispatch event to refresh dashboard and other components
         window.dispatchEvent(new CustomEvent('transactionUpdated'));
         if (onUploadComplete) {
@@ -482,157 +470,9 @@ function Upload({ onUploadComplete }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Last Transaction by Account */}
-      {lastTransactionsByAccount.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-          <button
-            onClick={() => setShowLastTransactionBanner(!showLastTransactionBanner)}
-            className="w-full flex items-center justify-between p-4 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">Última Transacción por Cuenta</h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {lastTransactionsByAccount.length} cuenta{lastTransactionsByAccount.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </div>
-            {showLastTransactionBanner ? (
-              <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            )}
-          </button>
-          {showLastTransactionBanner && (
-            <div className="px-4 pb-4 space-y-3">
-              <div className="space-y-2">
-                {lastTransactionsByAccount.map((accountData) => (
-                  <div 
-                    key={accountData.accountId} 
-                    className="p-3 bg-white/60 dark:bg-slate-800/60 rounded border border-amber-200 dark:border-amber-700"
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                        {accountData.accountName}
-                      </h4>
-                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                        {accountData.lastTransactionDate 
-                          ? new Date(accountData.lastTransactionDate).toLocaleDateString('es-ES', { 
-                              day: 'numeric', 
-                              month: 'short', 
-                              year: 'numeric'
-                            })
-                          : 'Sin transacciones'}
-                      </span>
-                    </div>
-                    {accountData.lastTransactionDescription && (
-                      <div className="mt-1 flex items-center justify-between">
-                        <span className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1 min-w-0 mr-2">
-                          {accountData.lastTransactionDescription.substring(0, 40)}
-                          {accountData.lastTransactionDescription.length > 40 && '...'}
-                        </span>
-                        <span className={`text-xs font-semibold ${
-                          accountData.lastTransactionAmount > 0 
-                            ? 'text-emerald-600 dark:text-emerald-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {accountData.lastTransactionAmount > 0 ? '+' : ''}€{Math.abs(accountData.lastTransactionAmount).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Copy Guide — copiar desde + último upload */}
+      <CopyGuide onRevert={handleRevertLastUpload} reverting={reverting} />
 
-      {/* Last Upload Info */}
-      {lastUpload && (
-        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-            <button
-              onClick={() => setShowLastUploadBanner(!showLastUploadBanner)}
-              className="w-full flex items-center justify-between p-4 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div className="text-left">
-                  <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">Último Upload</h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {lastUpload.transactionCount} transacciones • {lastUpload.account?.name || 'Cuenta'}
-                  </p>
-                </div>
-              </div>
-              {showLastUploadBanner ? (
-                <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              )}
-            </button>
-            {showLastUploadBanner && (
-              <div className="px-4 pb-4 space-y-3">
-                <div className="text-xs text-gray-700 dark:text-gray-300">
-                  {lastUpload.uploadedAt && (
-                    <p className="mb-2">
-                      {new Date(lastUpload.uploadedAt).toLocaleDateString('es-ES', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  )}
-                  {lastUpload.sampleTransactions && lastUpload.sampleTransactions.length > 0 && (
-                    <div className="p-2 bg-white/60 dark:bg-slate-800/60 rounded border border-amber-200 dark:border-amber-700">
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Ejemplos:</p>
-                      <div className="space-y-1">
-                        {lastUpload.sampleTransactions.slice(0, 2).map((t, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-600 dark:text-gray-400 truncate flex-1 min-w-0">
-                              {t.description.substring(0, 25)}
-                              {t.description.length > 25 && '...'}
-                            </span>
-                            <span className={`font-semibold ml-2 ${
-                              t.amount > 0 
-                                ? 'text-emerald-600 dark:text-emerald-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {t.amount > 0 ? '+' : ''}€{Math.abs(t.amount).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleRevertLastUpload}
-                  disabled={reverting}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs"
-                >
-                  {reverting ? (
-                    <>
-                      <Loader className="h-3.5 w-3.5 animate-spin" />
-                      <span>Revirtiendo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Revertir Upload</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
       {/* Upload Area */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
@@ -997,5 +837,4 @@ function Upload({ onUploadComplete }) {
 }
 
 export default Upload;
-
 

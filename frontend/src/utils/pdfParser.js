@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import * as XLSX from 'xlsx';
 
 // Set worker path for pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -3486,6 +3487,120 @@ export function detectPotentialTransfers(transactions) {
   });
   
   return potentialTransfers;
+}
+
+/**
+ * Parse Sabadell credit card XLS statement (binary .xls from online banking)
+ * Structure: "Saldos y movimientos" sheet with MOVIMIENTOS DE CREDITO / DEBITO sections
+ */
+export async function parseXLSTransactions(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+  const result = {
+    accountType: 'credit',
+    bank: 'Sabadell',
+    creditCard: { bank: 'Sabadell' },
+    transactions: []
+  };
+
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+  // ── Extract header info ──────────────────────────────────────────────────
+  // Determine statement year from "Total operaciones pendientes MM/YYYY:" rows
+  let statementYear = new Date().getFullYear();
+  for (const row of rows) {
+    const cell0 = String(row[0] || '');
+    const yearMatch = cell0.match(/pendientes\s+\d{2}\/(\d{4})/i);
+    if (yearMatch) { statementYear = parseInt(yearMatch[1], 10); break; }
+  }
+
+  for (const row of rows) {
+    const c0 = String(row[0] || '').trim();
+    const c1 = String(row[1] || '').trim();
+    const c2 = String(row[2] || '').trim();
+
+    if (/l[ií]mite de cr[eé]dito/i.test(c0)) {
+      result.creditCard.creditLimit = parseAmount(c1.replace(/\s*EUR.*/i, '').trim());
+    }
+    if (/saldo dispuesto/i.test(c0)) {
+      const debt = parseAmount(c2.replace(/\s*EUR.*/i, '').trim());
+      result.creditCard.currentDebt = debt;
+      result.creditCard.balance = -debt;
+    }
+    if (/saldo disponible/i.test(c0)) {
+      result.creditCard.availableCredit = parseAmount(c2.replace(/\s*EUR.*/i, '').trim());
+    }
+    if (/tarjeta:/i.test(c0) && c1) {
+      result.creditCard.cardNumber = c1;
+      result.creditCard.cardType = String(row[2] || '').trim();
+    }
+    if (/^contrato$/i.test(c0) && c1) {
+      result.creditCard.contractNumber = c1;
+    }
+  }
+
+  // ── Parse transaction rows ───────────────────────────────────────────────
+  let inCreditSection = false;
+  let pastFirstHeader = false; // skip pending (AUT) block, take confirmed block
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const c0 = String(row[0] || '').trim();
+    const c1 = String(row[1] || '').trim();
+    const c2 = String(row[2] || '').trim();
+    const c3 = String(row[3] || '').trim();
+    const c4 = String(row[4] || '').trim();
+
+    // Enter CREDITO section
+    if (/movimientos de credito/i.test(c0)) { inCreditSection = true; continue; }
+    // Leave section on DEBITO or summaries
+    if (/movimientos de debito/i.test(c0) || /saldo aplazado/i.test(c0) || /importe total/i.test(c0)) {
+      inCreditSection = false; continue;
+    }
+
+    if (!inCreditSection) continue;
+
+    // FECHA header row → marks start of a transaction block
+    if (/^fecha$/i.test(c0) && /concepto/i.test(c1)) {
+      pastFirstHeader = true; // after first header we get pending (AUT), after second header confirmed
+      continue;
+    }
+    if (!pastFirstHeader) continue;
+
+    // Skip summary and empty rows
+    if (!c0 || /total operaciones/i.test(c2)) continue;
+
+    // Date field must match DD/MM
+    if (!c0.match(/^\d{1,2}\/\d{1,2}$/)) continue;
+
+    const concept = c1;
+    const location = c2;
+    const sitMov = c3; // 'AUT' = pending, '' = confirmed
+    const amountStr = c4.replace(/EUR.*$/i, '').trim();
+    const amount = parseAmount(amountStr);
+
+    if (!concept || !amount || isNaN(amount)) continue;
+
+    const isPending = /AUT/i.test(sitMov);
+    const fullDate = parseCreditCardDate(c0, statementYear);
+    let description = concept;
+    if (location && location.trim()) description = `${concept} - ${location}`;
+
+    result.transactions.push({
+      bank: 'Sabadell',
+      date: fullDate,
+      description,
+      amount: Math.abs(amount),
+      type: amount < 0 ? 'income' : 'expense',
+      category: categorizeCreditCardTransaction(concept, amount < 0),
+      isPending,
+    });
+  }
+
+  console.log(`💳 XLS parser: ${result.transactions.length} transactions (year ${statementYear})`);
+  return result;
 }
 
 

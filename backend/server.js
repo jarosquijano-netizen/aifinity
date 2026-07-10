@@ -17,6 +17,7 @@ import fixNominaRoutes from './routes/fix-nomina.js';
 import fixRemesasTraspasosRoutes from './routes/fix-remesas-traspasos.js';
 import predictionsRoutes from './routes/predictions.js';
 import saltedgeRoutes from './routes/saltedge.js';
+import uploadRoutes from './routes/upload.js';
 
 dotenv.config();
 
@@ -65,6 +66,7 @@ app.use('/api/fix-nomina', fixNominaRoutes);
 app.use('/api/fix-remesas-traspasos', fixRemesasTraspasosRoutes);
 app.use('/api/predictions', predictionsRoutes);
 app.use('/api/saltedge', saltedgeRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -84,5 +86,3 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔒 JWT: ${process.env.JWT_SECRET ? 'Configured' : 'Not configured'}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
-
-
