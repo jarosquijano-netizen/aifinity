@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Loader, Building2, Brain, Key, CheckCircle, Circle, Wallet, PiggyBank, TrendingUp, CreditCard, RefreshCw, Clock, DollarSign, Zap } from 'lucide-react';
-import { getAccounts, createAccount, updateAccount, deleteAccount, recalculateAccountBalance, cleanupTransactionDuplicates, getAIConfig, saveAIConfig, deleteAIConfig, activateAIConfig, getSettings, updateSettings, calculateExpectedIncome, updateExpectedFromActual } from '../utils/api';
+import { getAccounts, createAccount, updateAccount, deleteAccount, recalculateAccountBalance, cleanupTransactionDuplicates, getAIConfig, saveAIConfig, deleteAIConfig, activateAIConfig, getSettings, updateSettings, calculateExpectedIncome, updateExpectedFromActual, reapplyCategoryRules } from '../utils/api';
 import AddAccountModal from './AddAccountModal';
 
 function Settings() {
@@ -819,6 +819,35 @@ function Settings() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Category Rules Section */}
+      <div className="card bg-white dark:bg-slate-800">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Zap className="w-6 h-6 text-amber-500" />
+              Reglas de Categorización Aprendidas
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Aplica todas tus recategorizaciones anteriores a las transacciones actuales.
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const r = await reapplyCategoryRules();
+                alert(`✅ ${r.updated} transacciones recategorizadas de ${r.totalScanned} revisadas.`);
+              } catch (e) {
+                alert(`❌ Error: ${e.response?.data?.error || e.message}`);
+              }
+            }}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Reaplicar reglas</span>
+          </button>
         </div>
       </div>
 
