@@ -158,18 +158,20 @@ export const getInsights = async () => {
 };
 
 // Export endpoints
-export const exportCSV = () => {
-  const auth = getStoredAuth();
-  const token = auth?.token;
-  const url = `${API_URL}/export/csv${token ? `?token=${token}` : ''}`;
-  window.open(url, '_blank');
-};
-
-export const exportExcel = () => {
-  const auth = getStoredAuth();
-  const token = auth?.token;
-  const url = `${API_URL}/export/excel${token ? `?token=${token}` : ''}`;
-  window.open(url, '_blank');
+export const exportExcel = async () => {
+  const response = await api.get('/export/excel', { responseType: 'blob' });
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const stamp = new Date().toISOString().slice(0, 10);
+  link.download = `aifinity-transactions-${stamp}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 // Bank accounts endpoints
@@ -352,12 +354,6 @@ export const getRecurringExpenses = async () => {
 
 export const getSpendingPattern = async (months = 3) => {
   const response = await api.get(`/predictions/pattern?months=${months}`);
-  return response.data;
-};
-
-// Reapply learned category rules to existing transactions
-export const reapplyCategoryRules = async () => {
-  const response = await api.post('/transactions/reapply-rules');
   return response.data;
 };
 
