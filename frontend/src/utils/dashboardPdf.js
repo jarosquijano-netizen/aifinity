@@ -16,24 +16,82 @@ const fmtDate = (d) => {
   }
 };
 
-export async function generateDashboardPDF() {
-  const [summaryRes, accountsRes, txsRes, trendsRes, budgetRes] = await Promise.allSettled([
-    api.get('/summary'),
+export const PERIODS = {
+  month: { label: 'Mes actual', filename: 'mes-actual' },
+  quarter: { label: 'Últimos 3 meses', filename: 'ultimo-trimestre' },
+  ytd: { label: 'Año hasta la fecha (YTD)', filename: 'ytd' },
+  all: { label: 'Todo el histórico', filename: 'historico' },
+};
+
+function getPeriodRange(period) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  if (period === 'month') {
+    return { start: new Date(y, m, 1), end: new Date(y, m, d, 23, 59, 59, 999) };
+  }
+  if (period === 'quarter') {
+    return { start: new Date(y, m - 2, 1), end: new Date(y, m, d, 23, 59, 59, 999) };
+  }
+  if (period === 'ytd') {
+    return { start: new Date(y, 0, 1), end: new Date(y, m, d, 23, 59, 59, 999) };
+  }
+  return { start: null, end: null };
+}
+
+function inRange(dateStr, start, end) {
+  if (!start || !end) return true;
+  const d = new Date(dateStr);
+  return d >= start && d <= end;
+}
+
+function monthKey(dateStr) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export async function generateDashboardPDF(period = 'month') {
+  const periodInfo = PERIODS[period] || PERIODS.month;
+  const { start, end } = getPeriodRange(period);
+
+  const [accountsRes, txsRes, budgetRes] = await Promise.allSettled([
     api.get('/accounts'),
     api.get('/transactions'),
-    api.get('/trends'),
     api.get('/budget/overview'),
   ]);
 
-  const summary = summaryRes.status === 'fulfilled' ? summaryRes.value.data : {};
   const accounts = accountsRes.status === 'fulfilled'
     ? (accountsRes.value.data?.accounts || accountsRes.value.data || [])
     : [];
-  const transactions = txsRes.status === 'fulfilled'
+  const allTransactions = txsRes.status === 'fulfilled'
     ? (txsRes.value.data?.transactions || txsRes.value.data || [])
     : [];
-  const trends = trendsRes.status === 'fulfilled' ? (trendsRes.value.data?.monthly || trendsRes.value.data || []) : [];
   const budget = budgetRes.status === 'fulfilled' ? budgetRes.value.data : null;
+
+  const transactions = allTransactions.filter((t) => inRange(t.date, start, end));
+
+  let income = 0;
+  let expenses = 0;
+  const categoryTotals = new Map();
+  const monthlyMap = new Map();
+
+  for (const tx of transactions) {
+    const amount = Number(tx.amount) || 0;
+    if (tx.type === 'income') {
+      income += amount;
+    } else {
+      expenses += amount;
+      const cat = tx.category || 'Sin categoría';
+      categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + amount);
+    }
+    const mk = monthKey(tx.date);
+    const m = monthlyMap.get(mk) || { month: mk, income: 0, expenses: 0 };
+    if (tx.type === 'income') m.income += amount;
+    else m.expenses += amount;
+    monthlyMap.set(mk, m);
+  }
+  const monthly = [...monthlyMap.values()].sort((a, b) => a.month.localeCompare(b.month));
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -45,21 +103,23 @@ export async function generateDashboardPDF() {
   doc.text('AiFinity — Financial Dashboard', margin, y);
   y += 7;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(11);
+  doc.setTextColor(60);
+  doc.text(`Período: ${periodInfo.label}`, margin, y);
+  y += 5;
+  doc.setFontSize(9);
   doc.setTextColor(120);
-  doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, margin, y);
+  const rangeStr = start
+    ? `${fmtDate(start)} — ${fmtDate(end)}`
+    : 'Todo el histórico';
+  doc.text(`Rango: ${rangeStr}   ·   Generado: ${new Date().toLocaleString('es-ES')}`, margin, y);
   doc.setTextColor(0);
   y += 8;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
-  doc.text('Resumen', margin, y);
-  y += 6;
-
-  const income = summary.totalIncome ?? summary.total_income ?? 0;
-  const expenses = summary.totalExpenses ?? summary.total_expenses ?? 0;
-  const balance = summary.netBalance ?? summary.net_balance ?? (income - expenses);
-  const txCount = summary.transactionCount ?? summary.transaction_count ?? transactions.length;
+  doc.text('Resumen del período', margin, y);
+  y += 4;
 
   autoTable(doc, {
     startY: y,
@@ -70,8 +130,8 @@ export async function generateDashboardPDF() {
     body: [
       ['Ingresos totales', fmtEUR(income)],
       ['Gastos totales', fmtEUR(expenses)],
-      ['Balance neto', fmtEUR(balance)],
-      ['Nº transacciones', String(txCount)],
+      ['Balance neto', fmtEUR(income - expenses)],
+      ['Nº transacciones', String(transactions.length)],
       ['Cuentas activas', String(accounts.length)],
     ],
     margin: { left: margin, right: margin },
@@ -81,7 +141,7 @@ export async function generateDashboardPDF() {
   if (accounts.length > 0) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text('Cuentas', margin, y);
+    doc.text('Cuentas (saldo actual)', margin, y);
     y += 4;
     autoTable(doc, {
       startY: y,
@@ -100,42 +160,42 @@ export async function generateDashboardPDF() {
     y = doc.lastAutoTable.finalY + 8;
   }
 
-  const categoryTotals = new Map();
-  for (const tx of transactions) {
-    const cat = tx.category || 'Sin categoría';
-    const amount = Number(tx.amount) || 0;
-    const sign = (tx.type === 'expense') ? amount : -amount;
-    categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + sign);
-  }
   const catRows = [...categoryTotals.entries()]
-    .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 25)
-    .map(([cat, total]) => [cat, fmtEUR(total)]);
+    .map(([cat, total]) => [
+      cat,
+      fmtEUR(total),
+      `${((total / expenses) * 100 || 0).toFixed(1)}%`,
+    ]);
 
   if (catRows.length > 0) {
-    if (y > 240) { doc.addPage(); y = margin; }
+    if (y > 220) { doc.addPage(); y = margin; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text('Gasto por categoría (top 25)', margin, y);
+    doc.text(`Gasto por categoría — top ${catRows.length}`, margin, y);
     y += 4;
     autoTable(doc, {
       startY: y,
       theme: 'striped',
       styles: { fontSize: 9, cellPadding: 2 },
       headStyles: { fillColor: [220, 38, 38], textColor: 255 },
-      head: [['Categoría', 'Total']],
+      head: [['Categoría', 'Total', '% del gasto']],
       body: catRows,
       margin: { left: margin, right: margin },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+      },
     });
     y = doc.lastAutoTable.finalY + 8;
   }
 
-  if (Array.isArray(trends) && trends.length > 0) {
+  if (monthly.length > 1) {
     if (y > 220) { doc.addPage(); y = margin; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text('Tendencia mensual (últimos 12 meses)', margin, y);
+    doc.text('Tendencia mensual en el período', margin, y);
     y += 4;
     autoTable(doc, {
       startY: y,
@@ -143,17 +203,18 @@ export async function generateDashboardPDF() {
       styles: { fontSize: 9, cellPadding: 2 },
       headStyles: { fillColor: [16, 185, 129], textColor: 255 },
       head: [['Mes', 'Ingresos', 'Gastos', 'Neto']],
-      body: trends.map((m) => {
-        const inc = Number(m.income || m.total_income || 0);
-        const exp = Number(m.expenses || m.total_expenses || 0);
-        return [
-          String(m.month || m.date || ''),
-          fmtEUR(inc),
-          fmtEUR(exp),
-          fmtEUR(inc - exp),
-        ];
-      }),
+      body: monthly.map((m) => [
+        m.month,
+        fmtEUR(m.income),
+        fmtEUR(m.expenses),
+        fmtEUR(m.income - m.expenses),
+      ]),
       margin: { left: margin, right: margin },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+      },
     });
     y = doc.lastAutoTable.finalY + 8;
   }
@@ -162,7 +223,7 @@ export async function generateDashboardPDF() {
     if (y > 220) { doc.addPage(); y = margin; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text('Presupuesto por categoría', margin, y);
+    doc.text('Presupuesto por categoría (mes actual)', margin, y);
     y += 4;
     autoTable(doc, {
       startY: y,
@@ -181,20 +242,25 @@ export async function generateDashboardPDF() {
         ];
       }),
       margin: { left: margin, right: margin },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+      },
     });
     y = doc.lastAutoTable.finalY + 8;
   }
 
   const recentTx = [...transactions]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 60);
+    .slice(0, 100);
 
   if (recentTx.length > 0) {
     doc.addPage();
     y = margin;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text(`Últimas ${recentTx.length} transacciones`, margin, y);
+    doc.text(`Transacciones del período (últimas ${recentTx.length})`, margin, y);
     y += 4;
     autoTable(doc, {
       startY: y,
@@ -227,7 +293,7 @@ export async function generateDashboardPDF() {
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(
-      `AiFinity.app — Página ${i} de ${pageCount}`,
+      `AiFinity.app — ${periodInfo.label} — Página ${i} de ${pageCount}`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'center' }
@@ -235,5 +301,5 @@ export async function generateDashboardPDF() {
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
-  doc.save(`aifinity-dashboard-${stamp}.pdf`);
+  doc.save(`aifinity-dashboard-${periodInfo.filename}-${stamp}.pdf`);
 }
