@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 import { getSummary, deleteAllTransactions, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
-import { generateDashboardPDF } from '../utils/dashboardPdf';
+import { generateDashboardPDF, PERIODS } from '../utils/dashboardPdf';
 import api from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
 import TransferModal from './TransferModal';
@@ -83,6 +83,8 @@ function Dashboard({ refreshTrigger }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showPdfMenu, setShowPdfMenu] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const chartTheme = useChartTheme();
   
   // Track last refresh trigger to detect changes
@@ -170,22 +172,26 @@ function Dashboard({ refreshTrigger }) {
     }));
   };
 
-  // Get size for a specific widget (default to 'large')
-  const getWidgetSize = (widgetId) => widgetSizes[widgetId] || 'large';
+  // Get default size — KPI cards start compact, charts start large
+  const getDefaultWidgetSize = (widgetId) => (widgetId?.startsWith('kpi-') ? 'small' : 'large');
+
+  // Get size for a specific widget (respect user override)
+  const getWidgetSize = (widgetId) => widgetSizes[widgetId] || getDefaultWidgetSize(widgetId);
 
   // Get size classes based on widget size setting
   const getCardSize = (widgetId) => {
     const size = getWidgetSize(widgetId);
     return {
-      // Grid span: large ocupa 2 columnas, small 1 columna
+      // Grid span: large ocupa toda la fila en tablet y 2 columnas en desktop;
+      // small ocupa 1 columna en tablet (fila de 2) y 1 en desktop (fila de 4)
       gridCol: size === 'large' ? 'md:col-span-2 lg:col-span-2' : 'md:col-span-1 lg:col-span-1',
-      // Height: large más alto, small compacto
-      height: size === 'large' ? 'min-h-[400px]' : 'min-h-[180px]',
+      // Height: large más alto para gráficas; small compacto para KPIs
+      height: size === 'large' ? 'min-h-[380px]' : 'min-h-[140px]',
       // Padding: large más espacioso, small compacto
-      padding: size === 'large' ? 'p-6' : 'p-4',
+      padding: size === 'large' ? 'p-5' : 'p-4',
       // Font sizes para adaptar contenido
-      titleSize: size === 'large' ? 'text-xl' : 'text-sm',
-      valueSize: size === 'large' ? 'text-4xl' : 'text-2xl',
+      titleSize: size === 'large' ? 'text-lg' : 'text-xs uppercase tracking-wide',
+      valueSize: size === 'large' ? 'text-3xl' : 'text-2xl',
       labelSize: size === 'large' ? 'text-sm' : 'text-xs',
     };
   };
@@ -1298,7 +1304,7 @@ function Dashboard({ refreshTrigger }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Action Buttons */}
       <div className="flex justify-between items-center flex-wrap gap-2">
         <div className="flex items-center space-x-2">
@@ -1348,15 +1354,39 @@ function Dashboard({ refreshTrigger }) {
             <Download className="w-4 h-4" />
             <span>Excel</span>
           </button>
-          <button
-            onClick={async () => {
-              try { await generateDashboardPDF(); } catch (e) { alert(`Error al generar PDF: ${e.response?.data?.error || e.message}`); }
-            }}
-            className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm"
-          >
-            <Download className="w-4 h-4" />
-            <span>PDF Dashboard</span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowPdfMenu((v) => !v)}
+              disabled={generatingPdf}
+              className="btn-secondary flex items-center space-x-2 px-3 py-1.5 text-sm disabled:opacity-60"
+            >
+              <Download className="w-4 h-4" />
+              <span>{generatingPdf ? 'Generando…' : 'PDF Dashboard'}</span>
+            </button>
+            {showPdfMenu && !generatingPdf && (
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-30 overflow-hidden">
+                {Object.entries(PERIODS).map(([key, info]) => (
+                  <button
+                    key={key}
+                    onClick={async () => {
+                      setShowPdfMenu(false);
+                      setGeneratingPdf(true);
+                      try {
+                        await generateDashboardPDF(key);
+                      } catch (e) {
+                        alert(`Error al generar PDF: ${e.response?.data?.error || e.message}`);
+                      } finally {
+                        setGeneratingPdf(false);
+                      }
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700"
+                  >
+                    {info.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button onClick={handleReset} className="btn-danger flex items-center space-x-2 px-3 py-1.5 text-sm">
             <Trash2 className="w-4 h-4" />
             <span>Reset Data</span>
@@ -1365,19 +1395,13 @@ function Dashboard({ refreshTrigger }) {
       </div>
 
       {/* Draggable Widgets - All KPIs and Charts */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 rounded-xl p-4 mb-2">
-        <p className="text-sm text-center text-gray-600 dark:text-gray-300">
-          🎯 <strong>¡Nuevo!</strong> Arrastra TODOS los widgets (tarjetas y gráficas) para personalizar tu dashboard
-        </p>
-      </div>
-      
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {widgetOrder.map((widgetId) => {
               const cardSize = getCardSize(widgetId);
               return (
