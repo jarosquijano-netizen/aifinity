@@ -3,6 +3,18 @@ import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVer
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 import { getSummary, deleteAllTransactions, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
 import { generateDashboardPDF, PERIODS } from '../utils/dashboardPdf';
+import {
+  computeNetWorth, computeRunway, computeMonthDelta,
+  computeSavingsRateSeries, computeCreditUtilization,
+  computeTopRealCategories, computeMovers,
+  computeDiscretionaryVsEssential, computeInsights,
+} from '../utils/financialInsights';
+import {
+  KpiNetWorth, KpiRunway, KpiSavingsRate, KpiCreditUtilization,
+  KpiIncomeDelta, KpiExpensesDelta, KpiTopRealCategories,
+  WidgetMovers, WidgetInsights, ChartDiscretionaryVsEssential,
+  WidgetRecurring, WidgetBudgetHealth,
+} from './InsightWidgets';
 import api from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
 import TransferModal from './TransferModal';
@@ -80,6 +92,8 @@ function Dashboard({ refreshTrigger }) {
   const [accounts, setAccounts] = useState([]);
   const [expectedIncome, setExpectedIncome] = useState(0);
   const [currentMonthIncomeTransactions, setCurrentMonthIncomeTransactions] = useState([]);
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [recurring, setRecurring] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -93,11 +107,32 @@ function Dashboard({ refreshTrigger }) {
   // Widget order state - load from localStorage or use default
   const [widgetOrder, setWidgetOrder] = useState(() => {
     const saved = localStorage.getItem('dashboardWidgetOrder');
-    return saved ? JSON.parse(saved) : [
-      'kpi-income', 'kpi-expenses', 'kpi-balance', 'kpi-savings-total',
-      'kpi-credit-cards',
-      'chart1', 'chart2', 'chart3', 'chart4', 'chart5',
-      'kpi-avg-expense', 'kpi-top-category'
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Añadir los nuevos widgets si el usuario los tiene guardados sin ellos (migración)
+      const newIds = [
+        'insight-networth', 'insight-runway', 'insight-savings-rate', 'insight-credit-util',
+        'insight-income-delta', 'insight-expenses-delta', 'insight-top-real',
+        'insight-alerts', 'insight-movers',
+        'insight-budget-health', 'insight-disc-vs-ess', 'insight-recurring',
+      ];
+      const missing = newIds.filter((id) => !parsed.includes(id));
+      return missing.length > 0 ? [...missing, ...parsed] : parsed;
+    }
+    return [
+      // Fila 1: fundamentos financieros (4 KPIs compactos)
+      'insight-networth', 'insight-runway', 'insight-savings-rate', 'insight-credit-util',
+      // Fila 2: este mes de un vistazo (3 KPIs + top categorías)
+      'insight-income-delta', 'insight-expenses-delta', 'kpi-balance', 'insight-top-real',
+      // Fila 3: insights accionables (2 widgets large)
+      'insight-alerts', 'insight-movers',
+      // Fila 4: presupuesto + split de gasto
+      'insight-budget-health', 'insight-disc-vs-ess',
+      // Fila 5: recurrentes + gráficas existentes
+      'insight-recurring', 'chart1', 'chart2', 'chart3', 'chart4', 'chart5',
+      // Últimos: KPIs legacy que ya no son primarios
+      'kpi-income', 'kpi-expenses', 'kpi-savings-total', 'kpi-credit-cards',
+      'kpi-avg-expense', 'kpi-top-category',
     ];
   });
 
@@ -172,8 +207,17 @@ function Dashboard({ refreshTrigger }) {
     }));
   };
 
-  // Get default size — KPI cards start compact, charts start large
-  const getDefaultWidgetSize = (widgetId) => (widgetId?.startsWith('kpi-') ? 'small' : 'large');
+  // Get default size — KPI cards start compact, charts and large widgets start large
+  const SMALL_INSIGHT_KPIS = new Set([
+    'insight-networth', 'insight-runway', 'insight-savings-rate', 'insight-credit-util',
+    'insight-income-delta', 'insight-expenses-delta', 'insight-top-real',
+  ]);
+  const getDefaultWidgetSize = (widgetId) => {
+    if (!widgetId) return 'large';
+    if (widgetId.startsWith('kpi-')) return 'small';
+    if (SMALL_INSIGHT_KPIS.has(widgetId)) return 'small';
+    return 'large';
+  };
 
   // Get size for a specific widget (respect user override)
   const getWidgetSize = (widgetId) => widgetSizes[widgetId] || getDefaultWidgetSize(widgetId);
@@ -286,6 +330,12 @@ function Dashboard({ refreshTrigger }) {
       setBudgetData(budget.data);
       setAccounts(accountsData.accounts || []);
       setExpectedIncome(settings.expectedMonthlyIncome || 0);
+      setAllTransactions(transactionsData?.transactions || []);
+
+      // Fire-and-forget: fetch recurring for insights widgets
+      api.get('/predictions/recurring')
+        .then((r) => setRecurring(r.data?.data || []))
+        .catch(() => setRecurring([]));
       
       console.log('📊 Dashboard - Budget data:');
       console.log('   budget totals:', budget.data?.totals);
@@ -463,8 +513,39 @@ function Dashboard({ refreshTrigger }) {
   const renderWidget = (widgetId) => {
     const cardSize = getCardSize(widgetId);
     const isLarge = getWidgetSize(widgetId) === 'large';
-    
+    const wSize = isLarge ? 'large' : 'small';
+
+    // Precompute insights inputs once per render (cheap enough on typical volumes)
+    const netWorth = computeNetWorth(accounts);
+    const runway = computeRunway(accounts, allTransactions, 3);
+    const savingsSeries = computeSavingsRateSeries(allTransactions, 6);
+    const creditUtil = computeCreditUtilization(accounts);
+    const incomeDelta = computeMonthDelta(allTransactions, 'income', 3);
+    const expensesDelta = computeMonthDelta(allTransactions, 'expense', 3);
+    const topReal = computeTopRealCategories(allTransactions, 8);
+    const movers = computeMovers(allTransactions, 3);
+    const discSplit = computeDiscretionaryVsEssential(allTransactions);
+    const insights = computeInsights({
+      transactions: allTransactions,
+      accounts,
+      budgetOverview: budgetData,
+      movers,
+    });
+
     const widgets = {
+      // ─── Insight widgets nuevos ──────────────────────────────────────────────
+      'insight-networth': <KpiNetWorth netWorth={netWorth} size={wSize} />,
+      'insight-runway': <KpiRunway runway={runway} size={wSize} />,
+      'insight-savings-rate': <KpiSavingsRate series={savingsSeries} size={wSize} />,
+      'insight-credit-util': <KpiCreditUtilization credit={creditUtil} size={wSize} />,
+      'insight-income-delta': <KpiIncomeDelta delta={incomeDelta} size={wSize} />,
+      'insight-expenses-delta': <KpiExpensesDelta delta={expensesDelta} size={wSize} />,
+      'insight-top-real': <KpiTopRealCategories topCats={topReal} size={wSize} />,
+      'insight-movers': <WidgetMovers movers={movers} />,
+      'insight-alerts': <WidgetInsights insights={insights} />,
+      'insight-disc-vs-ess': <ChartDiscretionaryVsEssential split={discSplit} />,
+      'insight-recurring': <WidgetRecurring recurring={recurring} />,
+      'insight-budget-health': <WidgetBudgetHealth budgetOverview={budgetData} />,
       // Main KPI Cards
       'kpi-income': (
         <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg ${cardSize.padding} border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl h-full ${cardSize.height} flex flex-col ${isLarge ? 'justify-between' : 'justify-start'}`}>
