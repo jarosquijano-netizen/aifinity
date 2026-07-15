@@ -452,18 +452,20 @@ export function WidgetRecurring({ recurring }) {
 // Widget: Salud del presupuesto (ordenado por % consumido)
 // ============================================================================
 export function WidgetBudgetHealth({ budgetOverview }) {
+  // Solo categorías sobrepresupuestadas > 20% (ignorar rebases menores)
+  const OVERSHOOT_THRESHOLD = 120;
   const cats = (budgetOverview?.categories || [])
-    .filter((c) => c.hasBudget && !c.isTransfer)
+    .filter((c) => c.hasBudget && !c.isTransfer && (c.percentage || 0) >= OVERSHOOT_THRESHOLD)
     .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
     .slice(0, 10);
   return (
     <div className={`${cardBase} p-5 min-h-[380px]`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Salud del presupuesto</span>
-        <span className="text-xs text-gray-500">Top 10 por urgencia</span>
+        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Presupuestos sobrepasados</span>
+        <span className="text-xs text-gray-500">&gt; 20% de rebase</span>
       </div>
       {cats.length === 0 ? (
-        <p className="text-sm text-gray-400">Aún no has definido presupuestos</p>
+        <p className="text-sm text-gray-400">Ninguna categoría rebasa el presupuesto más del 20%. Bien!</p>
       ) : (
         <div className="space-y-3 overflow-y-auto flex-1">
           {cats.map((c, i) => {
