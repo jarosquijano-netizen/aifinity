@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, GripVertical, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Download, Trash2, Loader, PiggyBank, Maximize2, Minimize2, CreditCard, AlertCircle, ArrowRightLeft, RefreshCw, X, Eye, EyeOff, Settings as SettingsIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 import { getSummary, deleteAllTransactions, exportExcel, getAccounts, getSettings, createTransfer, getTransactions } from '../utils/api';
 import { generateDashboardPDF, PERIODS } from '../utils/dashboardPdf';
@@ -19,67 +19,31 @@ import api from '../utils/api';
 import { useChartTheme } from './DarkModeChart';
 import TransferModal from './TransferModal';
 import { formatCurrency, formatCurrencyDecimals, formatCurrencyNumber } from '../utils/currencyFormat';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
-// Draggable Chart Wrapper Component
-function DraggableChart({ id, children, onToggleSize, currentSize, className }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
+// Widget card wrapper — hide/resize buttons, no drag
+function WidgetCard({ id, children, onToggleSize, currentSize, onHide, className }) {
   return (
-    <div ref={setNodeRef} style={style} {...attributes} className={`relative group ${className || ''}`}>
-      {/* Drag Handle - SOLO AQUÍ se puede arrastrar */}
-      <div 
-        {...listeners}
-        className="absolute -left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="w-5 h-5 text-gray-400" />
+    <div className={`relative group ${className || ''}`}>
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-20">
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSize(id); }}
+          className="p-1.5 bg-white/90 dark:bg-slate-700/90 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg shadow-md backdrop-blur-sm cursor-pointer"
+          title={currentSize === 'large' ? 'Reducir widget' : 'Ampliar widget'}
+        >
+          {currentSize === 'large' ? (
+            <Minimize2 className="w-3.5 h-3.5 text-gray-700 dark:text-gray-300" />
+          ) : (
+            <Maximize2 className="w-3.5 h-3.5 text-gray-700 dark:text-gray-300" />
+          )}
+        </button>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onHide(id); }}
+          className="p-1.5 bg-white/90 dark:bg-slate-700/90 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg shadow-md backdrop-blur-sm cursor-pointer"
+          title="Ocultar widget"
+        >
+          <X className="w-3.5 h-3.5 text-gray-700 dark:text-gray-300" />
+        </button>
       </div>
-      
-      {/* Size Toggle Button */}
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggleSize(id);
-        }}
-        className="absolute top-2 right-2 p-2 bg-white/90 dark:bg-slate-700/90 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-all z-20 backdrop-blur-sm cursor-pointer"
-        title={currentSize === 'large' ? 'Reducir widget' : 'Ampliar widget'}
-      >
-        {currentSize === 'large' ? (
-          <Minimize2 className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        ) : (
-          <Maximize2 className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        )}
-      </button>
-      
       {children}
     </div>
   );
@@ -99,7 +63,28 @@ function Dashboard({ refreshTrigger }) {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showPdfMenu, setShowPdfMenu] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const [hiddenWidgets, setHiddenWidgets] = useState(() => {
+    const saved = localStorage.getItem('dashboardHiddenWidgets');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   const chartTheme = useChartTheme();
+
+  // Persist hidden widgets
+  useEffect(() => {
+    localStorage.setItem('dashboardHiddenWidgets', JSON.stringify([...hiddenWidgets]));
+  }, [hiddenWidgets]);
+
+  const hideWidget = (widgetId) => {
+    setHiddenWidgets((prev) => new Set([...prev, widgetId]));
+  };
+  const showWidget = (widgetId) => {
+    setHiddenWidgets((prev) => {
+      const next = new Set(prev);
+      next.delete(widgetId);
+      return next;
+    });
+  };
   
   // Track last refresh trigger to detect changes
   const [lastRefreshTrigger, setLastRefreshTrigger] = useState(0);
@@ -141,14 +126,6 @@ function Dashboard({ refreshTrigger }) {
     const saved = localStorage.getItem('dashboardWidgetSizes');
     return saved ? JSON.parse(saved) : {};
   });
-
-  // DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   // Save widget order to localStorage whenever it changes
   useEffect(() => {
@@ -240,17 +217,6 @@ function Dashboard({ refreshTrigger }) {
     };
   };
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-
-    if (active.id !== over.id) {
-      setWidgetOrder((items) => {
-        const oldIndex = items.indexOf(active.id);
-        const newIndex = items.indexOf(over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
 
   const fixNominas = async () => {
     try {
@@ -1399,17 +1365,13 @@ function Dashboard({ refreshTrigger }) {
             <span>Actualizar</span>
           </button>
           
-          <button 
-            onClick={() => {
-              localStorage.removeItem('dashboardWidgetOrder');
-              localStorage.removeItem('dashboardWidgetSizes');
-              window.location.reload();
-            }}
+          <button
+            onClick={() => setShowWidgetPicker(true)}
             className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg shadow hover:shadow-md transition-all flex items-center space-x-2 text-sm"
-            title="Resetear widgets a valores predeterminados"
+            title="Elegir qué widgets se muestran"
           >
-            <GripVertical className="w-4 h-4" />
-            <span>Reset Widgets</span>
+            <SettingsIcon className="w-4 h-4" />
+            <span>Widgets{hiddenWidgets.size > 0 ? ` (${widgetOrder.length - hiddenWidgets.size}/${widgetOrder.length})` : ''}</span>
           </button>
           
           {/* Transfer Button */}
@@ -1475,31 +1437,89 @@ function Dashboard({ refreshTrigger }) {
         </div>
       </div>
 
-      {/* Draggable Widgets - All KPIs and Charts */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {widgetOrder.map((widgetId) => {
-              const cardSize = getCardSize(widgetId);
-              return (
-                <DraggableChart 
-                  key={widgetId} 
-                  id={widgetId}
-                  onToggleSize={toggleWidgetSize}
-                  currentSize={getWidgetSize(widgetId)}
-                  className={cardSize.gridCol}
-                >
-                  {renderWidget(widgetId)}
-                </DraggableChart>
-              );
-            })}
+      {/* Widgets */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {widgetOrder.filter((id) => !hiddenWidgets.has(id)).map((widgetId) => {
+          const cardSize = getCardSize(widgetId);
+          return (
+            <WidgetCard
+              key={widgetId}
+              id={widgetId}
+              onToggleSize={toggleWidgetSize}
+              currentSize={getWidgetSize(widgetId)}
+              onHide={hideWidget}
+              className={cardSize.gridCol}
+            >
+              {renderWidget(widgetId)}
+            </WidgetCard>
+          );
+        })}
+      </div>
+
+      {/* Widget picker modal */}
+      {showWidgetPicker && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowWidgetPicker(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-slate-700">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Widgets del Dashboard</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Activa o desactiva lo que quieres ver</p>
+              </div>
+              <button
+                onClick={() => setShowWidgetPicker(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-2">
+              {widgetOrder.map((id) => {
+                const hidden = hiddenWidgets.has(id);
+                const label = getWidgetLabel(id);
+                return (
+                  <label
+                    key={id}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!hidden}
+                      onChange={() => (hidden ? showWidget(id) : hideWidget(id))}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{label}</span>
+                    {hidden ? (
+                      <EyeOff className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-indigo-500" />
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="p-3 border-t border-gray-200 dark:border-slate-700 flex justify-between">
+              <button
+                onClick={() => setHiddenWidgets(new Set())}
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Mostrar todos
+              </button>
+              <button
+                onClick={() => setShowWidgetPicker(false)}
+                className="btn-primary text-sm px-4 py-1.5"
+              >
+                Listo
+              </button>
+            </div>
           </div>
-        </SortableContext>
-      </DndContext>
+        </div>
+      )}
 
       {/* Transfer Modal */}
       <TransferModal
@@ -1510,6 +1530,37 @@ function Dashboard({ refreshTrigger }) {
       />
     </div>
   );
+}
+
+// Labels legibles para cada widget en el picker
+function getWidgetLabel(id) {
+  const labels = {
+    'insight-networth': 'Patrimonio neto',
+    'insight-runway': 'Runway financiero',
+    'insight-savings-rate': 'Tasa de ahorro (con trend)',
+    'insight-credit-util': 'Deuda tarjetas · utilización',
+    'insight-income-delta': 'Ingresos del mes + Δ',
+    'insight-expenses-delta': 'Gastos del mes + Δ',
+    'insight-top-real': 'Top categorías reales',
+    'insight-alerts': 'Alertas & insights',
+    'insight-movers': 'Movers del mes',
+    'insight-budget-health': 'Salud del presupuesto',
+    'insight-disc-vs-ess': 'Esencial vs discrecional',
+    'insight-recurring': 'Suscripciones recurrentes',
+    'kpi-income': '[Legacy] Actual Income',
+    'kpi-expenses': '[Legacy] Expenses',
+    'kpi-balance': 'Balance del mes',
+    'kpi-savings-total': '[Legacy] Ahorro total',
+    'kpi-credit-cards': '[Legacy] Crédito',
+    'kpi-avg-expense': '[Legacy] Gasto medio diario',
+    'kpi-top-category': '[Legacy] Top categoría',
+    chart1: 'Gráfica: Expenses by Category',
+    chart2: 'Gráfica: Income vs Expenses',
+    chart3: 'Gráfica: Porcentaje de gastos',
+    chart4: 'Gráfica: Evolución mensual',
+    chart5: 'Gráfica: Balance por cuenta',
+  };
+  return labels[id] || id;
 }
 
 export default Dashboard;

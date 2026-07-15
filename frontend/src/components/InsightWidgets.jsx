@@ -395,34 +395,53 @@ export function ChartDiscretionaryVsEssential({ split }) {
 // ============================================================================
 // Widget: Suscripciones recurrentes
 // ============================================================================
+// Extrae el "core" comercio de descripciones bancarias con ruido (COMPRA TARJ. 5402...)
+function cleanRecurringName(desc) {
+  if (!desc) return 'Sin descripción';
+  const s = String(desc)
+    .replace(/COMPRA TARJ\.\s+\d+X+\d+\s*/i, '')
+    .replace(/DIRECT DEBIT\s+/i, '')
+    .replace(/^\s*-\s*/, '')
+    .trim();
+  return s || desc;
+}
+
 export function WidgetRecurring({ recurring }) {
-  const items = recurring || [];
+  const items = (recurring || []).slice().sort((a, b) => (Number(b.estimatedAmount) || 0) - (Number(a.estimatedAmount) || 0));
   const total = items.reduce((a, b) => a + (Number(b.estimatedAmount) || 0), 0);
+  const shown = items.slice(0, 8);
+  const hidden = items.length - shown.length;
   return (
-    <div className={`${cardBase} p-5 min-h-[380px]`}>
-      <div className="flex items-center justify-between mb-2">
+    <div className={`${cardBase} p-5 h-[380px] max-h-[380px]`}>
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <Repeat className="w-5 h-5 text-teal-500" />
           <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Recurrentes</span>
         </div>
         <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{fmtEUR(total)}/mes</span>
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Pagos detectados en ≥ 2 de los últimos 4 meses</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+        Top {shown.length} pagos detectados en ≥ 2 meses{hidden > 0 ? ` · ${hidden} más ocultos` : ''}
+      </p>
       {items.length === 0 ? (
         <p className="text-sm text-gray-400">Sin recurrentes detectados</p>
       ) : (
-        <div className="space-y-1.5 overflow-y-auto flex-1">
-          {items.map((r, i) => (
-            <div key={i} className="flex justify-between items-center text-xs py-1 border-b border-gray-100 dark:border-slate-700 last:border-b-0">
-              <div className="flex-1 min-w-0 mr-2">
-                <p className="text-gray-800 dark:text-gray-200 truncate">{r.description || 'Sin descripción'}</p>
-                <p className="text-[10px] text-gray-500">
-                  {r.category || 'Sin categoría'} · día {r.expectedDay} · {(r.confidence * 100).toFixed(0)}% conf.
-                </p>
+        <div className="space-y-1 overflow-y-auto flex-1 pr-1">
+          {shown.map((r, i) => {
+            const conf = Number(r.confidence) || 0;
+            const confPct = conf > 1 ? Math.min(conf, 100) : conf * 100;
+            return (
+              <div key={i} className="flex justify-between items-center text-xs py-1.5 border-b border-gray-100 dark:border-slate-700 last:border-b-0">
+                <div className="flex-1 min-w-0 mr-2">
+                  <p className="text-gray-800 dark:text-gray-200 truncate">{cleanRecurringName(r.description)}</p>
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {r.category || 'Sin categoría'} · día {r.expectedDay} · {confPct.toFixed(0)}%
+                  </p>
+                </div>
+                <span className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{fmtEUR(r.estimatedAmount)}</span>
               </div>
-              <span className="font-semibold text-gray-900 dark:text-gray-100">{fmtEUR(r.estimatedAmount)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
