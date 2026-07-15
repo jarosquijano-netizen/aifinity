@@ -32,9 +32,17 @@ function isInternalFlow(category) {
   return classifyCategory(category) === 'internal';
 }
 
+// Devuelve YYYY-MM. Si la transacción tiene applicable_month (rollover manual),
+// lo respetamos — por ejemplo la nómina pagada el 30 de junio con applicable_month=2026-07
+// cuenta como ingreso de julio.
 function monthKeyOf(dateStr) {
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function txMonthKey(tx) {
+  if (tx && tx.applicable_month) return tx.applicable_month;
+  return monthKeyOf(tx?.date);
 }
 
 function currentMonthKey() {
@@ -44,6 +52,10 @@ function currentMonthKey() {
 
 function isThisMonth(dateStr) {
   return monthKeyOf(dateStr) === currentMonthKey();
+}
+
+function isThisMonthTx(tx) {
+  return txMonthKey(tx) === currentMonthKey();
 }
 
 function amountsOnly(transactions) {
@@ -96,7 +108,7 @@ export function computeRunway(accounts = [], transactions = [], monthsLookback =
     if (tx.type !== 'expense') continue;
     if (tx.computable === false) continue;
     if (classifyCategory(tx.category) !== 'essential') continue;
-    const mk = monthKeyOf(tx.date);
+    const mk = txMonthKey(tx);
     if (!monthKeys.includes(mk)) continue;
     essentialSums.set(mk, (essentialSums.get(mk) || 0) + Math.abs(Number(tx.amount) || 0));
   }
@@ -119,7 +131,7 @@ export function computeMonthDelta(transactions, type, monthsLookback = 3) {
   for (const tx of transactions) {
     if (tx.type !== type) continue;
     if (tx.computable === false) continue;
-    const mk = monthKeyOf(tx.date);
+    const mk = txMonthKey(tx);
     buckets.set(mk, (buckets.get(mk) || 0) + Math.abs(Number(tx.amount) || 0));
   }
 
@@ -151,7 +163,7 @@ export function computeSavingsRateSeries(transactions, months = 6) {
   const map = new Map(keys.map((k) => [k, { month: k, income: 0, expenses: 0 }]));
   for (const tx of transactions) {
     if (tx.computable === false) continue;
-    const mk = monthKeyOf(tx.date);
+    const mk = txMonthKey(tx);
     if (!map.has(mk)) continue;
     const bucket = map.get(mk);
     if (tx.type === 'income') bucket.income += Math.abs(Number(tx.amount) || 0);
@@ -194,7 +206,7 @@ export function computeTopRealCategories(transactions, n = 5) {
   for (const tx of transactions) {
     if (tx.type !== 'expense') continue;
     if (tx.computable === false) continue;
-    if (!isThisMonth(tx.date)) continue;
+    if (!isThisMonthTx(tx)) continue;
     if (isInternalFlow(tx.category)) continue;
     const cat = tx.category || 'Sin categoría';
     const amount = Math.abs(Number(tx.amount) || 0);
@@ -232,7 +244,7 @@ export function computeMovers(transactions, monthsLookback = 3) {
     if (tx.computable === false) continue;
     if (isInternalFlow(tx.category)) continue;
     const cat = tx.category || 'Sin categoría';
-    const mk = monthKeyOf(tx.date);
+    const mk = txMonthKey(tx);
     const amount = Math.abs(Number(tx.amount) || 0);
     if (mk === currentKey) {
       current.set(cat, (current.get(cat) || 0) + amount);
@@ -270,7 +282,7 @@ export function computeDiscretionaryVsEssential(transactions) {
   for (const tx of transactions) {
     if (tx.type !== 'expense') continue;
     if (tx.computable === false) continue;
-    if (!isThisMonth(tx.date)) continue;
+    if (!isThisMonthTx(tx)) continue;
     const kind = classifyCategory(tx.category);
     if (kind === 'internal') continue;
     const amount = Math.abs(Number(tx.amount) || 0);

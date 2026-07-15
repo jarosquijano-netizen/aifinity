@@ -376,10 +376,13 @@ router.post('/rollover/:transactionId', optionalAuth, async (req, res) => {
       });
     }
 
-    // Calcular el mes siguiente basado en la fecha de la transacción
+    // Calcular el mes siguiente basado en el mes actual efectivo (applicable_month si ya
+    // se rolló antes, o el mes de la fecha si es el primer rollover). Así clicks
+    // consecutivos avanzan mes a mes en lugar de dejar la transacción atascada.
     const transactionDate = new Date(transaction.date);
-    const currentMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
-    const nextMonth = getNextMonth(currentMonth);
+    const effectiveMonth = transaction.applicable_month
+      || `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+    const nextMonth = getNextMonth(effectiveMonth);
 
     // Actualizar la transacción para que aplique al mes siguiente
     const updateResult = await client.query(
