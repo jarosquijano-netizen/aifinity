@@ -7,6 +7,14 @@ import { getCategoryIcon } from '../utils/categoryIcons';
 import { parseCategory } from '../utils/categoryFormat';
 import CategoryModal from './CategoryModal';
 
+// "2026-08" → "ago 2026"
+function formatMonthShort(yearMonth) {
+  if (!yearMonth) return '';
+  const [year, month] = String(yearMonth).split('-').map(Number);
+  const d = new Date(year, (month || 1) - 1, 1);
+  return d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+}
+
 function Transactions({ initialFilters = {}, onFiltersCleared }) {
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
@@ -703,6 +711,23 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                       {transaction.description}
                     </p>
                   </div>
+                  {(transaction.applicable_month || transaction.computable === false) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {transaction.computable === false && (
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded border border-gray-300 dark:border-gray-600" title="No se incluye en estadísticas">
+                          NC
+                        </span>
+                      )}
+                      {transaction.applicable_month && (
+                        <span
+                          className="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded border border-amber-300 dark:border-amber-700 whitespace-nowrap"
+                          title={`Rollover: cuenta como ingreso del mes ${transaction.applicable_month}`}
+                        >
+                          → {formatMonthShort(transaction.applicable_month)}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Amount - Prominent */}
                   <div className="flex items-center justify-between">
@@ -827,6 +852,14 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                             NC
                           </span>
                         )}
+                        {transaction.applicable_month && (
+                          <span
+                            className="px-1.5 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded border border-amber-300 dark:border-amber-700 flex-shrink-0 whitespace-nowrap"
+                            title={`Rollover: cuenta como ingreso del mes ${transaction.applicable_month}`}
+                          >
+                            → {formatMonthShort(transaction.applicable_month)}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-2 py-3">
@@ -867,8 +900,16 @@ function Transactions({ initialFilters = {}, onFiltersCleared }) {
                           <button
                             onClick={() => handleRollover(transaction.id)}
                             disabled={rollingOverId === transaction.id}
-                            className="p-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors duration-200 border-2 border-amber-400 dark:border-amber-600 bg-amber-50/50 dark:bg-amber-900/10"
-                            title="Mover al mes siguiente"
+                            className={`p-2 rounded-lg transition-colors duration-200 border-2 ${
+                              transaction.applicable_month
+                                ? 'text-amber-700 hover:text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 border-amber-500 dark:border-amber-500 bg-amber-100/80 dark:bg-amber-900/30'
+                                : 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 border-amber-400 dark:border-amber-600 bg-amber-50/50 dark:bg-amber-900/10'
+                            }`}
+                            title={
+                              transaction.applicable_month
+                                ? `Ya aplicado a ${formatMonthShort(transaction.applicable_month)}. Click para avanzar al siguiente mes.`
+                                : 'Mover al mes siguiente'
+                            }
                             aria-label="Rollover to next month"
                             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           >
