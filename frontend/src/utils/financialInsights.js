@@ -279,6 +279,8 @@ export function computeMovers(transactions, monthsLookback = 3) {
 export function computeDiscretionaryVsEssential(transactions) {
   let essential = 0;
   let discretionary = 0;
+  const essentialByCategory = new Map();
+  const discretionaryByCategory = new Map();
   for (const tx of transactions) {
     if (tx.type !== 'expense') continue;
     if (tx.computable === false) continue;
@@ -286,16 +288,29 @@ export function computeDiscretionaryVsEssential(transactions) {
     const kind = classifyCategory(tx.category);
     if (kind === 'internal') continue;
     const amount = Math.abs(Number(tx.amount) || 0);
-    if (kind === 'essential') essential += amount;
-    else discretionary += amount;
+    const cat = tx.category || 'Sin categoría';
+    if (kind === 'essential') {
+      essential += amount;
+      essentialByCategory.set(cat, (essentialByCategory.get(cat) || 0) + amount);
+    } else {
+      discretionary += amount;
+      discretionaryByCategory.set(cat, (discretionaryByCategory.get(cat) || 0) + amount);
+    }
   }
   const total = essential + discretionary;
+  const topOf = (map, n = 4) =>
+    [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n)
+      .map(([category, amount]) => ({ category, amount }));
   return {
     essential,
     discretionary,
     total,
     essentialPct: total > 0 ? (essential / total) * 100 : 0,
     discretionaryPct: total > 0 ? (discretionary / total) * 100 : 0,
+    essentialTop: topOf(essentialByCategory),
+    discretionaryTop: topOf(discretionaryByCategory),
   };
 }
 

@@ -352,38 +352,72 @@ export function ChartDiscretionaryVsEssential({ split }) {
     { name: 'Discrecional', value: split?.discretionary || 0, color: '#f59e0b' },
   ];
   const total = split?.total || 0;
+  const essentialTop = split?.essentialTop || [];
+  const discretionaryTop = split?.discretionaryTop || [];
   return (
-    <div className={`${cardBase} p-5 min-h-[380px]`}>
-      <div className="flex items-center justify-between mb-2">
+    <div className={`${cardBase} p-5 min-h-[420px]`}>
+      <div className="flex items-center justify-between mb-1">
         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Esencial vs Discrecional</span>
         <span className="text-xs text-gray-500">Este mes</span>
       </div>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
+        <strong className="text-blue-600 dark:text-blue-400">Esencial</strong>: lo que necesitas para vivir (vivienda,
+        alimentación, servicios, salud, transporte, seguros, educación).
+        {' · '}
+        <strong className="text-amber-600 dark:text-amber-400">Discrecional</strong>: gasto que puedes recortar
+        (ocio, restaurantes, compras, ropa, viajes, belleza).
+      </p>
       {total === 0 ? (
         <p className="text-sm text-gray-400">Sin gastos este mes</p>
       ) : (
         <>
-          <div className="flex-1 min-h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={data} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
-                  {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-                </Pie>
-                <Tooltip formatter={(v) => fmtEURDec(v)} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 space-y-1.5">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-3 h-3 rounded-sm bg-blue-500" />
-              <span className="text-gray-700 dark:text-gray-300 flex-1">Esencial</span>
-              <span className="font-semibold">{fmtEUR(split?.essential)}</span>
-              <span className="text-xs text-gray-500 w-12 text-right">{split?.essentialPct.toFixed(0)}%</span>
+          <div className="flex items-center gap-4">
+            <div className="w-[140px] h-[140px] shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={data} dataKey="value" cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={2}>
+                    {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => fmtEURDec(v)} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-3 h-3 rounded-sm bg-amber-500" />
-              <span className="text-gray-700 dark:text-gray-300 flex-1">Discrecional</span>
-              <span className="font-semibold">{fmtEUR(split?.discretionary)}</span>
-              <span className="text-xs text-gray-500 w-12 text-right">{split?.discretionaryPct.toFixed(0)}%</span>
+            <div className="flex-1 space-y-1.5">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="w-3 h-3 rounded-sm bg-blue-500" />
+                <span className="text-gray-700 dark:text-gray-300 flex-1">Esencial</span>
+                <span className="font-semibold">{fmtEUR(split?.essential)}</span>
+                <span className="text-xs text-gray-500 w-10 text-right">{split?.essentialPct.toFixed(0)}%</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="w-3 h-3 rounded-sm bg-amber-500" />
+                <span className="text-gray-700 dark:text-gray-300 flex-1">Discrecional</span>
+                <span className="font-semibold">{fmtEUR(split?.discretionary)}</span>
+                <span className="text-xs text-gray-500 w-10 text-right">{split?.discretionaryPct.toFixed(0)}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700 grid grid-cols-2 gap-3 flex-1 overflow-y-auto">
+            <div>
+              <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1.5">Top esenciales</p>
+              {essentialTop.length === 0 && <p className="text-[11px] text-gray-400">—</p>}
+              {essentialTop.map((r, i) => (
+                <div key={i} className="flex justify-between text-[11px] py-0.5">
+                  <span className="text-gray-700 dark:text-gray-300 truncate mr-2">{r.category}</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{fmtEUR(r.amount)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1.5">Top discrecionales</p>
+              {discretionaryTop.length === 0 && <p className="text-[11px] text-gray-400">—</p>}
+              {discretionaryTop.map((r, i) => (
+                <div key={i} className="flex justify-between text-[11px] py-0.5">
+                  <span className="text-gray-700 dark:text-gray-300 truncate mr-2">{r.category}</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{fmtEUR(r.amount)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </>
