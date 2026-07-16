@@ -267,12 +267,11 @@ function Dashboard({ refreshTrigger }) {
       
       // Primero, corregir remesas/traspasos (marcarlas como no computables)
       await fixRemesasTraspasos();
-      
-      // Luego, intentar corregir nóminas automáticamente si es necesario
-      // Solo si el ingreso parece bajo (menos de 5000€ en enero)
-      if (currentMonth === '2026-01') {
-        await fixNominas();
-      }
+
+      // Auto-rollover de nóminas pagadas días 25-31 del mes anterior al mes actual.
+      // El endpoint es idempotente: sólo actualiza filas que aún no tienen
+      // applicable_month = mes_siguiente, así que llamarlo siempre es barato.
+      await fixNominas();
       
       const [summary, trends, budget, accountsData, settings, transactionsData] = await Promise.all([
         getSummary(),
