@@ -24,7 +24,8 @@ import { formatCurrency, formatCurrencyDecimals, formatCurrencyNumber } from '..
 function WidgetCard({ id, children, onToggleSize, currentSize, onHide, className }) {
   return (
     <div className={`relative group ${className || ''}`}>
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-20">
+      {/* Botones colocados en la esquina TOP-LEFT para no tapar el ✨ (top-right) del header */}
+      <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-20">
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSize(id); }}
           className="p-1.5 bg-white/90 dark:bg-slate-700/90 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg shadow-md backdrop-blur-sm cursor-pointer"
