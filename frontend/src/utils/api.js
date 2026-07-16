@@ -357,6 +357,12 @@ export const getSpendingPattern = async (months = 3) => {
   return response.data;
 };
 
+// AI widget insight — quick benchmarked analysis for a specific KPI
+export const getWidgetInsight = async (widget, label, data) => {
+  const response = await api.post('/ai/widget-insight', { widget, label, data });
+  return response.data;
+};
+
 // Salt Edge endpoints
 export const startSaltEdgeConnect = async (returnTo) => {
   const response = await api.post('/saltedge/connect', { returnTo });
