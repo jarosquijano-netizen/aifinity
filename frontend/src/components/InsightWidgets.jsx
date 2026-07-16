@@ -1,10 +1,93 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, CreditCard, PiggyBank,
   Timer, ArrowUpRight, ArrowDownRight, AlertTriangle, CheckCircle,
-  Info, ShieldAlert, Sparkles, Repeat,
+  Info, ShieldAlert, Sparkles, Repeat, Loader, X,
 } from 'lucide-react';
+import { getWidgetInsight } from '../utils/api';
+
+// ============================================================================
+// Reusable AI Insight button — renders a ✨ button, opens modal with Claude analysis
+// ============================================================================
+export function AiInsightButton({ widget, label, data }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [insight, setInsight] = useState('');
+  const [error, setError] = useState('');
+
+  const fetchInsight = async () => {
+    setOpen(true);
+    if (insight) return; // ya cacheado esta sesión
+    setLoading(true);
+    setError('');
+    try {
+      const r = await getWidgetInsight(widget, label, data);
+      setInsight(r?.insight || 'Sin respuesta.');
+    } catch (e) {
+      setError(e.response?.data?.error || e.message || 'Error generando insight');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={(e) => { e.stopPropagation(); fetchInsight(); }}
+        className="p-1 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
+        title="Análisis con IA"
+      >
+        <Sparkles className="w-4 h-4 text-indigo-500" />
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-500" />
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Análisis IA</h3>
+                  <p className="text-[11px] text-gray-500">{label || widget}</p>
+                </div>
+              </div>
+              <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              {loading && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader className="w-4 h-4 animate-spin" />
+                  <span>Analizando tus datos…</span>
+                </div>
+              )}
+              {error && (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  {error}
+                </div>
+              )}
+              {!loading && !error && insight && (
+                <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+                  {insight}
+                </p>
+              )}
+            </div>
+            <div className="px-5 pb-4 text-[10px] text-gray-400">
+              Comparación con perfiles típicos de tu tamaño de hogar y ubicación (Settings).
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 const fmtEUR = (n) => {
   const v = Number(n) || 0;
@@ -28,7 +111,10 @@ export function KpiNetWorth({ netWorth, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Patrimonio neto</span>
-        <Wallet className="w-4 h-4 text-indigo-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="networth" label="Patrimonio neto" data={netWorth} />
+          <Wallet className="w-4 h-4 text-indigo-500" />
+        </div>
       </div>
       <p className={`${isLarge ? 'text-3xl' : 'text-2xl'} font-bold ${val >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-600 dark:text-red-400'}`}>
         {fmtEUR(val)}
@@ -64,7 +150,10 @@ export function KpiRunway({ runway, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Runway</span>
-        <Timer className="w-4 h-4 text-purple-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="runway" label="Runway financiero" data={runway} />
+          <Timer className="w-4 h-4 text-purple-500" />
+        </div>
       </div>
       <p className={`${isLarge ? 'text-3xl' : 'text-2xl'} font-bold ${color}`}>{label}</p>
       <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
@@ -97,7 +186,10 @@ export function KpiSavingsRate({ series, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Tasa de ahorro</span>
-        <PiggyBank className="w-4 h-4 text-emerald-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="savings-rate" label="Tasa de ahorro" data={{ last, series }} />
+          <PiggyBank className="w-4 h-4 text-emerald-500" />
+        </div>
       </div>
       <p className={`${isLarge ? 'text-3xl' : 'text-2xl'} font-bold ${color}`}>{last.toFixed(1)}%</p>
       <div className="flex items-center gap-1 text-[11px] mt-1">
@@ -134,7 +226,10 @@ export function KpiCreditUtilization({ credit, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Deuda tarjetas</span>
-        <CreditCard className="w-4 h-4 text-red-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="credit-util" label="Deuda tarjetas / utilización" data={credit} />
+          <CreditCard className="w-4 h-4 text-red-500" />
+        </div>
       </div>
       <p className={`${isLarge ? 'text-3xl' : 'text-2xl'} font-bold ${color}`}>{fmtEUR(credit?.totalDebt)}</p>
       <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
@@ -173,7 +268,10 @@ export function KpiIncomeDelta({ delta, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Ingresos mes</span>
-        <TrendingUp className="w-4 h-4 text-green-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="income-delta" label="Ingresos del mes" data={delta} />
+          <TrendingUp className="w-4 h-4 text-green-500" />
+        </div>
       </div>
       <p className={`${isLarge ? 'text-3xl' : 'text-2xl'} font-bold text-gray-900 dark:text-gray-100`}>{fmtEUR(delta?.current)}</p>
       <div className="flex items-center gap-1 text-[11px] mt-1">
@@ -198,7 +296,10 @@ export function KpiExpensesDelta({ delta, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Gastos mes</span>
-        <TrendingDown className="w-4 h-4 text-red-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="expenses-delta" label="Gastos del mes" data={delta} />
+          <TrendingDown className="w-4 h-4 text-red-500" />
+        </div>
       </div>
       <p className={`${isLarge ? 'text-3xl' : 'text-2xl'} font-bold text-gray-900 dark:text-gray-100`}>{fmtEUR(delta?.current)}</p>
       <div className="flex items-center gap-1 text-[11px] mt-1">
@@ -221,7 +322,10 @@ export function KpiTopRealCategories({ topCats, size = 'small' }) {
     <div className={`${cardBase} ${isLarge ? 'p-5 min-h-[380px]' : 'p-4 min-h-[140px]'}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">Top categorías reales</span>
-        <span className="text-[10px] text-gray-400">excl. transfers</span>
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="top-categories" label="Top categorías de gasto" data={topCats} />
+          <span className="text-[10px] text-gray-400">excl. transfers</span>
+        </div>
       </div>
       {items.length === 0 && <p className="text-sm text-gray-400">Sin datos</p>}
       <div className="space-y-1.5 flex-1">
@@ -252,7 +356,10 @@ export function WidgetMovers({ movers, size = 'large' }) {
     <div className={`${cardBase} p-5 min-h-[380px]`}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Movers del mes</span>
-        <Sparkles className="w-5 h-5 text-amber-500" />
+        <div className="flex items-center gap-1">
+          <AiInsightButton widget="movers" label="Movers del mes" data={movers} />
+          <Sparkles className="w-5 h-5 text-amber-500" />
+        </div>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Categorías que más se movieron vs tu media 3m</p>
       <div className="grid grid-cols-2 gap-4 flex-1">
@@ -358,7 +465,10 @@ export function ChartDiscretionaryVsEssential({ split }) {
     <div className={`${cardBase} p-5 min-h-[420px]`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Esencial vs Discrecional</span>
-        <span className="text-xs text-gray-500">Este mes</span>
+        <div className="flex items-center gap-2">
+          <AiInsightButton widget="discretionary-split" label="Esencial vs Discrecional" data={split} />
+          <span className="text-xs text-gray-500">Este mes</span>
+        </div>
       </div>
       <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
         <strong className="text-blue-600 dark:text-blue-400">Esencial</strong>: lo que necesitas para vivir (vivienda,
@@ -452,7 +562,10 @@ export function WidgetRecurring({ recurring }) {
           <Repeat className="w-5 h-5 text-teal-500" />
           <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Recurrentes</span>
         </div>
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{fmtEUR(total)}/mes</span>
+        <div className="flex items-center gap-2">
+          <AiInsightButton widget="recurring" label="Suscripciones recurrentes" data={{ total, items: shown }} />
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{fmtEUR(total)}/mes</span>
+        </div>
       </div>
       <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
         Top {shown.length} pagos detectados en ≥ 2 meses{hidden > 0 ? ` · ${hidden} más ocultos` : ''}
@@ -496,7 +609,10 @@ export function WidgetBudgetHealth({ budgetOverview }) {
     <div className={`${cardBase} p-5 min-h-[380px]`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">Presupuestos sobrepasados</span>
-        <span className="text-xs text-gray-500">&gt; 20% de rebase</span>
+        <div className="flex items-center gap-2">
+          <AiInsightButton widget="budget-health" label="Presupuestos sobrepasados" data={{ categories: cats }} />
+          <span className="text-xs text-gray-500">&gt; 20% de rebase</span>
+        </div>
       </div>
       {cats.length === 0 ? (
         <p className="text-sm text-gray-400">Ninguna categoría rebasa el presupuesto más del 20%. Bien!</p>

@@ -725,5 +725,107 @@ ${languageInstruction}`
   return data.candidates[0].content.parts[0].text;
 }
 
+// ─── Widget insight — compact benchmarked analysis for a specific KPI/widget ──
+async function fetchActiveClaudeKey(userId) {
+  let result;
+  if (userId) {
+    result = await pool.query(
+      `SELECT provider, api_key FROM ai_config
+       WHERE (user_id = $1 OR user_id IS NULL) AND is_active = true
+       ORDER BY user_id DESC NULLS LAST LIMIT 1`,
+      [userId]
+    );
+  } else {
+    result = await pool.query(
+      `SELECT provider, api_key FROM ai_config
+       WHERE is_active = true ORDER BY user_id DESC NULLS LAST LIMIT 1`
+    );
+  }
+  const row = result.rows[0];
+  if (!row || row.provider !== 'claude') return null;
+  return row.api_key;
+}
+
+async function fetchUserContext(userId) {
+  if (!userId) return {};
+  const { rows } = await pool.query(
+    `SELECT expected_monthly_income, family_size, location, ages
+     FROM user_settings WHERE user_id = $1`,
+    [userId]
+  );
+  return rows[0] || {};
+}
+
+router.post('/widget-insight', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || null;
+    const { widget, label, data } = req.body || {};
+    if (!widget || !data) {
+      return res.status(400).json({ error: 'widget and data are required' });
+    }
+
+    const apiKey = await fetchActiveClaudeKey(userId);
+    if (!apiKey) {
+      return res.status(400).json({
+        error: 'Configura tu API key de Claude en Settings para usar los insights.',
+      });
+    }
+
+    const ctx = await fetchUserContext(userId);
+    const familySize = ctx.family_size || 1;
+    const location = ctx.location || 'España';
+    const monthlyIncome = ctx.expected_monthly_income || 0;
+    const agesArr = Array.isArray(ctx.ages) ? ctx.ages : [];
+    const agesStr = agesArr.length ? ` (edades: ${agesArr.join(', ')})` : '';
+
+    const systemPrompt = `Eres un asesor financiero personal, directo y práctico. Respondes en español, en tono cercano de tú, en 3-5 frases máximo. NO uses markdown, listas ni títulos — solo texto plano corrido.
+
+Tu trabajo: analizar un dato financiero concreto de un usuario y compararlo con lo que sería típico para su perfil (tamaño de hogar y ubicación). Da una observación clara: si está por encima, en línea o por debajo de una media razonable. Si aplica, sugiere UNA acción concreta. No inventes cifras — si no tienes benchmark exacto, di algo como "para una familia de X en Y suele estar en el rango Z-W según encuestas de consumo INE/Eurostat".
+
+Evita frases vacías tipo "es importante monitorizar". Sé específico y útil.`;
+
+    const userPrompt = `Perfil:
+- Hogar: ${familySize} persona(s)${agesStr}
+- Ubicación: ${location}
+- Ingreso mensual esperado: €${monthlyIncome || 'no configurado'}
+
+Widget analizado: ${label || widget}
+
+Datos del widget:
+${JSON.stringify(data, null, 2)}
+
+Analiza estos datos y responde: ¿este número está por encima, en línea o por debajo de lo típico para este perfil? ¿Qué debería tener en cuenta este usuario?`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 500,
+        temperature: 0.5,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Widget insight Claude error:', response.status, errText);
+      return res.status(502).json({ error: `Claude API error ${response.status}` });
+    }
+
+    const payload = await response.json();
+    const insight = payload?.content?.[0]?.text?.trim() || '';
+    res.json({ insight });
+  } catch (err) {
+    console.error('Widget insight error:', err);
+    res.status(500).json({ error: 'Failed to generate widget insight' });
+  }
+});
+
 export default router;
 
